@@ -5,9 +5,7 @@
   "metadata": {
     "license": "https://creativecommons.org/publicdomain/zero/1.0/"
   },
-  // List of supported fonts: https://github.com/openmaptiles/fonts/blob/gh-pages/fontstacks.json
-  //glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
-  "glyphs": "https://pub-8ee87e6f0cae427c9600b8247d8a6c86.r2.dev/fonts/{fontstack}/{range}.pbf",
+  "glyphs": "https://public.hikeratlas.com/fonts/{fontstack}/{range}.pbf",
   "sprite": "https://raw.githubusercontent.com/hikeratlas/sprites/main/output/sprite",
   "sources": {
     "terrain": {

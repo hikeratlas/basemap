@@ -26,7 +26,8 @@ function qrank.get(id)
 		return 1
 	end
   local rv = 1
-  local sql = "SELECT rank FROM qrank WHERE id = " .. string.sub(id, 2, 100)
+
+  local sql = "SELECT rank FROM qrank WHERE id = '" .. con:escape(string.sub(id, 2, 100)) .. "'"
   cur = assert (con:execute(sql))
   row = cur:fetch({}, 'a')
 	if row ~= nil then

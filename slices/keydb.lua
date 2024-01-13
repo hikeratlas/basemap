@@ -27,7 +27,6 @@ end
 function keydb.init()
 	local pid = get_pid()
 
-	print('init: pid=' .. pid)
 	keydb.tmp_dir = '/tmp/basemap_' .. pid
 
 	-- yolo.

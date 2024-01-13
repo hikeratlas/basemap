@@ -115,6 +115,7 @@ function maybe_emit(is_area)
 	Attribute('place', place)
 	Attribute('wikidata', wikidata)
 	Attribute('osm_id', Id())
+	ZOrder(rank)
 end
 
 function way_function()

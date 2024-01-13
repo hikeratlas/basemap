@@ -3,7 +3,9 @@
         "place_name": {
             "zindex": 85,
             "minzoom": 0,
-            "maxzoom": 10
+            "maxzoom": 10,
+            "feature_limit": 10,
+            "feature_limit_below": 12
         }
     },
     "settings": {

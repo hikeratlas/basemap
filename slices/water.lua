@@ -9,12 +9,6 @@ way_keys = {'natural=water', 'water', 'waterway'}
 function node_function()
 end
 
-function attribute_function(attrs, layer)
-	if layer == 'lake_line_name' then
-		return attrs
-	end
-end
-
 function maybe_emit()
 	local name = Find('name')
   local natural = Find('natural')

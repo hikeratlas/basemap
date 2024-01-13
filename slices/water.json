@@ -21,17 +21,6 @@
             "simplify_below": 12,
             "simplify_level": 0.0002
         },
-        "lake_line_name": {
-            "x-notes": "This is from Facebook's Daylight map. We'll need to exclude these from the water_poly_name layer.",
-            "zindex": 88,
-            "minzoom": 5,
-            "maxzoom": 14,
-            "simplify_below": 12,
-            "simplify_level": 0.0002,
-            "index": true,
-            "source": "../lake-lines.geojson",
-            "source_columns": ["class", "name", "osm_id", "osm_type"]
-        },
         "water_line_name": {
             "zindex": 87,
             "minzoom": 0,

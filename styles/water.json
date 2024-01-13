@@ -31,25 +31,6 @@
       },
       "source-layer": "water_line",
       "source": "tiles"
-    },
-    {
-      "id": "daylight-lake-lines",
-      "type": "symbol",
-      "layout": {
-        "text-field": "{name}",
-        "symbol-placement": "line",
-        "text-anchor": "center",
-        "text-size": {"stops": [[8, 12], [12, 18], [15, 20]]},
-        "text-font": ["Metropolis Regular"]
-      },
-      "paint": {
-        "text-halo-color": "rgba(255, 255, 255, 0.8)",
-        "text-halo-width": 1,
-        "text-halo-blur": 1,
-        "text-color": "zinc-800"
-      },
-      "source-layer": "lake_line_name",
-      "source": "tiles"
     }
   ]
 }

@@ -25,6 +25,8 @@ Our schema and style is entirely custom. We have separate scripts for each indiv
 
 # Usage
 
+We use [mapt](https://github.com/cldellow/mapt) to develop the basemap. `bun install` will install it.
+
 ## Build all layers
 
 This builds each layer, emitting `buildings.pmtiles`, `water.pmtiles`, `ways.pmtiles`, etc.
@@ -32,34 +34,30 @@ This builds each layer, emitting `buildings.pmtiles`, `water.pmtiles`, `ways.pmt
 This is useful the first time you run the repo, or when switching to a new area of focus.
 
 ```bash
-./build-all rockies.osm.pbf
+bun mapt build rockies.osm.pbf
 ```
 
 ## Build a single layer
 
-You can also focus on a single layer at a time:
+You can also focus on a subset of layers at a time:
 
 ```bash
-LAYER=ways ./create-tiles rockies.pbf
+bun mapt build rockies.osm.pbf boundaries ways
 ```
 
 ## View the results
 
-The repo includes a small webserver written in [Bun](https://bun.sh/).
-
-Start it like so:
+Start the webserver with:
 
 ```bash
-bun index.ts
+bun mapt serve
 ```
 
-Then navigate to http://localhost:8081/ - you should see your map.
+Then navigate to http://localhost:8081/ - you can inspect individual pmtiles files, or view the `development` map.
 
 The server will stitch together any styles in `/styles/`. If you edit any
 of them, the page will reload.
 
-The server also serves your pmtiles archives, so you can use [the PMTiles Viewer](https://protomaps.github.io/PMTiles/?url=http%3A%2F%2Flocalhost%3A8081%2Fparks.pmtiles#map=8.9/35.528/-83.2195)
-to look at raw contents, ignoring styles.
 ## Licensing and Attributions
 
 This repository is licensed under Apache 2.0. The artifacts it produces depend on things that may be licensed under other licenses. Your usage of the code in this repository is also subject to those licenses.

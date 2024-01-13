@@ -6,10 +6,14 @@ node_keys = {'place'}
 way_keys = node_keys
 
 qrank = nil
+keydb = nil
 
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
+
+	keydb = require 'keydb'
+	keydb.init()
 end
 
 function exit_function()
@@ -61,6 +65,7 @@ function maybe_emit(is_area)
 	if mz_place == nil or mz_place < 0 then return end
 
 	local wikidata = Find('wikidata')
+	local wikidata_safe = string.match(wikidata, "^Q%d+$")
 	local rank = qrank.get(wikidata)
 
 
@@ -92,8 +97,10 @@ function maybe_emit(is_area)
 		mz = 10
 	end
 	if is_area then
+		if wikidata_safe and keydb.test(wikidata_safe) then return end
 		LayerAsCentroid('place_name', 'polylabel', 'label')
 	else
+		if wikidata_safe then keydb.set(wikidata_safe) end
 		Layer('place_name')
 	end
 

@@ -1,0 +1,167 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/land.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+    {
+      "id": "grass-or-meadow",
+      "type": "fill",
+      "paint": {
+        "fill-color": "green-100"
+      },
+      "source-layer": "land",
+      "source": "tiles",
+      "filter": [
+        "any",
+        ["==", "landuse", "grass"],
+        ["==", "landuse", "meadow"],
+        ["==", "natural", "grassland"]
+      ]
+    },
+    {
+      "id": "forest",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "wood"],
+        ["==", "landuse", "forest"]
+      ],
+      "paint": {
+        "fill-color": "green-300"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "scrub-or-heath",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "scrub"],
+        ["==", "natural", "heath"]
+      ],
+      "paint": {
+        "fill-color": "green-200"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "moist-things",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["has", "wetland"]
+      ],
+      "paint": {
+        "fill-color": "cyan-500"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "sandy-things",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "beach"],
+        ["==", "natural", "sand"]
+      ],
+      "paint": {
+        "fill-color": "amber-200"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "scree",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "scree"]
+      ],
+      "paint": {
+        "fill-color": "zinc-300"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "bare_rock",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "bare_rock"]
+      ],
+      "paint": {
+        "fill-color": "zinc-200"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "glacier",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "glacier"]
+      ],
+      "paint": {
+        "fill-color": "indigo-100"
+      },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "camp-site",
+      "type": "fill",
+      "paint": {
+        "fill-color": "green-100"
+      },
+      "source-layer": "land",
+      "source": "tiles",
+      "filter": [
+        "any",
+        ["==", "tourism", "camp_site"]
+      ]
+    },
+    {
+      "id": "cliff",
+      "type": "line",
+      "paint": {
+        "line-color": "zinc-400",
+        "line-width": 3,
+        "line-opacity": 1
+      },
+      "source-layer": "land_line",
+      "source": "tiles",
+      "filter": [
+        "any",
+        ["==", "natural", "cliff"]
+      ]
+    },
+    {
+      "id": "cemetery",
+      "type": "fill",
+      "paint": {
+        "fill-color": "green-100"
+      },
+      "source-layer": "land",
+      "source": "tiles",
+      "filter": [
+        "any",
+        ["==", "landuse", "cemetery"]
+      ]
+    }
+  ]
+}

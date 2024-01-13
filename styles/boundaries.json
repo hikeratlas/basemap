@@ -1,0 +1,67 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/boundaries.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+    {
+      "id": "ocean",
+      "type": "fill",
+      "paint": {
+        "fill-color": "cyan-500"
+      },
+      "source-layer": "ocean",
+      "source": "tiles"
+    },
+
+    {
+      "id": "boundary-state",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "kind", "state"],
+        ["!=", "maritime", true],
+        ["!=", "disputed", true],
+        ["!=", "coastline", true]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": "zinc-500",
+        "line-width": {"stops": [[3, 0], [5, 2]]},
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "boundary",
+      "source": "tiles"
+    },
+    {
+      "id": "boundary-country",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "kind", "country"],
+        ["!=", "maritime", true],
+        ["!=", "disputed", true],
+        ["!=", "coastline", true]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": "zinc-500",
+        "line-width": {"stops": [[0, 1], [3, 2], [5, 3], [10, 5]]},
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "boundary",
+      "source": "tiles"
+    }
+  ]
+}

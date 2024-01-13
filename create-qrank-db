@@ -1,0 +1,20 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Create a SQLite DB of QRank scores.
+# You need a qrank.csv file from https://qrank.wmcloud.org/
+
+do_the_thing() {
+	cat <<EOF
+.mode csv
+.import qrank.csv qrank_raw
+create table qrank(id integer not null primary key, rank integer not null);
+insert into qrank(id, rank) select substr(id, 2), rank FROM qrank_raw;
+drop table qrank_raw;
+vacuum;
+EOF
+}
+
+rm -f qrank.db
+do_the_thing | sqlite3 qrank.db

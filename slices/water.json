@@ -1,0 +1,69 @@
+{
+    "layers": {
+        "water_poly": {
+            "zindex": 20,
+            "minzoom": 0,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002
+        },
+        "water_line": {
+            "zindex": 21,
+            "minzoom": 0,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002
+        },
+        "water_poly_name": {
+            "zindex": 86,
+            "minzoom": 0,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002
+        },
+        "lake_line_name": {
+            "x-notes": "This is from Facebook's Daylight map. We'll need to exclude these from the water_poly_name layer.",
+            "zindex": 88,
+            "minzoom": 5,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002,
+            "index": true,
+            "source": "../lake-lines.geojson",
+            "source_columns": ["class", "name", "osm_id", "osm_type"]
+        },
+        "water_line_name": {
+            "zindex": 87,
+            "minzoom": 0,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002
+        }
+
+    },
+    "settings": {
+        "minzoom": 0,
+        "maxzoom": 14,
+        "basezoom": 14,
+        "compress": "gzip",
+        "include_ids": false,
+        "combine_below": 14,
+        "name": "Shortbread",
+        "version": "1.0",
+        "description": "Tile config for a simple vector tiles schema",
+        "compress": "gzip",
+        "filemetadata": {
+            "tilejson": "2.0.0",
+            "scheme": "xyz",
+            "type": "baselayer",
+            "format": "pbf",
+            "tiles": [
+                "https://example.com/liechtenstein/{z}/{x}/{y}.pbf"
+            ]
+        },
+        "metadata": {
+          "author": "OpenStreetMap contributors, Geofabrik GmbH",
+          "license": "Open Database License 1.0"
+        }
+    }
+}

@@ -1,0 +1,1088 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/pois.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+   {
+      "id": "charging-station",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "charging_station"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "charging-station",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "place-of-worship",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "place_of_worship"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "place-of-worship",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "recycling",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "recycling"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "recycling"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "ferry-terminal",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "ferry_terminal"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "ferry"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "vending-machine",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "vending_machine"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "vending_machine",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "memorial",
+      "type": "symbol",
+      "filter": ["==", ["get", "historic"], "memorial"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "plaque",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "historic-generic",
+      "type": "symbol",
+      "filter": ["all",
+        ["has", "historic"],
+        ["!=", ["get", "historic"], "memorial"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "bicycle-rental",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "bicycle_rental"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "bicycle_rental",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "bar",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "bar"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "bar",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "binoculars",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "binoculars"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "binoculars",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+
+   {
+      "id": "fast-food",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "fast_food"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "fast-food",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "cafe",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "cafe"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "cafe",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "cinema",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "cinema"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "cinema",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+
+   {
+      "id": "restaurant",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "restaurant"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "restaurant",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+
+   {
+      "id": "bicycle-parking",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "bicycle_parking"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "bicycle_parked",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "poi-waste-basket",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "waste_basket"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "waste-basket"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "ford",
+      "type": "symbol",
+      "filter": ["has", "ford"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "icon-size": 1.5,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "junction"
+      },
+      "paint": {
+        "icon-color": "amber-900",
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 14,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "information",
+      "type": "symbol",
+      "filter": ["==", ["get", "tourism"], "information"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "information"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "museum",
+      "type": "symbol",
+      "filter": ["==", ["get", "tourism"], "museum"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "museum"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "dressing-room",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "dressing_room"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "room",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "drinking-water",
+      "type": "symbol",
+      "filter": [
+        "any",
+        ["==", ["get", "amenity"], "drinking_water"],
+        ["==", ["get", "amenity"], "water_point"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "drinking-water",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "fountain",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "fountain"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "fountain",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "graveyard",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "grave_yard"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "cemetery",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "sanitary-dump-station",
+      "type": "symbol",
+      "filter": [
+        "any",
+        ["==", ["get", "amenity"], "sanitary_dump_station"],
+        ["==", ["get", "amenity"], "waste_disposal"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "camper_trailer_dump",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "picnic-site",
+      "type": "symbol",
+      "filter": ["any",
+        ["==", ["get", "amenity"], "picnic_site"],
+        ["==", ["get", "tourism"], "picnic_site"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "picnic-site",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "ranger-station",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "ranger_station"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "ranger-station",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "spring",
+      "type": "symbol",
+      "filter": ["==", ["get", "natural"], "spring"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "water",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "hitching-post",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "hitching_post"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        // Not quite right, but at least it's something.
+        "icon-image": "horse_shelter",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "shower",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "shower"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "shower",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "school",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "school"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "school",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "theatre",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "theatre"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "theatre",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "attraction",
+      "type": "symbol",
+      "filter": [
+        "any",
+        ["==", ["get", "tourism"], "attraction"],
+        ["==", ["get", "tourism"], "artwork"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "attraction"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "parking",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "parking"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "parking"
+      },
+      "paint": {
+        "icon-color": "blue-700",
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "bbq",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "bbq"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "bbq",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "bench",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "bench"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "bench",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "toilets",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "toilets"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        // Don't show name for toilets, they're not useful
+        "icon-image": "toilet"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "locker",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "locker"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "vending_lockers",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "viewpoint",
+      "type": "symbol",
+      "filter": ["==", ["get", "tourism"], "viewpoint"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-size": 2,
+        "icon-image": "viewpoint"
+      },
+      "paint": {
+        "icon-color": "orange-400",
+        "icon-halo-color": "zinc-400",
+        "icon-halo-width": 2,
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "waterfall",
+      "type": "symbol",
+      "filter": ["==", ["get", "waterway"], "waterfall"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "waterfall"
+      },
+      "paint": {
+        "icon-color": "blue-800",
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    {
+      "id": "campsite",
+      "type": "symbol",
+      "filter": ["==", ["get", "tourism"], "camp_site"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 1.0],
+        "icon-size": 2.5,
+        "icon-image": "campsite"
+      },
+      "paint": {
+        "icon-color": "cyan-400",
+        "icon-halo-color": "zinc-500",
+        "icon-halo-width": 1,
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "picnic-shelter",
+      "type": "symbol",
+      "filter": ["all", ["==", ["get", "amenity"], "shelter"], ["==", ["get", "shelter_type"], "picnic_shelter"]],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": [
+          "step",
+          ["zoom"],
+          "",
+          14,
+          ["get", "name"]
+        ],
+        "text-anchor": "top",
+        "text-offset": [0, 0.5],
+        "icon-image": "picnic_shelter"
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
+      "id": "shelter",
+      "type": "symbol",
+      "filter": [
+        "any",
+        [
+          "all",
+          ["==", ["get", "amenity"], "shelter"],
+          ["!=", ["get", "shelter_type"], "picnic_shelter"]
+        ],
+        ["==", ["get", "tourism"], "alpine_hut"],
+        ["==", ["get", "tourism"], "wilderness_hut"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 1.0],
+        "icon-size": 2,
+        "icon-image": "shelter"
+      },
+      "paint": {
+        "icon-color": "cyan-400",
+        "icon-halo-color": "zinc-500",
+        "icon-halo-width": 1,
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+
+    // This style is useful for debugging; should be omitting from
+    // production tiles.
+    {
+      "id": "unknown",
+      "type": "symbol",
+      "filter": ["!", ["any",
+        ["has", "ford"],
+        ["has", "historic"],
+        ["in", ["get", "amenity"], "bbq"],
+        ["in", ["get", "amenity"], "bench"],
+        ["in", ["get", "amenity"], "bicycle_parking"],
+        ["in", ["get", "amenity"], "bicycle_rental"],
+        ["in", ["get", "amenity"], "bar"],
+        ["in", ["get", "amenity"], "binoculars"],
+        ["in", ["get", "amenity"], "fast_food"],
+        ["in", ["get", "amenity"], "cafe"],
+        ["in", ["get", "amenity"], "charging_station"],
+        ["in", ["get", "amenity"], "cinema"],
+        ["in", ["get", "amenity"], "dressing_room"],
+        ["in", ["get", "amenity"], "drinking_water"],
+        ["in", ["get", "amenity"], "water_point"],
+        ["in", ["get", "amenity"], "ferry_terminal"],
+        ["in", ["get", "amenity"], "fountain"],
+        ["in", ["get", "amenity"], "grave_yard"],
+        ["in", ["get", "amenity"], "hitching_post"],
+        ["in", ["get", "amenity"], "locker"],
+        ["in", ["get", "amenity"], "parking"],
+        ["in", ["get", "amenity"], "picnic_site"],
+        ["in", ["get", "amenity"], "place_of_worship"],
+        ["in", ["get", "amenity"], "ranger_station"],
+        ["in", ["get", "amenity"], "recycling"],
+        ["in", ["get", "amenity"], "restaurant"],
+        ["in", ["get", "amenity"], "sanitary_dump_station"],
+        ["in", ["get", "amenity"], "school"],
+        ["in", ["get", "amenity"], "shelter"],
+        ["in", ["get", "amenity"], "shower"],
+        ["in", ["get", "amenity"], "theatre"],
+        ["in", ["get", "amenity"], "toilets"],
+        ["in", ["get", "amenity"], "vending_machine"],
+        ["in", ["get", "amenity"], "waste_basket"],
+        ["in", ["get", "amenity"], "waste_disposal"],
+//        ["in", ["get", "leisure"], "picnic_table"],
+        ["in", ["get", "natural"], "spring"],
+        ["in", ["get", "tourism"], "artwork"],
+        ["in", ["get", "tourism"], "attraction"],
+        ["in", ["get", "tourism"], "camp_site"],
+        ["in", ["get", "tourism"], "information"],
+        ["in", ["get", "tourism"], "museum"],
+        ["in", ["get", "tourism"], "picnic_site"],
+        ["in", ["get", "tourism"], "viewpoint"],
+        ["in", ["get", "tourism"], "alpine_hut"],
+        ["in", ["get", "tourism"], "wilderness_hut"],
+        ["in", ["get", "waterway"], "waterfall"]
+      ]],
+      "layout": {
+        "symbol-placement": "point",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": false,
+        "text-overlap": "always",
+        "text-variable-anchor": ["center", "left", "right", "top", "bottom", "top-left", "top-right", "bottom-left", "bottom-right"],
+        "text-field": [
+          "concat",
+          "\n\n",
+          [
+            "case",
+            [">", ["length", ["get", "amenity"]], 0],
+            ["concat", "amenity=\n", ["get", "amenity"]],
+            [">", ["length", ["get", "shop"]], 0],
+            ["concat", "shop=\n", ["get", "shop"]],
+            [">", ["length", ["get", "tourism"]], 0],
+            ["concat", "tourism=\n", ["get", "tourism"]],
+            [">", ["length", ["get", "man_made"]], 0],
+            ["concat", "man_made=\n", ["get", "man_made"]],
+            [">", ["length", ["get", "historic"]], 0],
+            ["concat", "historic=\n", ["get", "historic"]],
+            [">", ["length", ["get", "leisure"]], 0],
+            ["concat", "leisure=\n", ["get", "leisure"]],
+            [">", ["length", ["get", "emergency"]], 0],
+            ["concat", "emergency=\n", ["get", "emergency"]],
+            [">", ["length", ["get", "highway"]], 0],
+            ["concat", "highway=\n", ["get", "highway"]],
+            [">", ["length", ["get", "office"]], 0],
+            ["concat", "office=\n", ["get", "office"]],
+            "unknown"
+          ]
+        ],
+        "icon-image": "hand"
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+    }
+  ]
+}

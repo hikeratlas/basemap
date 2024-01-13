@@ -1,0 +1,356 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/ways.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+    {
+      "id": "park-minor-casing",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "minor", "service", "track", "residential", "unclassified"]
+      ],
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "paint": {
+        "line-color": "zinc-300",
+        "line-opacity": {"stops": [[12, 0], [12.5, 1]]},
+        "line-width": {"base": 1.2, "stops": [[8, 1.5], [20, 17]]}
+      }
+    },
+    {
+      "id": "park-secondary-tertiary-casing",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "secondary", "tertiary"]
+      ],
+      "layout": {
+        "line-cap": "butt",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-500",
+        "line-opacity": 1,
+        "line-width": {"base": 1.2, "stops": [[8, 1.5], [20, 17]]}
+      }
+    },
+    {
+      "id": "park-primary-casing",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "minzoom": 5,
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "primary"]
+      ],
+      "layout": {
+        "line-cap": "butt",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-500",
+        "line-opacity": {"stops": [[7, 0], [8, 1]]},
+        "line-width": {
+          "base": 1.2,
+          "stops": [[7, 0], [8, 0.6], [9, 1.5], [20, 22]]
+        }
+      }
+    },
+    {
+      "id": "park-trunk-casing",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "minzoom": 5,
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "trunk"]
+      ],
+      "layout": {
+        "line-cap": "butt",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-500",
+        "line-opacity": {"stops": [[5, 0], [6, 1]]},
+        "line-width": {
+          "base": 1.2,
+          "stops": [[5, 0], [6, 0.6], [7, 1.5], [20, 22]]
+        }
+      }
+    },
+    {
+      "id": "park-motorway-casing",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "minzoom": 4,
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["==", "kind", "motorway"]
+      ],
+      "layout": {
+        "line-cap": "butt",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-500",
+        "line-opacity": {"stops": [[4, 0], [5, 1]]},
+        "line-width": {
+          "base": 1.2,
+          "stops": [[4, 0], [5, 0.4], [6, 0.6], [7, 1.5], [20, 22]]
+        }
+      }
+    },
+    {
+      "id": "park-minor",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "minor", "service", "track", "residential", "unclassified"]
+      ],
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "paint": {
+        "line-color": "#ffffff",
+        "line-opacity": 1,
+        "line-width": {"base": 1.2, "stops": [[6.5, 0], [8, 0.5], [20, 13]]}
+      }
+    },
+    {
+      "id": "park-secondary-tertiary",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "secondary", "tertiary"]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-200",
+        "line-width": {"base": 1.2, "stops": [[6.5, 0], [8, 0.5], [20, 13]]}
+      }
+    },
+    {
+      "id": "park-primary",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "primary"]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-200",
+        "line-width": {"base": 1.2, "stops": [[8.5, 0], [9, 0.5], [20, 18]]}
+      }
+    },
+    {
+      "id": "park-trunk",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "road",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["in", "kind", "trunk"]
+      ],
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round",
+        "visibility": "visible"
+      },
+      "paint": {
+        "line-color": "yellow-200",
+        "line-width": {"base": 1.2, "stops": [[6.5, 0], [7, 0.5], [20, 18]]}
+      }
+    },
+    {
+      "id": "park-motorway",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "kind", "motorway"],
+        ["==", "in_park", true]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": "yellow-400",
+        "line-width": {"base": 1.2, "stops": [[6.5, 0], [7, 0.5], [20, 18]]},
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "road",
+      "source": "tiles"
+    },
+    {
+      "id": "urban-roads",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "in_park", false]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": {"stops": [[7, "zinc-300"], [8, "zinc-400"]]},
+        "line-width": {"stops": [[7, 1]]},
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "road",
+      "source": "tiles"
+    },
+    {
+      "id": "park-paths-bridge",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["==", "bridge", "yes"]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": "zinc-800",
+        "line-width": 10,
+        "line-opacity": 1
+      },
+      "minzoom": 11,
+      "layout": {"line-join": "round"},
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      "id": "park-paths",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["!=", "canoe", "portage"]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": {"stops": [[7, "red-800"]]},
+        "line-width": {"stops": [[8, 1], [10, 2]]},
+        "line-opacity": 1,
+        "line-dasharray": [3,2],
+        "line-gap-width": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          11, 0,
+          14, 1
+        ]
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      "id": "park-paths-names",
+      "type": "symbol",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["!=", "canoe", "portage"]
+      ],
+      "paint": {
+        "text-color": "zinc-800",
+        "text-halo-color": "zinc-50",
+        "text-halo-width": 1
+      },
+      "layout": {
+        "symbol-placement": "line",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-field": "{name}",
+        "text-offset": [0, -1]
+      },
+      "source-layer": "path_name",
+      "source": "tiles"
+    },
+    {
+      "id": "park-paths-portage",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "in_park", true],
+        ["==", "canoe", "portage"]
+      ],
+      "minzoom": 12,
+      "paint": {
+        "line-blur": 1,
+        "line-color": {"stops": [[7, "red-800"]]},
+        "line-width": 3,
+        "line-opacity": 1,
+        "line-dasharray": [4,3]
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "path",
+      "source": "tiles"
+    },
+
+    {
+      "id": "city-park-paths",
+      "type": "line",
+      "filter": [
+        "all",
+        ["==", "in_park", false],
+        [
+          "any",
+          ["==", "in_city_park", true],
+          ["has", "name"]
+        ]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": {"stops": [[7, "rose-500"]]},
+        "line-width": {"stops": [[8, 1], [14, 2]]},
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "path",
+      "source": "tiles"
+    }
+
+  ]
+}

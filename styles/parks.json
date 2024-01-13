@@ -1,0 +1,103 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/parks.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+    {
+      "id": "park-fill",
+      "type": "fill",
+      "paint": {
+        "fill-color": "emerald-200"
+      },
+      "source-layer": "park",
+      "source": "tiles",
+      "maxzoom": 10 // We'll show an outline beyond this
+    },
+    {
+      "id": "leisure-park-fill",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "leisure", "park"],
+        ["==", "landuse", "recreation_ground"]
+      ],
+      "paint": {
+        "fill-color": "emerald-200"
+      },
+      "source-layer": "park",
+      "source": "tiles"
+    },
+    // TODO: Figure out how to get reasonable park outlines that
+    // don't look like trails/roads. . .
+    /*
+    {
+      "id": "park-outline-blur",
+      "type": "line",
+      "filter": ["all", ["!=", "leisure", "park"]],
+      "paint": {
+        "line-color": "emerald-200",
+        "line-width": 3,
+        "line-opacity": 1
+      },
+      "source-layer": "park_outline",
+      "source": "tiles"
+    },
+    {
+      "id": "park-outline",
+      "type": "line",
+      "filter": ["all", ["!=", "leisure", "park"]],
+      "paint": {
+        "line-color": "zinc-600",
+        "line-width": 2,
+        "line-opacity": 1
+      },
+      "source-layer": "park_outline",
+      "source": "tiles"
+    },
+    */
+
+    {
+      "id": "label-park",
+      "type": "symbol",
+      "filter": ["all", ["!=", "leisure", "park"]],
+      "layout": {
+        "text-field": "{short_name}",
+        "symbol-placement": "point",
+        "text-anchor": "center",
+        "text-size": [
+          "case",
+          [">", ["get", "rank"], 100000],
+          20,
+          [">", ["get", "rank"], 10000],
+          15,
+          10
+        ],
+        "text-font": ["Metropolis Semi Bold"],
+        "symbol-sort-key": [
+          "case",
+          ["has", "rank"], ["-", ["get", "rank"]],
+          0
+        ]
+      },
+      "paint": {
+        "text-halo-color": "zinc-100",
+        "text-halo-width": 2,
+        "text-halo-blur": 1,
+        "text-color": "yellow-900"
+      },
+      "minzoom": 0,
+      "source-layer": "park_name",
+      "source": "tiles"
+    }
+  ]
+}

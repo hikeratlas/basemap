@@ -1,0 +1,55 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/water.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+    {
+      "id": "lakes",
+      "type": "fill",
+      "paint": {
+        "fill-color": "sky-500"
+      },
+      "source-layer": "water_poly",
+      "source": "tiles"
+    },
+    {
+      "id": "rivers",
+      "type": "line",
+      "paint": {
+        "line-color": "sky-500",
+        "line-width": 1
+      },
+      "source-layer": "water_line",
+      "source": "tiles"
+    },
+    {
+      "id": "daylight-lake-lines",
+      "type": "symbol",
+      "layout": {
+        "text-field": "{name}",
+        "symbol-placement": "line",
+        "text-anchor": "center",
+        "text-size": {"stops": [[8, 12], [12, 18], [15, 20]]},
+        "text-font": ["Metropolis Regular"]
+      },
+      "paint": {
+        "text-halo-color": "rgba(255, 255, 255, 0.8)",
+        "text-halo-width": 1,
+        "text-halo-blur": 1,
+        "text-color": "zinc-800"
+      },
+      "source-layer": "lake_line_name",
+      "source": "tiles"
+    }
+  ]
+}

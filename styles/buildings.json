@@ -1,0 +1,47 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/buildings.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+    {
+      "id": "parking",
+      "type": "fill",
+      "paint": {
+        "fill-color": "zinc-200"
+      },
+      "source-layer": "building",
+      "source": "tiles",
+      "filter": ["==", "amenity", "parking"]
+    },
+    {
+      "id": "building-colors",
+      "type": "fill",
+      "filter": ["has", "building"],
+      "paint": {
+        "fill-color": "zinc-200"
+      },
+      "source-layer": "building",
+      "source": "tiles"
+    },
+    {
+      "id": "building-outline",
+      "type": "line",
+      "filter": ["has", "building"],
+      "paint": {
+        "line-color": "zinc-300"
+      },
+      "source-layer": "building",
+      "source": "tiles"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+    "layers": {
+        "land": {
+            "zindex": 2,
+            "minzoom": 10,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002
+        },
+        "land_line": {
+            "zindex": 3,
+            "minzoom": 10,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002
+        }
+    },
+    "settings": {
+        "minzoom": 0,
+        "maxzoom": 14,
+        "basezoom": 14,
+        "compress": "gzip",
+        "include_ids": false,
+        "combine_below": 14,
+        "name": "Shortbread",
+        "version": "1.0",
+        "description": "Tile config for a simple vector tiles schema",
+        "compress": "gzip",
+        "filemetadata": {
+            "tilejson": "2.0.0",
+            "scheme": "xyz",
+            "type": "baselayer",
+            "format": "pbf",
+            "tiles": [
+                "https://example.com/liechtenstein/{z}/{x}/{y}.pbf"
+            ]
+        },
+        "metadata": {
+          "author": "OpenStreetMap contributors, Geofabrik GmbH",
+          "license": "Open Database License 1.0"
+        }
+    }
+}

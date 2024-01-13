@@ -1,0 +1,38 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/peaks.pmtiles",
+      "type": "vector",
+      "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
+    }
+  },
+  "layers": [
+   {
+      "id": "peak",
+      "type": "symbol",
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "mountain",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "peak",
+      "source": "tiles"
+   }
+  ]
+}

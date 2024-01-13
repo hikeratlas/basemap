@@ -1,0 +1,46 @@
+{
+  "version": 8,
+  "id": "root-style",
+  "name": "root-style",
+  "metadata": {
+    "license": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  // List of supported fonts: https://github.com/openmaptiles/fonts/blob/gh-pages/fontstacks.json
+  //glyphs: "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+  "glyphs": "https://pub-8ee87e6f0cae427c9600b8247d8a6c86.r2.dev/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "terrain": {
+      "url": "pmtiles://https://r2-public.protomaps.com/protomaps-sample-datasets/terrarium_z9.pmtiles",
+      "type": "raster-dem",
+      "attribution": "<a href='https://github.com/tilezen/joerd/blob/master/docs/attribution.md'>Tilezen Joerd: Attribution</a>",
+      "encoding": "terrarium"
+    }
+  },
+  "layers": [
+    {
+      "id": "background-0",
+      "type": "background",
+      "paint": {"background-color": "zinc-100"}
+    },
+    {
+      "id": "hillshading-50",
+      "source": "terrain",
+      "type": "hillshade",
+      "minzoom": 7,
+      "maxzoom": 14,
+      "paint": {
+        //"hillshade-exaggeration": 0.1,
+        "hillshade-exaggeration": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          8, 0.1,
+          14, 0.5
+        ],
+        //"hillshade-accent-color": "#777777",
+        //"hillshade-highlight-color": "#ffffff"
+      }
+    }
+  ]
+}

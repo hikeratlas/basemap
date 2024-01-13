@@ -138,3 +138,4 @@ qrank.csv
 *.geojson
 *.geojsonseq
 bun.lockb
+data-shp

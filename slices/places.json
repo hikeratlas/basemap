@@ -3,15 +3,15 @@
         "place_name": {
             "zindex": 85,
             "minzoom": 0,
-            "maxzoom": 10,
+            "maxzoom": 14,
             "feature_limit": 10,
             "feature_limit_below": 12
         }
     },
     "settings": {
         "minzoom": 0,
-        "maxzoom": 10,
-        "basezoom": 10,
+        "maxzoom": 14,
+        "basezoom": 14,
         "compress": "gzip",
         "include_ids": false,
         "combine_below": 14,

@@ -3,19 +3,19 @@
         "boundary": {
             "zindex": 80,
             "minzoom": 0,
-            "maxzoom": 10,
+            "maxzoom": 14,
             "simplify_below": 12,
             "simplify_level": 0.0002
         },
         "boundary_name": {
             "zindex": 101,
             "minzoom": 0,
-            "maxzoom": 10
+            "maxzoom": 14
         },
         "ocean": {
             "zindex": 1,
             "minzoom": 0,
-            "maxzoom": 10,
+            "maxzoom": 14,
             "source": "coastline/water_polygons.shp",
             "source_columns": true,
             "filter_below": 12,
@@ -26,8 +26,8 @@
     },
     "settings": {
         "minzoom": 0,
-        "maxzoom": 10,
-        "basezoom": 10,
+        "maxzoom": 14,
+        "basezoom": 14,
         "compress": "gzip",
         "include_ids": false,
         "combine_below": 14,

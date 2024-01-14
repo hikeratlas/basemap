@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+
+bun mapt build --single "$@"
+r2cmd put --force tiles.pmtiles s3://hikes-public/tiles.pmtiles

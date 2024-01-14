@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+fname_style="/tmp/basemap_$$_style.json"
+
+function finish {
+	rm -f "${fname_style}"
+}
+trap finish EXIT
+
+bun mapt style https://public.hikeratlas.com/tiles.pmtiles > "${fname_style}"
+r2cmd put --force "${fname_style}" s3://hikes-public/style.json

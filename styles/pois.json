@@ -918,13 +918,13 @@
         "icon-image": "campsite"
       },
       "paint": {
-        "icon-color": "cyan-400",
-        "icon-halo-color": "zinc-500",
+        "icon-color": "green-900",
+        "icon-halo-color": "zinc-200",
         "icon-halo-width": 1,
         "text-halo-color": "white",
         "text-halo-width": 1
       },
-      "minzoom": 12,
+      "minzoom": 10,
       "source-layer": "poi",
       "source": "tiles"
     },

@@ -1058,6 +1058,7 @@
         ["in", ["get", "amenity"], "vending_machine"],
         ["in", ["get", "amenity"], "waste_basket"],
         ["in", ["get", "amenity"], "waste_disposal"],
+        ["in", ["get", "highway"], "trailhead"],
 //        ["in", ["get", "leisure"], "picnic_table"],
         ["in", ["get", "natural"], "spring"],
         ["in", ["get", "tourism"], "artwork"],

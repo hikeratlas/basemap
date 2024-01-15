@@ -69,6 +69,12 @@ function maybe_emit(is_area)
 
 	if name == 'Trail Sign' then return end
 
+	if tourism == 'camp_site' then
+		name = string.gsub(name, ' Camp$', '')
+		name = string.gsub(name, ' Campsite$', '')
+		name = string.gsub(name, ' Campground$', '')
+	end
+
 	if is_area then
 		LayerAsCentroid('poi')
 	else

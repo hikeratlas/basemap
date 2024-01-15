@@ -2,7 +2,7 @@
 --
 -- Note that provinces/countries are handled by boundaries.lua.
 
-node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural'}
+node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural', 'highway=trailhead'}
 way_keys = node_keys
 
 qrank = nil
@@ -28,6 +28,7 @@ function maybe_emit(is_area)
 	local waterway = Find('waterway')
 	local natural = Find('natural')
 	local ford = Find('ford')
+	local highway = Find('highway')
 
 	local locker = Find('locker')
 	local shelter_type = Find('shelter_type')
@@ -62,7 +63,7 @@ function maybe_emit(is_area)
 	if amenity == 'university' then amenity = '' end
 
 
-	if amenity == '' and tourism == '' and waterway ~= 'waterfall' and natural ~= 'spring' and ford == '' and historic == '' then return end
+	if amenity == '' and tourism == '' and waterway ~= 'waterfall' and natural ~= 'spring' and ford == '' and historic == '' and highway ~= 'trailhead' then return end
 
 	local wikidata = Find('wikidata')
 	local name = Find('name')
@@ -86,6 +87,7 @@ function maybe_emit(is_area)
 	Attribute('amenity', amenity)
 	Attribute('natural', natural)
 	Attribute('historic', historic)
+	Attribute('highway', highway)
 	Attribute('locker', locker)
 	Attribute('tourism', tourism)
 	Attribute('wikidata', wikidata)

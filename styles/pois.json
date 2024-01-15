@@ -901,7 +901,32 @@
       "source-layer": "poi",
       "source": "tiles"
     },
-
+    {
+      "id": "trailhead",
+      "type": "symbol",
+      "filter": ["==", ["get", "highway"], "trailhead"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 1.0],
+        "icon-size": 1.5,
+        "icon-image": "star"
+      },
+      "paint": {
+        "icon-color": "red-400",
+        "icon-halo-color": "zinc-200",
+        "icon-halo-width": 1,
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 10,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
     {
       "id": "campsite",
       "type": "symbol",

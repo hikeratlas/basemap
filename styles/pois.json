@@ -928,6 +928,41 @@
       "source": "tiles"
     },
     {
+      "id": "shelter",
+      "type": "symbol",
+      "filter": [
+        "any",
+        [
+          "all",
+          ["==", ["get", "amenity"], "shelter"],
+          ["!=", ["get", "shelter_type"], "picnic_shelter"]
+        ],
+        ["==", ["get", "tourism"], "alpine_hut"],
+        ["==", ["get", "tourism"], "wilderness_hut"]
+      ],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 1.0],
+        "icon-size": 2,
+        "icon-image": "shelter"
+      },
+      "paint": {
+        "icon-color": "green-900",
+        "icon-halo-color": "zinc-200",
+        "icon-halo-width": 1,
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 10,
+      "source-layer": "poi",
+      "source": "tiles"
+    },
+    {
       "id": "campsite",
       "type": "symbol",
       "filter": ["==", ["get", "tourism"], "camp_site"],
@@ -974,41 +1009,6 @@
         "icon-image": "picnic_shelter"
       },
       "paint": {
-        "text-halo-color": "white",
-        "text-halo-width": 1
-      },
-      "minzoom": 12,
-      "source-layer": "poi",
-      "source": "tiles"
-    },
-    {
-      "id": "shelter",
-      "type": "symbol",
-      "filter": [
-        "any",
-        [
-          "all",
-          ["==", ["get", "amenity"], "shelter"],
-          ["!=", ["get", "shelter_type"], "picnic_shelter"]
-        ],
-        ["==", ["get", "tourism"], "alpine_hut"],
-        ["==", ["get", "tourism"], "wilderness_hut"]
-      ],
-      "layout": {
-        "symbol-placement": "point",
-        "icon-optional": true,
-        "text-font": ["Hubot Sans-Regular"],
-        "text-optional": true,
-        "text-field": "{name}",
-        "text-anchor": "top",
-        "text-offset": [0, 1.0],
-        "icon-size": 2,
-        "icon-image": "shelter"
-      },
-      "paint": {
-        "icon-color": "cyan-400",
-        "icon-halo-color": "zinc-500",
-        "icon-halo-width": 1,
         "text-halo-color": "white",
         "text-halo-width": 1
       },

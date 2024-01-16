@@ -2,10 +2,9 @@
 -- See https://qrank.wmcloud.org/ for more info.
 local qrank = {}
 
-driver = nil
-env = nil
-con = nil
-
+local driver = nil
+local env = nil
+local con = nil
 
 function qrank.init()
   driver = require 'luasql.sqlite3'
@@ -27,11 +26,11 @@ function qrank.get(id)
 	end
   local rv = 1
 
-  local sql = "SELECT rank FROM qrank WHERE id = '" .. con:escape(string.sub(id, 2, 100)) .. "'"
+  local sql = "SELECT qrank FROM qrank WHERE id = '" .. con:escape(string.sub(id, 2, 100)) .. "'"
   cur = assert (con:execute(sql))
   row = cur:fetch({}, 'a')
 	if row ~= nil then
-		rv = row['rank'] or 1
+		rv = row['qrank'] or 1
 	end
   cur:close()
   return rv

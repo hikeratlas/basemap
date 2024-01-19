@@ -1,6 +1,16 @@
 local debug = false
+logger = nil
 
 node_keys = {'natural=peak'}
+
+function init_function()
+	logger = require 'logger'
+	logger.init()
+end
+
+function exit_function()
+	logger.close()
+end
 
 function node_function()
 	local natural = Find('natural')

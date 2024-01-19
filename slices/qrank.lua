@@ -7,14 +7,14 @@ local env = nil
 local con = nil
 
 function qrank.init()
-  driver = require 'luasql.sqlite3'
-  env = assert (driver.sqlite3())
-  con = assert (env:connect('../qrank.db'))
+	driver = require 'luasql.sqlite3'
+	env = assert (driver.sqlite3())
+	con = assert (env:connect('../qrank.db'))
 end
 
 function qrank.close()
-  con:close()
-  env:close()
+	con:close()
+	env:close()
 end
 
 -- id: a Wikidata ID, eg Q1261
@@ -24,16 +24,16 @@ function qrank.get(id)
 	if id == '' then
 		return 1
 	end
-  local rv = 1
+	local rv = 1
 
-  local sql = "SELECT qrank FROM qrank WHERE id = '" .. con:escape(string.sub(id, 2, 100)) .. "'"
-  cur = assert (con:execute(sql))
-  row = cur:fetch({}, 'a')
+	local sql = "SELECT qrank FROM qrank WHERE id = '" .. con:escape(string.sub(id, 2, 100)) .. "'"
+	cur = assert (con:execute(sql))
+	row = cur:fetch({}, 'a')
 	if row ~= nil then
 		rv = row['qrank'] or 1
 	end
-  cur:close()
-  return rv
+	cur:close()
+	return rv
 end
 
 return qrank

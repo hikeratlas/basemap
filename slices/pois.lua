@@ -1,18 +1,19 @@
--- Export place names of political entities, e.g. towns, cities, capitals.
---
--- Note that provinces/countries are handled by boundaries.lua.
-
 node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural', 'highway=trailhead'}
 way_keys = node_keys
 
 qrank = nil
+logger = nil
 
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
+
+	logger = require 'logger'
+	logger.init()
 end
 
 function exit_function()
+	logger.close()
 	qrank.close()
 end
 

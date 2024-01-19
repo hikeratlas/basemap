@@ -1,15 +1,16 @@
--- A script to export protected areas -- we'll use this for future
--- spatial queries in our main Lua profile, to give increased prominence
--- to things in parks.
-
 qrank = nil
+logger = nil
 
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
+
+	logger = require 'logger'
+	logger.init()
 end
 
 function exit_function()
+	logger.close()
 	qrank.close()
 end
 

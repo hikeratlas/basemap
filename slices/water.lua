@@ -1,10 +1,16 @@
--- A script to export protected areas -- we'll use this for future
--- spatial queries in our main Lua profile, to give increased prominence
--- to things in parks.
-
 local debug = false
+logger = nil
 
 way_keys = {'natural=water', 'water', 'waterway'}
+
+function init_function()
+	logger = require 'logger'
+	logger.init()
+end
+
+function exit_function()
+	logger.close()
+end
 
 function node_function()
 end

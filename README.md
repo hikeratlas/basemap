@@ -27,6 +27,13 @@ Our schema and style is entirely custom. We have separate scripts for each indiv
 
 We use [mapt](https://github.com/cldellow/mapt) to develop the basemap. `bun install` will install it.
 
+The scripts require a POSIX system with luaposix and luasql.sqlite3:
+
+```bash
+apt install lua-sql-sqlite3
+luarocks install luaposix
+```
+
 ## Build all layers
 
 This builds each layer, emitting `buildings.pmtiles`, `water.pmtiles`, `ways.pmtiles`, etc.
@@ -60,14 +67,13 @@ of them, the page will reload.
 
 ## Licensing and Attributions
 
-This repository is licensed under Apache 2.0. The artifacts it produces depend on things that may be licensed under other licenses. Your usage of the code in this repository is also subject to those licenses.
+Unless otherwise noted, this repository is licensed under Apache 2.0. The artifacts it produces depend on things that may be licensed under other licenses. Your usage of the code in this repository is also subject to those licenses.
 
 - The data in the basemap is copyright OpenStreetMap contributors, and licensed under ODbL.
-- We use [Tailwind CSS](https://tailwindcss.com/)'s color palette, licensed under MIT.
-- We use [Wikidata QRank](https://qrank.wmcloud.org/) to prioritize which features to show, licensed under CC0.
-- We use [Mapzen's Joerd terrain dataset](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) for hillshading.
-	- See Mapzen's page for all copyrights for that data.
-	- We use [Protomap's hosted version of the terrain dataset](https://protomaps.com/blog/serverless-maps-now-open-source), which I believe is not guaranteed to be stable.
+- [Tailwind CSS](https://tailwindcss.com/)'s color palette is licensed under MIT.
+- [Wikidata QRank](https://qrank.wmcloud.org/) is licensed under CC0.
+- [Mapzen's Joerd terrain dataset](https://github.com/tilezen/joerd/blob/master/docs/attribution.md) is complicated; see the link for details.
+- [json.lua](https://github.com/rxi/json.lua) is licensed under MIT.
 
 # Miscellaneous resources
 

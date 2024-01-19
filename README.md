@@ -27,11 +27,11 @@ Our schema and style is entirely custom. We have separate scripts for each indiv
 
 We use [mapt](https://github.com/cldellow/mapt) to develop the basemap. `bun install` will install it.
 
-The scripts require a POSIX system with luaposix and luasql.sqlite3:
+The scripts require some third-party Lua modules:
 
 ```bash
 apt install lua-sql-sqlite3
-luarocks install luaposix
+luarocks install luaflock
 ```
 
 ## Build all layers

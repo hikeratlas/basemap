@@ -1,43 +1,28 @@
 -- Thread-safe file append.
 --
--- tilemaker runs multiple threads, we use POSIX file locks to synchronize
+-- tilemaker runs multiple threads, we use BSD-style file locks to synchronize
 -- writes.
 
-local M = require 'posix.fcntl'
-local S = require 'posix.sys.stat'
+local flock = require "flock"
 
 local file_append = {}
 
-function sleep(n)
-  os.execute("sleep " .. tonumber(n))
-end
-
 function file_append.write(fname, data)
-	local fd = M.open(
-		'/tmp/tilemaker.lock',
-		M.O_CREAT + M.O_WRONLY + M.O_TRUNC,
-		S.S_IRUSR + S.S_IWUSR + S.S_IRGRP + S.S_IROTH
-	)
+	-- see https://github.com/SolraBizna/luaflock
+	local lockf = io.open('/tmp/tilemaker.lock', 'a+')
 
-	-- Set lock on file
-	local lock = {
-		l_type = M.F_WRLCK;     -- Exclusive lock
-		l_whence = M.SEEK_SET;  -- Relative to beginning of file
-		l_start = 0;            -- Start from 1st byte
-		l_len = 0;              -- Lock whole file
-	}
+	local locked, lock_error = flock(lockf, 'write')
 
-	while M.fcntl(fd, M.F_SETLK, lock) == nil do
-		-- Yeah, spinlocks aren't great. What are ya gonna do.
+	if not locked or lock_error then
+		error('unable to lock file: ' .. str(lock_error))
 	end
 
 	local out = io.open(fname, 'a')
 	out:write(data)
 	io.close(out)
 
-	-- Release the lock
-	lock.l_type = M.F_UNLCK
-	M.fcntl(fd, M.F_SETLK, lock)
+	-- Closing the lock file releases the lock.
+	io.close(lockf)
 end
 
 return file_append

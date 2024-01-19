@@ -28,10 +28,6 @@ function _Layer(name)
 	pump()
 	data['_layer'] = name
 	data['_ll'] = Centroid('polylabel')
-
-	if Centroid('polylabel') == nil then
-		print('error on Centroid ' .. Id())
-	end
 	data['_id'] = Id()
 end
 
@@ -40,11 +36,6 @@ function _LayerAsCentroid(name)
 	data['_layer'] = name
 	data['_ll'] = Centroid('polylabel')
 	data['_id'] = Id()
-
-	if Centroid('polylabel') == nil then
-		print('error on Centroid ' .. Id())
-	end
-
 end
 
 function _Attribute(key, value)

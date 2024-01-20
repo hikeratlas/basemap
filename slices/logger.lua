@@ -13,10 +13,12 @@ function pump()
 	if not entry['name'] then return end
 
 	-- Some layers are duplicates of others; ignore them.
-	if entry['_layer'] == 'road_name' then return end
+	if entry['_layer'] == 'road_name' or entry['_layer'] == 'road' then return end
 	if entry['_layer'] == 'path_name' then return end
 	if entry['_layer'] == 'water_line_name' then return end
 	if entry['_layer'] == 'water_poly_name' then return end
+
+	if not entry['name'] or entry['name'] == '' then return end
 
 	local encoded = json.encode(entry)
 	if encoded ~= '[]' then

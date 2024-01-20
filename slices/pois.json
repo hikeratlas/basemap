@@ -9,7 +9,7 @@
         "city_parks": {
             "minzoom": 15,
             "maxzoom": 15,
-            "source": "../city_parks.geojsonl",
+            "source": "../city-parks.geojsonl",
             "index": true
         },
         "poi": {

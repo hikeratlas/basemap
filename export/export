@@ -30,6 +30,8 @@ EOF
 main() {
   pbf=${1:?must provide path to pbf}
   layer=${2:?must provide layer to export}
+  pbf=$(readlink -f "$pbf")
+  geojsonl_fname="$(readlink -f ${layer}.geojsonl)"
 
   if [ ! -e "$pbf" ]; then
     echo "error: ${pbf} not found" > /dev/stderr
@@ -38,6 +40,7 @@ main() {
 
   me="$(readlink -f "$0")"
   here="$(dirname "$me")"
+  pushd "$here"
   lua_fname="${here}/${layer}.lua"
 
   if [ ! -e "$lua_fname" ]; then
@@ -47,7 +50,6 @@ main() {
 
   stock_config >> "${config_fname}"
 
-  geojsonl_fname="$(readlink -f ${layer}.geojsonl)"
   rm -f "${geojsonl_fname}"
   DUMP_FILENAME="${geojsonl_fname}" tilemaker --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"
 

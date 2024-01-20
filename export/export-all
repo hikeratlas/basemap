@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+main() {
+  pbf=${1:?must provide path to pbf}
+  pbf=$(readlink -f "$pbf")
+
+  orig="$(readlink -f .)"
+
+  me="$(readlink -f "$0")"
+  here="$(dirname "$me")"
+  cd "${here}"
+  for candidate in *.lua; do
+    candidate="$(basename "${candidate}" .lua)"
+
+    if [ "$candidate" != "file_append" ] && [ "$candidate" != "json" ]; then
+      cd "${orig}"
+      "$here"/export "${pbf}" "${candidate}"
+    fi
+  done
+
+}
+
+main "$@"

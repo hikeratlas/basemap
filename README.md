@@ -23,6 +23,14 @@ The styles can only render the layers that we emit: so we need to ensure we emit
 
 Our schema and style is entirely custom. We have separate scripts for each individual layer, and the ability to merge them in a post-processing step. This makes it slightly faster to iterate on a given layer, while still being able to see the final result.
 
+# Setup
+
+The basemap requires certain GeoJSON files that define boundaries of countries, states and parks. These are created from OSM itself:
+
+```bash
+./export/export-all planet.osm.pbf
+```
+
 # Usage
 
 We use [mapt](https://github.com/cldellow/mapt) to develop the basemap. `bun install` will install it.

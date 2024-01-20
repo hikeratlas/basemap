@@ -3,13 +3,13 @@
         "parks": {
             "minzoom": 15,
             "maxzoom": 15,
-            "source": "../parks.geojson",
+            "source": "../parks.geojsonl",
             "index": true
         },
         "city_parks": {
             "minzoom": 15,
             "maxzoom": 15,
-            "source": "../city_parks.geojson",
+            "source": "../city_parks.geojsonl",
             "index": true
         },
         "poi": {

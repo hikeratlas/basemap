@@ -1,0 +1,56 @@
+#!/bin/bash
+set -euo pipefail
+
+config_fname="export_$$.json"
+ignored_output_fname="ignored_$$.pmtiles"
+
+function finish {
+  rm -f "${config_fname}" "${ignored_output_fname}"
+}
+trap finish EXIT
+
+stock_config() {
+  cat <<EOF
+{
+    "layers": {},
+    "settings": {
+        "minzoom": 0,
+        "maxzoom": 0,
+        "basezoom": 0,
+        "compress": "gzip",
+        "include_ids": false,
+        "name": "GeoJSON export",
+        "version": "1.0",
+        "description": "Dummy tile config"
+    }
+}
+EOF
+}
+
+main() {
+  pbf=${1:?must provide path to pbf}
+  layer=${2:?must provide layer to export}
+
+  if [ ! -e "$pbf" ]; then
+    echo "error: ${pbf} not found" > /dev/stderr
+    exit 2
+  fi
+
+  me="$(readlink -f "$0")"
+  here="$(dirname "$me")"
+  lua_fname="${here}/${layer}.lua"
+
+  if [ ! -e "$lua_fname" ]; then
+    echo "error: ${lua_fname} not found" > /dev/stderr
+    exit 2
+  fi
+
+  stock_config >> "${config_fname}"
+
+  geojsonl_fname="$(readlink -f ${layer}.geojsonl)"
+  rm -f "${geojsonl_fname}"
+  DUMP_FILENAME="${geojsonl_fname}" tilemaker --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"
+
+}
+
+main "$@"

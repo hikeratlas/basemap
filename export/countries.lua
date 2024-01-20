@@ -24,7 +24,8 @@ end
 
 function dump(is_relation)
 	-- Require a name
-	local name = Find('name')
+	local name = Find('name:en')
+	if name == '' then name = Find('name') end
 	if name == '' then return end
 
 	local admin_level = get_admin_level(true)

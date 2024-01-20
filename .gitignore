@@ -137,5 +137,6 @@ log.txt
 qrank.csv
 *.geojson
 *.geojsonseq
+*.geojsonl
 bun.lockb
 data-shp

@@ -9,10 +9,54 @@ function finish {
 }
 trap finish EXIT
 
+layer_config_zindex() {
+  cat <<EOF
+  "city_parks": {
+      "minzoom": 15,
+      "maxzoom": 15,
+      "source": "../city-parks.geojsonl",
+      "index": true,
+      "index_column": "name"
+  },
+  "countries": {
+      "minzoom": 15,
+      "maxzoom": 15,
+      "source": "../countries.geojsonl",
+      "index": true,
+      "index_column": "name"
+  },
+  "parks": {
+      "minzoom": 15,
+      "maxzoom": 15,
+      "source": "../parks.geojsonl",
+      "index": true,
+      "index_column": "name"
+  },
+  "states": {
+      "minzoom": 15,
+      "maxzoom": 15,
+      "source": "../states.geojsonl",
+      "index": true,
+      "index_column": "name"
+  }
+EOF
+}
+
 stock_config() {
+  layer=${1:?must provide layer to export}
+
+  layer_config=""
+
+  if [ "$layer" == "zindex" ]; then
+    layer_config="$(layer_config_zindex)"
+
+  fi
+
   cat <<EOF
 {
-    "layers": {},
+    "layers": {
+${layer_config}
+    },
     "settings": {
         "minzoom": 0,
         "maxzoom": 0,
@@ -48,7 +92,7 @@ main() {
     exit 2
   fi
 
-  stock_config >> "${config_fname}"
+  stock_config "${layer}" >> "${config_fname}"
 
   rm -f "${geojsonl_fname}"
   DUMP_FILENAME="${geojsonl_fname}" tilemaker --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"

@@ -1,18 +1,13 @@
 local debug = false
 
 qrank = nil
-logger = nil
 
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
-
-	logger = require 'logger'
-	logger.init()
 end
 
 function exit_function()
-	logger.close()
 	qrank.close()
 end
 

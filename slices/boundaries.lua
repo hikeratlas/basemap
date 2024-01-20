@@ -1,14 +1,9 @@
 way_keys = {'boundary=administrative'}
 
-logger = nil
-
 function init_function()
-	logger = require 'logger'
-	logger.init()
 end
 
 function exit_function()
-	logger.close()
 end
 
 function node_function()

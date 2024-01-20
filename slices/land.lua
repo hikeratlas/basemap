@@ -1,16 +1,11 @@
 local debug = false
-logger = nil
 way_keys = {'landuse', 'leisure', 'natural', 'wetland', 'tourism=camp_site'}
 
 function init_function()
-	logger = require 'logger'
-	logger.init()
 end
 
 function exit_function()
-	logger.close()
 end
-
 
 local landuse_filter = {
 	forest = true,

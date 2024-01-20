@@ -6,7 +6,6 @@ node_keys = {'place'}
 way_keys = node_keys
 
 qrank = nil
-logger = nil
 keydb = nil
 
 function init_function()
@@ -15,13 +14,9 @@ function init_function()
 
 	keydb = require 'keydb'
 	keydb.init()
-
-	logger = require 'logger'
-	logger.init()
 end
 
 function exit_function()
-	logger.close()
 	qrank.close()
 end
 

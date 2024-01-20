@@ -1,15 +1,11 @@
 local debug = false
-logger = nil
 
 way_keys = {'building', 'amenity=parking'}
 
 function init_function()
-	logger = require 'logger'
-	logger.init()
 end
 
 function exit_function()
-	logger.close()
 end
 
 function node_function()

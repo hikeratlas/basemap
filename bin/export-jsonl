@@ -7,4 +7,4 @@ set -euo pipefail
 DUMP_FILENAME=$(readlink -f objects.jsonl)
 export DUMP_FILENAME
 rm -f "${DUMP_FILENAME}"
-bun mapt build "$@"
+bun mapt build --no-output "$@"

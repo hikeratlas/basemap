@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { Database } from "bun:sqlite";
 import fs from 'node:fs';
 

@@ -57,7 +57,7 @@ function emit(properties)
 	if wikidata ~= '' then
 		sanitized_properties['wikidata'] = wikidata
 	end
-	sanitized_properties['id'] = Id()
+	sanitized_properties['osm_id'] = Id()
 
 	encoded = json.encode(sanitized_properties)
 	file_append.write(dump_filename, encoded .. '\n')

@@ -10,8 +10,20 @@ local qrank = nil
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
-node_keys = {'natural=peak', 'tourism=camp_site'}
-way_keys = {'boundary=protected_area', 'boundary=national_park', 'leisure=nature_reserve', 'leisure=park', 'landuse=recreation_ground', 'tourism=camp_site', 'water=lake'}
+node_keys = {
+	'natural=peak',
+	'tourism=camp_site',
+	'waterway=waterfall',
+}
+way_keys = {
+	'boundary=national_park',
+	'boundary=protected_area',
+	'landuse=recreation_ground',
+	'leisure=nature_reserve',
+	'leisure=park',
+	'tourism=camp_site',
+	'water=lake',
+}
 
 function sanitize_park(x)
 	x = string.gsub(x, 'National Park', 'NP')
@@ -76,7 +88,11 @@ end
 function node_function()
   local natural = Find('natural')
   local tourism = Find('tourism')
+	local waterway = Find('waterway')
 
+	if waterway == 'waterfall' then
+		return emit({kind='waterfall'})
+	end
 	if natural == 'peak' then
 		return emit({kind='peak'})
 	end

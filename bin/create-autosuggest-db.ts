@@ -13,6 +13,7 @@ async function main() {
 	const db = new Database(DB_FILE);
 
 	db.query(`CREATE VIRTUAL TABLE fts USING fts5(name, qrank)`).run();
+	db.query(`CREATE VIRTUAL TABLE fts_popular USING fts5(name, qrank)`).run();
 	db.query(`CREATE TABLE items(
 qrank INTEGER NOT NULL,
 wikidata TEXT,
@@ -49,6 +50,7 @@ lat NUMERIC NOT NULL
 	}
 
 	db.query(`INSERT INTO fts(rowid, name, qrank) SELECT rowid, name, qrank FROM items`).run();
+	db.query(`INSERT INTO fts_popular(rowid, name, qrank) SELECT rowid, name, qrank FROM items WHERE qrank > 1`).run();
 	db.close();
 }
 

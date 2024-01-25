@@ -24,7 +24,11 @@ country TEXT,
 state TEXT,
 name TEXT NOT NULL,
 lon NUMERIC NOT NULL,
-lat NUMERIC NOT NULL
+lat NUMERIC NOT NULL,
+min_lon NUMERIC,
+min_lat NUMERIC,
+max_lon NUMERIC,
+max_lat NUMERIC
 )`).run();
 
 
@@ -32,9 +36,9 @@ lat NUMERIC NOT NULL
 
 	db.query('PRAGMA synchronous = OFF').run();
 
-	const ins = db.query(`INSERT INTO items (qrank, wikidata, osm_id, kind, park, country, state, name, lon, lat) VALUES ($qrank, $wikidata, $osm_id, $kind, $park, $country, $state, $name, $lon, $lat)`);
+	const ins = db.query(`INSERT INTO items (qrank, wikidata, osm_id, kind, park, country, state, name, lon, lat, min_lon, min_lat, max_lon, max_lat) VALUES ($qrank, $wikidata, $osm_id, $kind, $park, $country, $state, $name, $lon, $lat, $min_lon, $min_lat, $max_lon, $max_lat)`);
 	for (const row of rows) {
-		let { wikidata, park, qrank, country, lon, lat, kind, state, osm_id, name } = row;
+		let { wikidata, park, qrank, country, lon, lat, kind, state, osm_id, name, box } = row;
 		ins.run({
 			$qrank: qrank,
 			$wikidata: wikidata,
@@ -45,7 +49,11 @@ lat NUMERIC NOT NULL
 			$state: state,
 			$name: name,
 			$lon: lon,
-			$lat: lat
+			$lat: lat,
+			$min_lon: box?.min_lon || null,
+			$min_lat: box?.min_lat || null,
+			$max_lon: box?.max_lon || null,
+			$max_lat: box?.max_lat || null,
 		});
 	}
 

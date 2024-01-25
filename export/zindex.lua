@@ -7,6 +7,7 @@
 local file_append = require 'file_append'
 local json = require 'json'
 local qrank = nil
+local geometry = require 'geometry'
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
@@ -33,7 +34,7 @@ function sanitize_park(x)
 	return x
 end
 
-function emit(properties)
+function emit(properties, area)
 	local sanitized_properties = {name=Find('name')}
 	local wikidata = Find('wikidata')
 
@@ -70,6 +71,11 @@ function emit(properties)
 		sanitized_properties['wikidata'] = wikidata
 	end
 	sanitized_properties['osm_id'] = Id()
+
+	local geom = GeoJSON(area or false)
+	if geom then geom = json.decode(geom) end
+	local box = geometry.box(geom)
+	sanitized_properties['box'] = box
 
 	encoded = json.encode(sanitized_properties)
 	file_append.write(dump_filename, encoded .. '\n')
@@ -110,15 +116,15 @@ function way_function()
   local water = Find('water')
 
 	if boundary == 'national_park' or boundary == 'protected_area' or leisure == 'nature_reserve' then
-		return emit({kind='park'})
+		return emit({kind='park'}, true)
 	end
 
 	if water == 'lake' then
-		return emit({kind='lake'})
+		return emit({kind='lake'}, true)
 	end
 
 	if tourism == 'camp_site' then
-		return emit({kind='camp_site'})
+		return emit({kind='camp_site'}, true)
 	end
 end
 
@@ -146,14 +152,14 @@ function relation_function()
   local water = Find('water')
 
 	if boundary == 'national_park' or boundary == 'protected_area' or leisure == 'nature_reserve' then
-		return emit({kind='park'})
+		return emit({kind='park'}, true)
 	end
 
 	if tourism == 'camp_site' then
-		return emit({kind='camp_site'})
+		return emit({kind='camp_site'}, true)
 	end
 
 	if water == 'lake' then
-		return emit({kind='lake'})
+		return emit({kind='lake'}, true)
 	end
 end

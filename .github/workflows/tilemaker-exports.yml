@@ -42,7 +42,9 @@ jobs:
         run: ./export/export monaco.pbf $EXPORT
 
       - name: Upload GeoJSON
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.export }}.geojsonl
-          path: ${{ matrix.export }}.geojsonl
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          FILE: ${{ matrix.export }}
+        run: aws cp $FILE s3://hikes-public/geojsonl/$FILE

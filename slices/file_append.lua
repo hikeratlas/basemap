@@ -6,6 +6,7 @@
 print('file_append')
 local flock = require "flock"
 print('file_append after flock')
+print(flock)
 
 local file_append = {}
 

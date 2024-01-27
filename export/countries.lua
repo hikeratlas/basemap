@@ -9,7 +9,7 @@ print('json')
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
-print('dump_filename is ' .. DUMP_FILENAME)
+print('dump_filename is ' .. dump_filename)
 
 way_keys = {'boundary=administrative'}
 

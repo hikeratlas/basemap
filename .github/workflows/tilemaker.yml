@@ -23,7 +23,7 @@ jobs:
 
 
       - name: Install deps
-        run: sudo apt install build-essential libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev luajit libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev
+        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev luajit libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev
 
       - name: Fetch binaries
         run: ./bin/fetch-binaries

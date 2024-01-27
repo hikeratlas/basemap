@@ -1,4 +1,6 @@
 -- A script to export protected areas as GeoJSONL.
+
+print('states')
 local file_append = require 'file_append'
 local json = require 'json'
 

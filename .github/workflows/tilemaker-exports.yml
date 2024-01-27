@@ -15,9 +15,9 @@ jobs:
     strategy:
       matrix:
         export: [
-          city-parks,
-          countries,
-          parks,
+          #          city-parks,
+          #          countries,
+          #          parks,
           states
         ]
     steps:

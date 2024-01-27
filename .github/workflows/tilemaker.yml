@@ -28,7 +28,8 @@ jobs:
       - name: Fetch binaries
         run: ./bin/fetch-binaries
 
-      - name: Publish DB
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./publish-qrank-db
+      - name: Fetch PBF
+        run: wget https://public.hikeratlas.com/pbfs/monaco.pbf
+
+      - name: Build layer
+        run: bun mapt build monaco.pbf land

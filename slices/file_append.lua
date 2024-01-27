@@ -4,6 +4,7 @@
 -- writes.
 
 print('file_append')
+print(package.path)
 local flock = require "flock"
 print('file_append after flock')
 print(flock)

@@ -8,7 +8,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: nova-scotia
+      AREA: north-america
 
     strategy:
       matrix:
@@ -51,7 +51,7 @@ jobs:
 
 
       - name: Fetch coastline
-        if: ${{ ! startsWith(matrix.layer, 'boundaries') }}
+        if: ${{ startsWith(matrix.layer, 'boundaries') }}
         run: wget --progress=dot:giga https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip && unzip water-polygons-split-4326.zip && mv water-polygons-split-4326 slices/coastline
 
       - name: Build layer

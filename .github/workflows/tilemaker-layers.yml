@@ -46,7 +46,12 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com && unzstd *.zst
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com && unzstd *.zst
+
+
+      # TODO: only run this for boundaries, as it's a big download
+      - name: Fetch coastline
+        run: wget --progress=dot:giga https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip && unzip water-polygons-split-4326.zip && mv water-polygons-split-4326 slices/coastline
 
       - name: Build layer
         env:

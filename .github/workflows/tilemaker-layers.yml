@@ -1,6 +1,8 @@
 name: Build tilemaker layers
 
-#on: 
+on:
+  workflow_dispatch:
+
 #push:
     #branches: [build-layer]
     #  schedule:

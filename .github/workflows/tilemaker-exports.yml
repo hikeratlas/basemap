@@ -42,7 +42,7 @@ jobs:
         run: ./export/export monaco.pbf $EXPORT
 
       - name: Upload GeoJSON
-        uses: actions/upload-artifacts@v4
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.export }}.geojsonl
           path: ${{ matrix.export }}.geojsonl

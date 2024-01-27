@@ -2,7 +2,6 @@ name: Build tilemaker layers
 
 on:
   workflow_dispatch:
-  pull_request: 
 
 jobs:
   build:
@@ -53,7 +52,7 @@ jobs:
         env:
           TILEMAKER: /tmp/tilemaker
           LAYER: ${{ matrix.layer }}
-        run: ls -al && bun mapt build "$AREA".pbf $LAYER
+        run: bun mapt build "$AREA".pbf $LAYER
 
       - name: Upload PMTiles
         env:

@@ -1,0 +1,38 @@
+name: Merge PMTiles into tiles.pmtiles
+
+on:
+  workflow_dispatch:
+  pull_request: 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: Fetch binaries
+        run: ./bin/fetch-binaries
+
+      - name: Fetch PMTiles
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: aws s3 sync s3://hikes-public/layers/ . --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+
+      - name: tile-join
+        env:
+          TILEMAKER: /tmp/tilemaker
+          LAYER: ${{ matrix.layer }}
+        run: /tmp/tile-join -o tiles.pmtiles *.pmtiles
+
+      - name: Upload PMTiles
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: aws s3 cp --no-progress tiles.pmtiles s3://hikes-public/tiles.pmtiles

@@ -1,8 +1,11 @@
 -- A script to export protected areas as GeoJSONL.
 
 print('states')
+print('states2')
 local file_append = require 'file_append'
+print('file_append')
 local json = require 'json'
+print('json')
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
@@ -69,9 +72,11 @@ function get_admin_level(is_relation)
 end
 
 function node_function()
+	print('node_function')
 end
 
 function way_function()
+	print('way_function')
 end
 
 function relation_scan_function()

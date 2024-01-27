@@ -2,6 +2,7 @@ name: Merge PMTiles into tiles.pmtiles
 
 on:
   workflow_dispatch:
+  pull_request: 
 
 jobs:
   build:

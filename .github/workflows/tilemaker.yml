@@ -34,4 +34,4 @@ jobs:
       - name: Build layer
         env:
           TILEMAKER: /tmp/tilemaker
-        run: bun mapt build monaco.pbf land
+        run: ls -al && bun mapt build monaco.pbf land

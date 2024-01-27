@@ -1,0 +1,23 @@
+name: Mirror PBFs from Geofabrik
+
+on:
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      AREA: europe/monaco
+    
+    steps:
+      - name: Fetch PBF
+        run: wget "https://download.geofabrik.de/${AREA}-latest.osm.pbf" -O "$(basename $AREA)".pbf
+
+      - name: Upload PBF
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: aws s3 cp "$(basename $AREA)".pbf s3://hikes-public/pbfs/
+

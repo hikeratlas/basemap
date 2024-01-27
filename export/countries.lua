@@ -1,15 +1,9 @@
 -- A script to export protected areas as GeoJSONL.
 
-print('states')
-print('states2')
 local file_append = require 'file_append'
-print('file_append')
 local json = require 'json'
-print('json')
 
 local dump_filename = os.getenv('DUMP_FILENAME')
-
-print('dump_filename is ' .. dump_filename)
 
 way_keys = {'boundary=administrative'}
 
@@ -30,7 +24,6 @@ function build_feature(geometry, properties)
 end
 
 function dump(is_relation)
-	print('dump')
 	-- Require a name
 	local name = Find('name:en')
 	if name == '' then name = Find('name') end
@@ -61,7 +54,6 @@ function dump(is_relation)
 end
 
 function get_admin_level(is_relation)
-	print('gal')
 	local admin_level = 99
 	if is_relation then
 		admin_level = Find('admin_level')
@@ -72,15 +64,12 @@ function get_admin_level(is_relation)
 end
 
 function node_function()
-	print('node_function')
 end
 
 function way_function()
-	print('way_function')
 end
 
 function relation_scan_function()
-	print('rsf')
   if Find('boundary') == 'administrative' then
     local admin_level = get_admin_level(true)
 		-- Accept any relation with admin_level - sometimes ways are mistagged,
@@ -93,6 +82,5 @@ function relation_scan_function()
 end
 
 function relation_function()
-	print('rf')
 	dump(true)
 end

@@ -15,9 +15,9 @@ jobs:
     strategy:
       matrix:
         export: [
-          #          city-parks,
-          #          countries,
-          #          parks,
+          city-parks,
+          countries,
+          parks,
           states
         ]
     steps:
@@ -40,3 +40,9 @@ jobs:
           TILEMAKER: /tmp/tilemaker
           EXPORT: ${{ matrix.export }}
         run: ./export/export monaco.pbf $EXPORT
+
+      - name: Upload GeoJSON
+        uses: actions/upload-artifacts@v4
+        with:
+          name: ${{ matrix.export }}.geojsonl
+          path: ${{ matrix.export }}.geojsonl

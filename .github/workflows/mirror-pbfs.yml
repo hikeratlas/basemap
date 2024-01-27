@@ -12,7 +12,7 @@ jobs:
     
     steps:
       - name: Fetch PBF
-        run: wget "https://download.geofabrik.de/${AREA}-latest.osm.pbf" -O "$(basename $AREA)".pbf
+        run: wget --progress=dot:giga "https://download.geofabrik.de/${AREA}-latest.osm.pbf" -O "$(basename $AREA)".pbf
 
       - name: Upload PBF
         env:

@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+
+curl --fail --silent https://public.hikeratlas.com/bin/tile-join --output /tmp/tile-join
+chmod a+x /tmp/tile-join

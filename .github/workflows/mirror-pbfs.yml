@@ -8,7 +8,7 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     env:
-      AREA: europe/monaco
+      AREA: north-america
     
     steps:
       - name: Fetch PBF

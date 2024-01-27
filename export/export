@@ -95,7 +95,7 @@ main() {
   stock_config "${layer}" >> "${config_fname}"
 
   rm -f "${geojsonl_fname}"
-  DUMP_FILENAME="${geojsonl_fname}" tilemaker --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"
+  DUMP_FILENAME="${geojsonl_fname}" ${TILEMAKER:-tilemaker} --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"
 
 }
 

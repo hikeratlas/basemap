@@ -1,0 +1,42 @@
+name: Build tilemaker exports
+
+on: 
+#push:
+    #branches: [build-layer]
+    #  schedule:
+    #    - cron: "12 12 * * 0"
+      pull_request: 
+    #  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        export: [
+          city-parks,
+          countries,
+          parks,
+          states
+        ]
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Install deps
+        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev luajit libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev
+
+      - name: Fetch binaries
+        run: ./bin/fetch-binaries
+
+      - name: Fetch PBF
+        run: wget https://public.hikeratlas.com/pbfs/monaco.pbf
+
+      - name: Export
+        env:
+          TILEMAKER: /tmp/tilemaker
+          EXPORT: ${{ matrix.export }}
+        run: ./export/export monaco.pbf $EXPORT

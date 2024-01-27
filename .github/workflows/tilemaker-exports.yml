@@ -47,4 +47,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
           FILE: ${{ matrix.export }}
-        run: aws cp $FILE s3://hikes-public/geojsonl/$FILE
+        run: aws s3 cp $FILE s3://hikes-public/geojsonl/$FILE

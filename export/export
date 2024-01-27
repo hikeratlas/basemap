@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+set -x
 
 config_fname="export_$$.json"
 ignored_output_fname="ignored_$$.pmtiles"

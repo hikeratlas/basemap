@@ -5,7 +5,7 @@ on:
     #branches: [build-layer]
     #  schedule:
     #    - cron: "12 12 * * 0"
-  #pull_request: 
+  pull_request: 
   workflow_dispatch:
 
 jobs:
@@ -33,7 +33,7 @@ jobs:
         run: ./bin/fetch-binaries
 
       - name: Fetch PBF
-        run: wget https://public.hikeratlas.com/pbfs/monaco.pbf
+        run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/north-america.pbf
 
       - name: Export
         env:

@@ -1,7 +1,6 @@
 name: Mirror PBFs from Geofabrik
 
 on:
-  pull_request: 
   workflow_dispatch:
 
 jobs:

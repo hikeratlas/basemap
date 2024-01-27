@@ -32,4 +32,6 @@ jobs:
         run: wget https://public.hikeratlas.com/pbfs/monaco.pbf
 
       - name: Build layer
+        env:
+          TILEMAKER: /tmp/tilemaker
         run: bun mapt build monaco.pbf land

@@ -1,13 +1,14 @@
 name: Mirror PBFs from Geofabrik
 
 on:
+  pull_request: 
   workflow_dispatch:
 
 jobs:
   mirror:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
+      AREA: north-america/canada/nova-scotia
     
     steps:
       - name: Fetch PBF

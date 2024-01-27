@@ -1,11 +1,6 @@
 name: Build tilemaker exports
 
 on: 
-#push:
-    #branches: [build-layer]
-    #  schedule:
-    #    - cron: "12 12 * * 0"
-  pull_request: 
   workflow_dispatch:
 
 jobs:

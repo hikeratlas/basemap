@@ -47,4 +47,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_KEY: ${{ secrets.AWS_SECRET_KEY }}
           FILE: ${{ matrix.export }}.geojsonl
-        run: zstd -9 $FILE && aws s3 cp "$FILE".zst s3://hikes-public/geojsonl/"$FILE".zst
+        run: zstd -9 $FILE && aws s3 cp "$FILE".zst s3://hikes-public/geojsonl/"$FILE".zst --endpoint-url $AWS_ENDPOINT_URL

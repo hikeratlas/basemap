@@ -27,7 +27,7 @@ jobs:
       - uses: oven-sh/setup-bun@v1
 
       - name: Install deps
-        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev luajit libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && luarocks install luaflock
+        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev luajit libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && sudo luarocks install luaflock
 
       - name: Fetch binaries
         run: ./bin/fetch-binaries

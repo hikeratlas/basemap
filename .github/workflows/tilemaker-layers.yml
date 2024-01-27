@@ -33,7 +33,7 @@ jobs:
         run: bun rm mapt && bun add https://github.com/cldellow/mapt
 
       - name: Install deps
-        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev luajit libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev
+        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libluajit-5.1-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && sudo luarocks install luaflock
 
       - name: Fetch binaries
         run: ./bin/fetch-binaries

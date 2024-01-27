@@ -6,6 +6,8 @@ local json = require 'json'
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
+print('dump_filename is ' .. DUMP_FILENAME)
+
 way_keys = {'boundary=administrative'}
 
 function build_feature(geometry, properties)
@@ -25,6 +27,7 @@ function build_feature(geometry, properties)
 end
 
 function dump(is_relation)
+	print('dump')
 	-- Require a name
 	local name = Find('name:en')
 	if name == '' then name = Find('name') end
@@ -55,6 +58,7 @@ function dump(is_relation)
 end
 
 function get_admin_level(is_relation)
+	print('gal')
 	local admin_level = 99
 	if is_relation then
 		admin_level = Find('admin_level')
@@ -71,6 +75,7 @@ function way_function()
 end
 
 function relation_scan_function()
+	print('rsf')
   if Find('boundary') == 'administrative' then
     local admin_level = get_admin_level(true)
 		-- Accept any relation with admin_level - sometimes ways are mistagged,
@@ -83,5 +88,6 @@ function relation_scan_function()
 end
 
 function relation_function()
+	print('rf')
 	dump(true)
 end

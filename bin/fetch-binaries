@@ -5,3 +5,8 @@ curl --fail --silent https://public.hikeratlas.com/bin/tile-join --output /tmp/t
 chmod a+x /tmp/tile-join
 
 /tmp/tile-join
+
+curl --fail --silent https://public.hikeratlas.com/bin/tilemaker --output /tmp/tilemaker
+chmod a+x /tmp/tilemaker
+/tmp/tilemaker
+

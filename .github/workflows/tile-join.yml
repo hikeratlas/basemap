@@ -2,6 +2,7 @@ name: Merge PMTiles into tiles.pmtiles
 
 on:
   workflow_dispatch:
+  pull_request: 
 
 jobs:
   build:
@@ -25,7 +26,7 @@ jobs:
       - name: Fetch binaries
         run: sudo mkdir /mnt/output && sudo chown runner:docker /mnt/output && ./bin/fetch-binaries
 
-      - name: Fetch PMTiles
+      - name: Fetch tiles
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
@@ -36,12 +37,12 @@ jobs:
       - name: tile-join
         env:
           TILEMAKER: /tmp/tilemaker
-        run: /tmp/tile-join --no-tile-size-limit -o /mnt/output/tiles.pmtiles *.pmtiles
+        run: /tmp/tile-join --no-tile-size-limit -o /mnt/output/tiles.mbtiles *.mbtiles
 
-      - name: Upload PMTiles
+      - name: Upload tiles
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp --no-progress /mnt/output/tiles.pmtiles s3://hikes-public/"$AREA".pmtiles
+        run: aws s3 cp --no-progress /mnt/output/tiles.mbtiles s3://hikes-public/"$AREA".mbtiles

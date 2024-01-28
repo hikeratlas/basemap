@@ -2,13 +2,12 @@ name: Convert mbtiles to pmtiles
 
 on:
   workflow_dispatch:
-  pull_request: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: nova-scotia
+      AREA: north-america
 
     steps:
       #      - name: Maximize build space

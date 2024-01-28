@@ -2,12 +2,13 @@ name: Build tilemaker layers
 
 on:
   workflow_dispatch:
+  pull_request: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: nova-scotia
+      AREA: north-america
 
     strategy:
       matrix:
@@ -46,7 +47,7 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com && unzstd *.zst
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress && unzstd *.zst
 
 
       - name: Fetch coastline

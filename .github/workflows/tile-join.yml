@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Fetch binaries
-        run: mkdir /mnt/output && df -h && ./bin/fetch-binaries
+        run: sudo mkdir /mnt/output && df -h && ./bin/fetch-binaries
 
       - name: Fetch PMTiles
         env:
@@ -35,7 +35,7 @@ jobs:
       - name: tile-join
         env:
           TILEMAKER: /tmp/tilemaker
-        run: /tmp/tile-join --no-tile-size-limit -o /mnt/output/tiles.pmtiles *.pmtiles
+        run: sudo /tmp/tile-join --no-tile-size-limit -o /mnt/output/tiles.pmtiles *.pmtiles
 
       - name: Upload PMTiles
         env:
@@ -43,4 +43,4 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp --no-progress /mnt/output/tiles.pmtiles s3://hikes-public/tiles.pmtiles
+        run: sudo aws s3 cp --no-progress /mnt/output/tiles.pmtiles s3://hikes-public/tiles.pmtiles

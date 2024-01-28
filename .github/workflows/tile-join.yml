@@ -22,7 +22,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Fetch binaries
-        run: df -h && ./bin/fetch-binaries
+        run: mkdir /mnt/output && df -h && ./bin/fetch-binaries
 
       - name: Fetch PMTiles
         env:
@@ -30,12 +30,12 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: cd /mnt && aws s3 sync s3://hikes-public/layers/ . --no-progress --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+        run: aws s3 sync s3://hikes-public/layers/ . --no-progress --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
 
       - name: tile-join
         env:
           TILEMAKER: /tmp/tilemaker
-        run: /tmp/tile-join --no-tile-size-limit -o ./tiles.pmtiles /mnt/*.pmtiles
+        run: /tmp/tile-join --no-tile-size-limit -o /mnt/output/tiles.pmtiles *.pmtiles
 
       - name: Upload PMTiles
         env:
@@ -43,4 +43,4 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp --no-progress /mnt/tiles.pmtiles s3://hikes-public/tiles.pmtiles
+        run: aws s3 cp --no-progress /mnt/output/tiles.pmtiles s3://hikes-public/tiles.pmtiles

@@ -36,7 +36,7 @@ jobs:
         env:
           TILEMAKER: /tmp/tilemaker
           LAYER: ${{ matrix.layer }}
-        run: /tmp/tile-join --no-tile-size-limit -o tiles.pmtiles *.pmtiles
+        run: /tmp/tile-join --no-tile-size-limit -o /mnt/tiles.pmtiles *.pmtiles
 
       - name: Upload PMTiles
         env:
@@ -44,4 +44,4 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp --no-progress tiles.pmtiles s3://hikes-public/tiles.pmtiles
+        run: aws s3 cp --no-progress /mnt/tiles.pmtiles s3://hikes-public/tiles.pmtiles

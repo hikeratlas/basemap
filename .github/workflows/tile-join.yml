@@ -35,7 +35,7 @@ jobs:
       - name: tile-join
         env:
           TILEMAKER: /tmp/tilemaker
-        run: ulimit -a && ulimit -n 10240 && ulimit -a && /tmp/tile-join --no-tile-size-limit -o /mnt/tiles.pmtiles *.pmtiles
+        run: ulimit -a && ulimit -n 1048576 && ulimit -a && /tmp/tile-join --no-tile-size-limit -o /mnt/tiles.pmtiles *.pmtiles
 
       - name: Upload PMTiles
         env:

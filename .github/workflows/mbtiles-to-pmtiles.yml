@@ -32,10 +32,10 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp s3://hikes-public/"$AREA".mbtiles . --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+        run: aws s3 cp s3://hikes-public/"$AREA".mbtiles . --no-progress
 
       - name: pmtiles convert
-        run: pmtiles convert "$AREA".mbtiles /mnt/output/"$AREA".pmtiles
+        run: ./pmtiles convert "$AREA".mbtiles /mnt/output/"$AREA".pmtiles
 
       - name: Upload tiles
         env:

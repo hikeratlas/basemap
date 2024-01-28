@@ -2,6 +2,7 @@ name: Merge multiple layers
 
 on:
   workflow_dispatch:
+  pull_request: 
 
 jobs:
   build:
@@ -23,7 +24,7 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Fetch binaries
-        run: sudo mkdir /mnt/output && sudo chown runner:docker /mnt/output && ./bin/fetch-binaries
+        run: sudo mkdir /mnt/layers && sudo chown runner:docker /mnt/layers && ./bin/fetch-binaries
 
       - name: Fetch tiles
         env:
@@ -31,10 +32,10 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 sync s3://hikes-public/layers/"$AREA"/ . --no-progress
+        run: cd /mnt/layers && aws s3 sync s3://hikes-public/layers/"$AREA"/ . --no-progress
 
       - name: tile-join
-        run: /tmp/tile-join --no-tile-size-limit -o /mnt/output/tiles.mbtiles *.mbtiles
+        run: /tmp/tile-join --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
 
       - name: Upload tiles
         env:
@@ -42,4 +43,4 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp --no-progress /mnt/output/tiles.mbtiles s3://hikes-public/"$AREA".mbtiles
+        run: aws s3 cp --no-progress tiles.mbtiles s3://hikes-public/"$AREA".mbtiles

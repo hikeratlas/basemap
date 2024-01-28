@@ -30,12 +30,12 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 sync s3://hikes-public/layers/ . --no-progress --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+        run: cd /mnt && aws s3 sync s3://hikes-public/layers/ . --no-progress --endpoint-url=https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
 
       - name: tile-join
         env:
           TILEMAKER: /tmp/tilemaker
-        run: /tmp/tile-join --no-tile-size-limit -o ./tiles.pmtiles *.pmtiles
+        run: /tmp/tile-join --no-tile-size-limit -o ./tiles.pmtiles /mnt/*.pmtiles
 
       - name: Upload PMTiles
         env:

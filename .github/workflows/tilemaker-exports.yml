@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: nova-scotia
+      AREA: north-america
 
     strategy:
       matrix:
@@ -30,7 +30,7 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress && unzstd *.zst && pwd && for x in *.geojsonl; do echo $x; cat $x | jq . -rc | wc -l; done
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress && unzstd *.zst
 
       - name: Install deps
         run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libluajit-5.1-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && sudo luarocks install luaflock

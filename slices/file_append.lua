@@ -3,8 +3,6 @@
 -- tilemaker runs multiple threads, we use BSD-style file locks to synchronize
 -- writes.
 
-print('file_append')
-print(package.path)
 local flock = require "flock"
 
 local file_append = {}

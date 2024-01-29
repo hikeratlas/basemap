@@ -8,5 +8,5 @@ function finish {
 }
 trap finish EXIT
 
-bun mapt style https://public.hikeratlas.com/tiles.pmtiles > "${fname_style}"
+bun mapt style https://public.hikeratlas.com/north-america.pmtiles > "${fname_style}"
 r2cmd put --force "${fname_style}" s3://hikes-public/style.json

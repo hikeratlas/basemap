@@ -1,0 +1,80 @@
+name: Build tilemaker layers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      AREA: north-america
+      BBOX: --bbox -170,20,-48,75
+
+    strategy:
+      matrix:
+        layer: [
+          boundaries,
+          buildings,
+          land,
+          parks,
+          peaks,
+          places,
+          pois,
+          water,
+          ways
+        ]
+    steps:
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@v2
+        with:
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Install mapt
+        run: bun rm mapt && bun add https://github.com/cldellow/mapt
+
+      - name: Install deps
+        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libluajit-5.1-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && sudo luarocks install luaflock
+
+      - name: Fetch binaries
+        run: sudo mkdir /mnt/store && sudo chown runner:docker /mnt/store && ./bin/fetch-binaries
+
+      - name: Fetch PBF
+        run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/"$AREA".pbf
+
+      - name: Fetch supporting GeoJSON and QRank files
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress && unzstd *.zst
+
+
+      - name: Fetch coastline
+        if: ${{ startsWith(matrix.layer, 'boundaries') }}
+        run: wget --progress=dot:giga https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip && unzip water-polygons-split-4326.zip && mv water-polygons-split-4326 slices/coastline
+
+      - name: Build layer
+        env:
+          TILEMAKER: /tmp/tilemaker
+          LAYER: ${{ matrix.layer }}
+        run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast $BBOX
+
+      - name: Upload layer tiles
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          FILE: ${{ matrix.layer }}.mbtiles
+        run: aws s3 cp --no-progress "$FILE" s3://hikes-public/layers/"$AREA"/"$FILE"

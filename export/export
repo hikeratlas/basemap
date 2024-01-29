@@ -1,5 +1,6 @@
 #!/bin/bash
 set -euo pipefail
+set -x
 
 config_fname="export_$$.json"
 ignored_output_fname="ignored_$$.pmtiles"
@@ -95,7 +96,7 @@ main() {
   stock_config "${layer}" >> "${config_fname}"
 
   rm -f "${geojsonl_fname}"
-  DUMP_FILENAME="${geojsonl_fname}" tilemaker --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"
+  DUMP_FILENAME="${geojsonl_fname}" ${TILEMAKER:-tilemaker} --input "${pbf}" --output "${ignored_output_fname}" --config "${config_fname}" --process "${lua_fname}"
 
 }
 

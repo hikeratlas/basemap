@@ -17,6 +17,8 @@ function maybe_emit()
   local water = Find('water')
   local waterway = Find('waterway')
 
+	local id = Id()
+
 	if not (natural == 'water' or water == 'lake' or waterway == 'river' or waterway == 'stream') then return end
 
 	local isClosed = IsClosed()
@@ -50,6 +52,22 @@ function maybe_emit()
 			mz = 10
 		end
 	end
+
+	-- List of honkin' big lakes in North America, from
+	-- https://en.wikipedia.org/wiki/List_of_lakes_by_area#Geological_list
+	if id == '1206310' -- Lake Ontario
+		or id == '1205151' -- Lake Huron
+		or id == '1205149' -- Lake Michigan
+		or id == '4039486' -- Lake Superior
+		or id == '4039900' -- Lake Erie
+		or id == '2791372' -- Great Bear Lake
+		or id == '1834172' -- Great Slave Lake
+		or id == '1259563' -- Lake Winnipeg
+	then
+		mz = 4
+	end
+
+
 	local layer = 'water_line'
 	if isClosed then layer = 'water_poly' end
 
@@ -93,13 +111,16 @@ function way_function()
 	local boundary
 
 	-- If the way is only being included due to a relation, do nothing.
-	while true do
+	-- The great lakes are part of the Great Lakes relation -- so
+	-- only do these checks if we think the current object is not itself
+	-- a multipolygon relation
+	while Find('type') ~= 'multipolygon' do
 		local rel = NextRelation()
 		if not rel then break end
 
-		water = FindInRelation('water')
-		waterway = FindInRelation('waterway')
-		natural = FindInRelation('natural')
+		local water = FindInRelation('water')
+		local waterway = FindInRelation('waterway')
+		local natural = FindInRelation('natural')
 		if natural == 'water' or water == 'lake' or waterway == 'river' or waterway == 'stream' then
 			return
 		end

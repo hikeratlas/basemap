@@ -2,21 +2,22 @@ name: Build tilemaker exports
 
 on: 
   workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
+      AREA: nova-scotia
 
     strategy:
       matrix:
         export: [
 #         city-parks,
-#         countries,
+         countries
 #         parks,
 #         states
-          zindex
+#          zindex
 
         ]
     steps:

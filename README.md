@@ -1,6 +1,6 @@
 # basemap
 
-This repo has tools to generate the "basemap" that Hiker Atlas uses.
+This repo has tools to generate the "basemap" that [Hiker Atlas](https://www.hikeratlas.com/map) uses.
 
 > What's a basemap?
 >
@@ -15,7 +15,7 @@ This repo is useful for two tasks:
 
 2. Tweaking the [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/) file
 
-The two tasks depend on each other.
+The two tasks are closely related.
 
 We use [`tilemaker`](https://github.com/systemed/tilemaker) to convert a [PBF extract](https://download.geofabrik.de/) from [OpenStreetMap](https://www.openstreetmap.org/) into a `.pmtiles` file. This act translates from OSM's `relation`, `way`, and `node` entries into layers of content that the styles will render.
 

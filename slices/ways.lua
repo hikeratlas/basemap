@@ -47,6 +47,7 @@ local road_zooms = {
 local path_zooms = {
 	footway = 8,
 	bridleway = 8,
+	cycleway = 8,
 	steps = 8,
 	path = 8,
 	via_ferrata = 8
@@ -105,7 +106,7 @@ function way_function_highway(highway)
 	end
 
 	path_zoom = path_zooms[highway]
-	if path_zoom ~= nil then
+	if path_zoom ~= nil and (highway ~= 'cycleway' or Find('foot') == 'yes' or Find('foot') == 'designated') then
 		local footway = Find('footway')
 
 		-- In urban areas, sidewalks dominate.

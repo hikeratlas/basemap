@@ -7,7 +7,7 @@ local json = require 'json'
 local dump_filename = os.getenv('DUMP_FILENAME')
 
 node_keys = {'natural=peak', 'amenity=parking'}
-way_keys = {'highway=path', 'route=hiking', 'amenity=parking', 'water=lake', 'natural=water'}
+way_keys = {'highway=path', 'highway=footway', 'route=hiking', 'amenity=parking', 'water=lake', 'natural=water'}
 
 function build_feature(geometry, properties)
 	sanitized_properties = {}

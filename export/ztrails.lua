@@ -6,8 +6,18 @@ local json = require 'json'
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
-node_keys = {'natural=peak', 'amenity=parking'}
-way_keys = {'highway=path', 'highway=footway', 'route=hiking', 'amenity=parking', 'water=lake', 'natural=water'}
+node_keys = {
+	'natural=peak',
+	'amenity=parking'
+}
+way_keys = {
+	'highway=path',
+	'highway=footway',
+	'route=hiking',
+	'amenity=parking',
+--	'water=lake',
+--	'natural=water'
+}
 
 function build_feature(geometry, properties)
 	sanitized_properties = {}
@@ -25,7 +35,8 @@ function build_feature(geometry, properties)
 	}
 end
 
-function dump(is_way_or_relation)
+function dump(kind)
+	is_way_or_relation = kind == 'way' or kind == 'relation'
 	is_area = false
 	if is_way_or_relation then
 		if Find('natural') == 'water' or Find('amenity') == 'parking' then
@@ -56,6 +67,7 @@ function dump(is_way_or_relation)
 			fee=Find('fee'),
 			highway=Find('highway'),
 			historic=Find('historic'),
+			kind=kind,
 			natural=Find('natural'),
 			network=Find('network'),
 			osm_id=Id(),
@@ -79,11 +91,11 @@ function dump(is_way_or_relation)
 end
 
 function node_function()
-	dump(false)
+	dump('node')
 end
 
 function way_function()
-	dump(true)
+	dump('way')
 end
 
 function relation_scan_function()
@@ -96,5 +108,5 @@ end
 
 function relation_function()
 	local route = Find('route')
-	if route == 'hiking' then dump(true) end
+	if route == 'hiking' then dump('relation') end
 end

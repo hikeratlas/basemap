@@ -36,16 +36,19 @@ function build_feature(geometry, properties)
 end
 
 function dump(kind)
-	is_way_or_relation = kind == 'way' or kind == 'relation'
-	is_area = false
+	local is_way_or_relation = kind == 'way' or kind == 'relation'
+	local is_area = false
 	if is_way_or_relation then
 		if Find('natural') == 'water' or Find('amenity') == 'parking' then
 			is_area = true
 		end
 	end
-	-- Require a name for now; eventually we'll want to loosen this, I think.
+
+	local name_required = true
+	if Find('amenity') == 'parking' then name_required = false end
+
 	local name = Find('name')
-	if name == '' then return end
+	if name_required and name == '' then return end
 
 	print(name)
 

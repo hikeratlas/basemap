@@ -13,7 +13,7 @@ main() {
   for candidate in *.lua; do
     candidate="$(basename "${candidate}" .lua)"
 
-    if [ "$candidate" != "file_append" ] && [ "$candidate" != "json" ] && [ "$candidate" == "qrank" ]; then
+    if [ "$candidate" != "file_append" ] && [ "$candidate" != "json" ] && [ "$candidate" != "qrank" ]; then
       cd "${orig}"
       "$here"/export "${pbf}" "${candidate}"
     fi

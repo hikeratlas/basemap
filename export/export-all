@@ -10,13 +10,15 @@ main() {
   me="$(readlink -f "$0")"
   here="$(dirname "$me")"
   cd "${here}"
-  for candidate in *.lua; do
+  # Explicitly enumerate the things to export.
+  # By convention, do them in alphabetical order, things prefixed with z are handled
+  # last and may assume the existence of the previous exports, e.g. for use in
+  # FindIntersecting calls.
+  for candidate in city-parks.lua countries.lua parks.lua states.lua zindex.lua ztrails.lua; do
     candidate="$(basename "${candidate}" .lua)"
 
-    if [ "$candidate" != "file_append" ] && [ "$candidate" != "json" ] && [ "$candidate" != "qrank" ]; then
-      cd "${orig}"
-      "$here"/export "${pbf}" "${candidate}"
-    fi
+    cd "${orig}"
+    "$here"/export "${pbf}" "${candidate}"
   done
 
 }

@@ -100,4 +100,4 @@ main() {
 
 }
 
-main "$@"
+time main "$@"

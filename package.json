@@ -1,1 +1,5 @@
-{ "dependencies": { "mapt": "../mapt" } }
+{
+	"dependencies": {
+		"mapt": "git://github.com/cldellow/mapt.git#main"
+	}
+}

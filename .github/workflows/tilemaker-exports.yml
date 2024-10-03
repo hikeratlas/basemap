@@ -25,7 +25,7 @@ jobs:
 
       - name: Export
         env:
-          TILEMAKER: docker run -it --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
+          TILEMAKER: docker run -t --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
         run: ./export/export-all $AREA.pbf
 
       - name: Upload GeoJSON

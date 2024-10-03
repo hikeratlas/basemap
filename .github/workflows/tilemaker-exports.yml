@@ -7,45 +7,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
+      AREA: nova-scotia
 
-    strategy:
-      matrix:
-        export: [
-#         city-parks,
-#         countries,
-#         parks,
-#         states
-          zindex
-
-        ]
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       - name: Fetch supporting GeoJSON and QRank files
-        if: ${{ startsWith(matrix.export, 'zindex') }}
-        env:
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress && unzstd *.zst
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
 
-      - name: Install deps
-        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libluajit-5.1-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && sudo luarocks install luaflock
-
-      - name: Fetch binaries
-        run: ./bin/fetch-binaries
+      # Do this before fetching the PBF, so we fail fast if there's an issue
+      - name: Fetch Docker image
+        run: docker run -it --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
 
       - name: Fetch PBF
         run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/$AREA.pbf
 
       - name: Export
         env:
-          TILEMAKER: /tmp/tilemaker
-          EXPORT: ${{ matrix.export }}
-        run: ./export/export $AREA.pbf $EXPORT
+          TILEMAKER: docker run -it --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
+        run: ./export/export-all $AREA.pbf
 
       - name: Upload GeoJSON
         env:
@@ -53,5 +34,5 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          FILE: ${{ matrix.export }}.geojsonl
+          FILE: parks.geojsonl
         run: rm -f *.zst && zstd -9 $FILE && aws s3 cp --no-progress "$FILE".zst s3://hikes-public/geojsonl/"$FILE".zst

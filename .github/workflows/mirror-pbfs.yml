@@ -7,8 +7,9 @@ jobs:
   mirror:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america/canada/nova-scotia
-    
+      #      AREA: north-america/canada/nova-scotia
+      AREA: north-america
+
     steps:
       - name: Fetch PBF
         run: wget --progress=dot:giga "https://download.geofabrik.de/${AREA}-latest.osm.pbf" -O "$(basename $AREA)".pbf

@@ -18,14 +18,14 @@ jobs:
 
       # Do this before fetching the PBF, so we fail fast if there's an issue
       - name: Fetch Docker image
-        run: docker run -it --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
+        run: docker run --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
 
       - name: Fetch PBF
         run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/$AREA.pbf
 
       - name: Export
         env:
-          TILEMAKER: docker run -t --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
+          TILEMAKER: docker run --rm -v $(pwd):/data ghcr.io/cldellow/tilemaker:pr-4
         run: ./export/export-all $AREA.pbf
 
       - name: Upload GeoJSON

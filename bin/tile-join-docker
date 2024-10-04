@@ -5,4 +5,4 @@ exec docker run \
 	--entrypoint /usr/bin/tile-join \
 	-w $(readlink -f .) \
 	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
-	versatiles/tippecanoe
+	versatiles/tippecanoe "$@"

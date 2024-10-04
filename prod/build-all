@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+fetch_git() {
+	git clone https://github.com/hikeratlas/basemap.git
+}
+
+# A rough-and-ready script to configure a Hetzner CAX41 box to do a build
+# of the world, and publish it to R2.
+
+wget https://download.geofabrik.de/north-america/canada/nova-scotia-latest.osm.pbf
+
+apt-get update
+apt-get dist-upgrade --yes
+
+apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libluajit-5.1-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 --yes
+curl -fsSL https://bun.sh/install | bash
+ln -s ~/.bun/bin/bun /usr/bin/bun
+
+( cd basemap && bun install )
+
+( cd basemap && wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db )
+
+( cd basemap && wget --progress=dot:giga https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip && unzip water-polygons-split-4326.zip && mv water-polygons-split-4326 slices/coastline )

@@ -1,7 +1,6 @@
 #!/bin/sh
 
 exec docker run \
-	-it \
 	--rm \
 	--entrypoint /usr/bin/tile-join \
 	-w $(readlink -f .) \

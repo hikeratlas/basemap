@@ -33,4 +33,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           FILE: parks.geojsonl
-        run: for x in *.geojsonl; do zstd -9 "$x"; aws s3 cp --no-progress "$x".zst s3://hikes-public/geojsonl/"$x".zst
+        run: for x in *.geojsonl; do zstd -9 "$x"; aws s3 cp --no-progress "$x".zst s3://hikes-public/geojsonl/"$x".zst; done

@@ -14,7 +14,10 @@ main() {
   # By convention, do them in alphabetical order, things prefixed with z are handled
   # last and may assume the existence of the previous exports, e.g. for use in
   # FindIntersecting calls.
-  for candidate in city-parks.lua countries.lua parks.lua states.lua zindex.lua ztrails.lua; do
+  #
+  # NB: Don't include ztrails - it's very space inefficient and should be done at the
+  # state or national park level.
+  for candidate in city-parks.lua countries.lua parks.lua states.lua zindex.lua; do
     echo "::group::Exporting ${candidate}"
     candidate="$(basename "${candidate}" .lua)"
 

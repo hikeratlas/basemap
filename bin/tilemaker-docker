@@ -12,4 +12,4 @@ exec docker run \
 	--rm \
 	-w $(readlink -f .) \
 	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
-	ghcr.io/cldellow/tilemaker:pr-4
+	ghcr.io/cldellow/tilemaker:pr-4 "$@"

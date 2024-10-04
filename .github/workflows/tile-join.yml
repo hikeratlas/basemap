@@ -7,18 +7,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      #      AREA: north-america
-      AREA: nova-scotia
+      AREA: north-america
+      #AREA: nova-scotia
 
     steps:
-#     - name: Maximize build space
-#       uses: AdityaGarg8/remove-unwanted-software@v2
-#       with:
-#         remove-android: 'true'
-#         remove-dotnet: 'true'
-#         remove-haskell: 'true'
-#         remove-codeql: 'true'
-#         remove-docker-images: 'true'
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@v2
+        with:
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3

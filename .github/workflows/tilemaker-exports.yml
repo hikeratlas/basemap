@@ -16,18 +16,14 @@ jobs:
       - name: Fetch supporting GeoJSON and QRank files
         run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
 
-      # Do this before fetching the PBF, so we fail fast if there's an issue
-      - name: Fetch Docker image
-        env:
-          WORKING_DIR: ${{ github.workspace }}
-        run: docker run --rm -v ${WORKING_DIR}:${WORKING_DIR} ghcr.io/cldellow/tilemaker:pr-4
-
       - name: Fetch PBF
         run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/$AREA.pbf
 
       - name: Export
         env:
-          TILEMAKER: docker run --rm -v ${{ github.workspace }}:${{ github.workspace }} ghcr.io/cldellow/tilemaker:pr-4
+          # -w ${{ github.workspace }}/export is a bit gross, but is needed for Lua
+          # to resolve file imports.
+          TILEMAKER: docker run --env DUMP_FILENAME --rm -w ${{ github.workspace }}/export -v ${{ github.workspace }}:${{ github.workspace }} ghcr.io/cldellow/tilemaker:pr-4
         run: ./export/export-all $AREA.pbf
 
       - name: Upload GeoJSON

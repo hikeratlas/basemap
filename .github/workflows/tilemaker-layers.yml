@@ -60,7 +60,7 @@ jobs:
 
       - name: Build layer
         env:
-          TILEMAKER: ${{ github.workspace }}/bin/tilemaker-docker
+          TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           LAYER: ${{ matrix.layer }}
         run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast $BBOX
 

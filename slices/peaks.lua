@@ -1,6 +1,7 @@
 local debug = false
 
 node_keys = {'natural=peak'}
+way_keys = {}
 
 function init_function()
 end

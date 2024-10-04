@@ -15,10 +15,12 @@ main() {
   # last and may assume the existence of the previous exports, e.g. for use in
   # FindIntersecting calls.
   for candidate in city-parks.lua countries.lua parks.lua states.lua zindex.lua ztrails.lua; do
+    echo "::group::Exporting ${candidate}"
     candidate="$(basename "${candidate}" .lua)"
 
     cd "${orig}"
     "$here"/export "${pbf}" "${candidate}"
+    echo "::endgroup::"
   done
 
 }

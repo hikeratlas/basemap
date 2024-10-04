@@ -2,8 +2,8 @@
 set -euo pipefail
 set -x
 
-config_fname="export_$$.json"
-ignored_output_fname="ignored_$$.pmtiles"
+config_fname="$(readlink -f "export_$$.json")"
+ignored_output_fname="$(readlink -f "ignored_$$.pmtiles")"
 
 function finish {
   rm -f "${config_fname}" "${ignored_output_fname}"
@@ -75,8 +75,8 @@ EOF
 main() {
   pbf=${1:?must provide path to pbf}
   layer=${2:?must provide layer to export}
-  pbf=$(readlink -f "$pbf")
-  geojsonl_fname="$(readlink -f ${layer}.geojsonl)"
+  pbf="$(readlink -f "$pbf")"
+  geojsonl_fname="$(readlink -f "${layer}.geojsonl")"
 
   if [ ! -e "$pbf" ]; then
     echo "error: ${pbf} not found" > /dev/stderr
@@ -86,7 +86,7 @@ main() {
   me="$(readlink -f "$0")"
   here="$(dirname "$me")"
   pushd "$here"
-  lua_fname="${here}/${layer}.lua"
+  lua_fname="$(readlink -f "${here}/${layer}.lua")"
 
   if [ ! -e "$lua_fname" ]; then
     echo "error: ${lua_fname} not found" > /dev/stderr

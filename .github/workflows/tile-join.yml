@@ -32,7 +32,7 @@ jobs:
         run: sudo mkdir /mnt/layers && sudo chown runner:docker /mnt/layers && cd /mnt/layers && aws s3 sync s3://hikes-public/layers/"$AREA"/ . --no-progress
 
       - name: tile-join
-        run: /tmp/tile-join --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
+        run: ./bin/tile-join-docker --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
 
       - name: Upload tiles
         env:

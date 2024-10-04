@@ -21,9 +21,7 @@ jobs:
 
       - name: Export
         env:
-          # -w ${{ github.workspace }}/export is a bit gross, but is needed for Lua
-          # to resolve file imports.
-          TILEMAKER: docker run --env DUMP_FILENAME --rm -w ${{ github.workspace }}/export -v ${{ github.workspace }}:${{ github.workspace }} ghcr.io/cldellow/tilemaker:pr-4
+          TILEMAKER: ${{ github.workspace }}/bin/tilemaker-docker
         run: ./export/export-all $AREA.pbf
 
       - name: Upload GeoJSON

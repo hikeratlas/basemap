@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Various tools in the toolchain permit taking a TILEMAKER environment variable
+# to specify the path to tilemaker.
+#
+# We want to use a Docker image that has some custom patches. This script is a
+# thunk to invoke that image in a sane way, passing through some other env variables,
+# setting the working directory, and binding the repo root.
+
+exec docker run \
+  --env DUMP_FILENAME \
+	--rm \
+	-w $(readlink -f .) \
+	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
+	ghcr.io/cldellow/tilemaker:pr-4 "$@"

@@ -42,12 +42,6 @@ jobs:
       - name: Install mapt
         run: bun rm mapt && bun add https://github.com/cldellow/mapt
 
-      - name: Install deps
-        run: sudo apt install libboost-dev libboost-filesystem-dev libboost-iostreams-dev libboost-program-options-dev libboost-system-dev libluajit-5.1-dev libshp-dev libsqlite3-dev rapidjson-dev zlib1g-dev luarocks lua-sql-sqlite3 && sudo luarocks install luaflock
-
-      - name: Fetch binaries
-        run: sudo mkdir /mnt/store && sudo chown runner:docker /mnt/store && ./bin/fetch-binaries
-
       - name: Fetch PBF
         run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/"$AREA".pbf
 
@@ -57,7 +51,7 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/ . --no-progress && unzstd *.zst
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/$AREA/ . --no-progress && unzstd *.zst
 
 
       - name: Fetch coastline
@@ -66,7 +60,7 @@ jobs:
 
       - name: Build layer
         env:
-          TILEMAKER: /tmp/tilemaker
+          TILEMAKER: ${{ github.workspace }}/bin/tilemaker-docker
           LAYER: ${{ matrix.layer }}
         run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast $BBOX
 

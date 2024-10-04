@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: nova-scotia
+      AREA: north-america
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it

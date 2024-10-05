@@ -1,0 +1,8 @@
+#!/bin/sh
+
+exec docker run \
+	--rm \
+	-w $(readlink -f .) \
+	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
+	-v /mnt/layers:/mnt/layers \
+	protomaps/go-pmtiles:main "$@"

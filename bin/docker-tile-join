@@ -1,0 +1,9 @@
+#!/bin/sh
+
+exec docker run \
+	--rm \
+	--entrypoint /usr/bin/tile-join \
+	-w $(readlink -f .) \
+	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
+	-v /mnt/layers:/mnt/layers \
+	versatiles/tippecanoe "$@"

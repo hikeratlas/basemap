@@ -21,7 +21,7 @@ jobs:
 
       - name: Export
         env:
-          TILEMAKER: ${{ github.workspace }}/bin/tilemaker-docker
+          TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
         run: ./export/export-all $AREA.pbf
 
       - name: Upload GeoJSON

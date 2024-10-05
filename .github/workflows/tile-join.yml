@@ -38,7 +38,7 @@ jobs:
         run: df -h && rm -f /mnt/layers/*.mbtiles && ls -l /mnt/layers && df -h
 
       - name: convert to pmtiles
-        run: ./bin/docker-pmtiles convert tiles.mbtiles /mnt/layers/tiles.pmtiles
+        run: ./bin/docker-pmtiles convert --tmpdir /mnt/layers tiles.mbtiles /mnt/layers/tiles.pmtiles
 
       - name: Upload tiles
         env:

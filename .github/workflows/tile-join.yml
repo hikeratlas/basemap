@@ -7,8 +7,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
-      #AREA: nova-scotia
+      #AREA: north-america
+      AREA: nova-scotia
 
     steps:
       - name: Maximize build space
@@ -35,7 +35,7 @@ jobs:
         run: ./bin/docker-tile-join --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
 
       - name: convert to pmtiles
-        run: rm -f /mnt/layers/*.mbtiles && ./bin/docker-pmtiles convert tiles.mbtiles /mnt/layers/tiles.pmtiles
+        run: df -h && rm -f /mnt/layers/*.mbtiles && ls -l /mnt/layers && ./bin/docker-pmtiles convert tiles.mbtiles /mnt/layers/tiles.pmtiles
 
       - name: Upload tiles
         env:

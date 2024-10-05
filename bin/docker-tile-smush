@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# An alternative to tile-join. It's special cased for our scenario,
+# and is faster. It will explode if the input mbtiles have overlapping
+# layers, though.
+exec docker run \
+	--rm \
+	-w $(readlink -f .) \
+	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
+	-v /mnt/layers:/mnt/layers \
+	ghcr.io/hikeratlas/tile-smush:master "$@"

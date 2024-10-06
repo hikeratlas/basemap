@@ -92,7 +92,7 @@ function way_function_highway(highway)
 		Layer('road', false)
 		MinZoom(road_zoom)
 		Attribute('kind', highway)
-		Attribute('name', name)
+		if name ~= '' then Attribute('name', name) end
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		if name == '' then return end
@@ -130,7 +130,7 @@ function way_function_highway(highway)
 		-- - it's in a city park
 		Layer('path', false)
 		MinZoom(path_zoom)
-		Attribute('name', name)
+		if name ~= '' then Attribute('name', name) end
 		Attribute('kind', highway)
 		Attribute('bicycle', bicycle)
 		Attribute('bridge', bridge)

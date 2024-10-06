@@ -79,7 +79,7 @@ function maybe_emit()
 
 	Layer(layer, isClosed)
 	MinZoom(mz)
-	Attribute('name', name)
+	if name ~= '' then Attribute('name', name) end
 	Attribute('kind', kind)
 	Attribute('wikidata', Find('wikidata'))
 	Attribute('intermittent', Find('intermittent'))

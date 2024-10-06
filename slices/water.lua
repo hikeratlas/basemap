@@ -64,7 +64,7 @@ function maybe_emit()
 		or id == '1834172' -- Great Slave Lake
 		or id == '1259563' -- Lake Winnipeg
 	then
-		mz = 3
+		mz = 2
 	end
 
 

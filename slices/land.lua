@@ -1,6 +1,8 @@
 local debug = false
 way_keys = {'landuse', 'leisure', 'natural', 'wetland', 'tourism=camp_site'}
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 end
 
@@ -50,12 +52,12 @@ function emit(key, value)
 	local wikidata = Find('wikidata')
 	if IsClosed() then
 		Layer('land', true)
-		Attribute(key, value)
-		Attribute('wikidata', wikidata)
+		Attr(key, value)
+		Attr('wikidata', wikidata)
 	else
 		Layer('land_line', false)
-		Attribute(key, value)
-		Attribute('wikidata', wikidata)
+		Attr(key, value)
+		Attr('wikidata', wikidata)
 	end
 
 end

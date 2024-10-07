@@ -3,6 +3,8 @@ way_keys = node_keys
 
 qrank = nil
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
@@ -78,19 +80,19 @@ function maybe_emit(is_area)
 		Layer('poi')
 	end
 
-	Attribute('ford', ford)
-	Attribute('waterway', waterway)
-	Attribute('amenity', amenity)
-	Attribute('natural', natural)
-	Attribute('historic', historic)
-	Attribute('highway', highway)
-	Attribute('locker', locker)
-	Attribute('tourism', tourism)
-	Attribute('wikidata', wikidata)
-	Attribute('shelter_type', shelter_type)
-	Attribute('toilets:disposal', toilets_disposal)
-	Attribute('name', name)
-	Attribute('osm_id', Id())
+	Attr('ford', ford)
+	Attr('waterway', waterway)
+	Attr('amenity', amenity)
+	Attr('natural', natural)
+	Attr('historic', historic)
+	Attr('highway', highway)
+	Attr('locker', locker)
+	Attr('tourism', tourism)
+	Attr('wikidata', wikidata)
+	Attr('shelter_type', shelter_type)
+	Attr('toilets:disposal', toilets_disposal)
+	Attr('name', name)
+	Attr('osm_id', Id())
 end
 
 function node_function()

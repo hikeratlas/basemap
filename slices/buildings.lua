@@ -2,6 +2,8 @@ local debug = false
 
 way_keys = {'building', 'amenity=parking'}
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 end
 
@@ -27,6 +29,6 @@ function way_function()
 	if not in_park and not in_city_park then return end
 
 	Layer('building', true)
-	Attribute('amenity', amenity)
-	Attribute('building', building)
+	Attr('amenity', amenity)
+	Attr('building', building)
 end

@@ -3,6 +3,8 @@ local debug = false
 node_keys = {'natural=peak'}
 way_keys = {}
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 end
 
@@ -32,10 +34,10 @@ function node_function()
 	end
 
 	Layer('peak', false)
-	Attribute('name', name)
+	Attr('name', name)
 
 	if ele > 0 then
-		Attribute('ele', ele)
+		Attr('ele', ele)
 	end
 
 	-- TODO/CONSIDER: should we use a blend of qrank and elevation?

@@ -8,6 +8,8 @@ way_keys = node_keys
 qrank = nil
 keydb = nil
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
@@ -110,11 +112,11 @@ function maybe_emit(is_area)
 	end
 
 	MinZoom(mz)
-	Attribute('name', name)
+	Attr('name', name)
 	AttributeNumeric('rank', rank)
-	Attribute('place', place)
-	Attribute('wikidata', wikidata)
-	Attribute('osm_id', Id())
+	Attr('place', place)
+	Attr('wikidata', wikidata)
+	Attr('osm_id', Id())
 	ZOrder(rank)
 end
 

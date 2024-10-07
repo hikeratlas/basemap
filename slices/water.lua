@@ -2,6 +2,8 @@ local debug = false
 
 way_keys = {'natural=water', 'water', 'waterway'}
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 end
 
@@ -79,16 +81,16 @@ function maybe_emit()
 
 	Layer(layer, isClosed)
 	MinZoom(mz)
-	Attribute('name', name)
-	Attribute('kind', kind)
-	Attribute('wikidata', Find('wikidata'))
-	Attribute('intermittent', Find('intermittent'))
-	Attribute('seasonal', Find('seasonal'))
+	Attr('name', name)
+	Attr('kind', kind)
+	Attr('wikidata', Find('wikidata'))
+	Attr('intermittent', Find('intermittent'))
+	Attr('seasonal', Find('seasonal'))
 	if isClosed then
-		Attribute('area', area)
+		Attr('area', area)
 	end
 	if debug then
-		Attribute('osm_id', Id())
+		Attr('osm_id', Id())
 	end
 
 	if name == '' then return end
@@ -99,11 +101,11 @@ function maybe_emit()
 		Layer(name_layer, false)
 	end
 	MinZoom(mz)
-	Attribute('name', name)
-	Attribute('kind', kind)
-	Attribute('wikidata', Find('wikidata'))
+	Attr('name', name)
+	Attr('kind', kind)
+	Attr('wikidata', Find('wikidata'))
 	if debug then
-		Attribute('osm_id', Id())
+		Attr('osm_id', Id())
 	end
 end
 

@@ -2,6 +2,8 @@ local debug = false
 
 qrank = nil
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
@@ -91,15 +93,15 @@ function way_function_highway(highway)
 		end
 		Layer('road', false)
 		MinZoom(road_zoom)
-		Attribute('kind', highway)
-		Attribute('name', name)
+		Attr('kind', highway)
+		Attr('name', name)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		if name == '' then return end
 		Layer('road_name', false)
 		MinZoom(road_zoom)
-		Attribute('name', name)
-		Attribute('kind', highway)
+		Attr('name', name)
+		Attr('kind', highway)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		return
@@ -130,30 +132,30 @@ function way_function_highway(highway)
 		-- - it's in a city park
 		Layer('path', false)
 		MinZoom(path_zoom)
-		Attribute('name', name)
-		Attribute('kind', highway)
-		Attribute('bicycle', bicycle)
-		Attribute('bridge', bridge)
-		Attribute('foot', foot)
-		Attribute('segregated', segregated)
-		Attribute('surface', surface)
-		Attribute('canoe', canoe)
+		Attr('name', name)
+		Attr('kind', highway)
+		Attr('bicycle', bicycle)
+		Attr('bridge', bridge)
+		Attr('foot', foot)
+		Attr('segregated', segregated)
+		Attr('surface', surface)
+		Attr('canoe', canoe)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		if debug then
-			Attribute('osm_id', Id())
+			Attr('osm_id', Id())
 		end
 		if name == '' then return end
 		Layer('path_name', false)
 		MinZoom(path_zoom)
-		Attribute('name', name)
-		Attribute('kind', highway)
-		Attribute('bicycle', bicycle)
-		Attribute('bridge', bridge)
-		Attribute('foot', foot)
-		Attribute('segregated', segregated)
-		Attribute('surface', surface)
-		Attribute('canoe', canoe)
+		Attr('name', name)
+		Attr('kind', highway)
+		Attr('bicycle', bicycle)
+		Attr('bridge', bridge)
+		Attr('foot', foot)
+		Attr('segregated', segregated)
+		Attr('surface', surface)
+		Attr('canoe', canoe)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		return

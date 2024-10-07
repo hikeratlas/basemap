@@ -1,5 +1,7 @@
 way_keys = {'boundary=administrative'}
 
+local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
+
 function init_function()
 end
 
@@ -59,11 +61,11 @@ function way_function()
 		MinZoom(3)
 	end
 	if debug then
-		Attribute('name', name)
-		Attribute('short_name', short_name)
-		Attribute('osm_id', Id())
+		Attr('name', name)
+		Attr('short_name', short_name)
+		Attr('osm_id', Id())
 	end
-	Attribute('kind', kind)
+	Attr('kind', kind)
 	AttributeBoolean('maritime', Find('maritime') == 'yes')
 end
 
@@ -92,8 +94,8 @@ function relation_function()
 		MinZoom(3)
 	end
 
-	Attribute('name', Find('name'))
-	Attribute('short_name', Find('short_name'))
-	Attribute('kind', kind)
-	Attribute('osm_id', Id())
+	Attr('name', Find('name'))
+	Attr('short_name', Find('short_name'))
+	Attr('kind', kind)
+	Attr('osm_id', Id())
 end

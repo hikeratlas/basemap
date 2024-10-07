@@ -92,11 +92,8 @@ function relation_function()
 		MinZoom(3)
 	end
 
-	local name = Find('name')
-	if name ~= '' then Attribute('name', name) end
-
-	local short_name = Find('short_name')
-	if short_name ~= '' then Attribute('short_name', short_name) end
+	Attribute('name', Find('name'))
+	Attribute('short_name', Find('short_name'))
 	Attribute('kind', kind)
 	Attribute('osm_id', Id())
 end

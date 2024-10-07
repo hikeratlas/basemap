@@ -89,7 +89,7 @@ function maybe_emit(is_area)
 	Attribute('wikidata', wikidata)
 	Attribute('shelter_type', shelter_type)
 	Attribute('toilets:disposal', toilets_disposal)
-	if name ~= '' then Attribute('name', name) end
+	Attribute('name', name)
 	Attribute('osm_id', Id())
 end
 

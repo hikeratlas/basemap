@@ -1,4 +1,4 @@
-node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural', 'highway=trailhead'}
+node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural=spring', 'highway=trailhead'}
 way_keys = node_keys
 
 qrank = nil

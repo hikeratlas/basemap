@@ -130,25 +130,3 @@ function way_function()
 
 	maybe_emit()
 end
-
-function relation_scan_function()
-  local water = Find('water')
-  local waterway = Find('waterway')
-  local natural = Find('natural')
-
-	if natural == 'water' or water == 'lake' or waterway == 'river' or waterway == 'stream' then
-		Accept()
-	end
-end
-
-function relation_function()
-  local id = Id()
-
-	-- Ignore some broken relations.
-	if id == '11538224' then return end
-	if id == '12180623' then return end
-	if id == '6495680' then return end
-	if id == '6535292' then return end -- Tongass National Park
-
-	maybe_emit()
-end

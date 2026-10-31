@@ -86,3 +86,4 @@ Unless otherwise noted, this repository is licensed under Apache 2.0. The artifa
 # Miscellaneous resources
 
 - https://osmlanduse.org/ helps identify the landuse OSM object in a given range. (I found OSM's Query Features action often omitted landcover polygons.)
+

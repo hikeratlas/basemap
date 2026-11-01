@@ -1,7 +1,18 @@
 name: Build tilemaker exports
 
-on: 
+on:
   workflow_dispatch:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        default: north-america
+  workflow_call:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        required: true
 
 jobs:
   # The exports that don't depend on any other export run in parallel. Keep
@@ -9,7 +20,7 @@ jobs:
   export:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
+      AREA: ${{ inputs.area }}
 
     strategy:
       matrix:
@@ -58,6 +69,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
       # Fetch from R2 directly with many concurrent ranged GETs; a single wget
       # stream over the public URL tops out around 70 MB/s.
       - name: Fetch PBF
@@ -89,6 +109,10 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  # When this workflow is called from another one, job names are prefixed
+  # with the caller's job, e.g. "exports / export (parks)"; the wait step
+  # below accounts for that.
+  #
   # zindex uses FindIntersecting against the other exports. Rather than
   # `needs: export`, it starts at the same time so that its PBF download
   # overlaps with the other exports, then waits for them before running.
@@ -100,7 +124,7 @@ jobs:
       actions: read
       contents: read
     env:
-      AREA: north-america
+      AREA: ${{ inputs.area }}
       # Must match the number of entries in the export job's matrix.
       EXPECTED_EXPORTS: 4
 
@@ -147,6 +171,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
       - name: Fetch QRank file
         run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
 
@@ -175,7 +208,7 @@ jobs:
         run: |
           while true; do
             jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
-              --jq '.jobs[] | select(.name | startswith("export (")) | [.name, .status, (.conclusion // "")] | @tsv') || {
+              --jq '.jobs[] | select(.name | test("(^|/ )export \\(")) | [.name, .status, (.conclusion // "")] | @tsv') || {
               echo "GitHub API request failed; retrying"
               sleep 30
               continue

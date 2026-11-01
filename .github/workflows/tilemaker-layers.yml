@@ -2,13 +2,23 @@ name: Build tilemaker layers
 
 on:
   workflow_dispatch:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        default: north-america
+  workflow_call:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
-      BBOX: --bbox -170,20,-48,75
+      AREA: ${{ inputs.area }}
 
     strategy:
       matrix:
@@ -70,6 +80,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
       - uses: oven-sh/setup-bun@v1
 
       - name: Install mapt
@@ -110,7 +129,8 @@ jobs:
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           LAYER: ${{ matrix.layer }}
-        run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast $BBOX
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"}
 
       - name: Upload layer tiles
         env:

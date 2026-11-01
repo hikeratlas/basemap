@@ -2,13 +2,17 @@ name: Mirror PBFs from Geofabrik
 
 on:
   workflow_dispatch:
+    inputs:
+      area:
+        description: Area to mirror; must be a key in areas.json
+        type: string
+        default: north-america
 
 jobs:
   mirror:
     runs-on: ubuntu-latest
     env:
-      #      AREA: north-america/canada/nova-scotia
-      AREA: north-america
+      AREA: ${{ inputs.area }}
 
     steps:
       - name: Runner diagnostics
@@ -50,8 +54,21 @@ jobs:
             echo "| Disk /mnt | $(df -h /mnt 2>/dev/null | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - uses: actions/checkout@v3
+
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
       - name: Fetch PBF
-        run: wget --progress=dot:giga "https://download.geofabrik.de/${AREA}-latest.osm.pbf" -O "$(basename $AREA)".pbf
+        env:
+          GEOFABRIK: ${{ steps.area.outputs.geofabrik }}
+        run: wget --progress=dot:giga "https://download.geofabrik.de/${GEOFABRIK}-latest.osm.pbf" -O "$AREA".pbf
 
       - name: Upload PBF
         env:
@@ -59,5 +76,5 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: aws s3 cp --no-progress "$(basename $AREA)".pbf s3://hikes-public/pbfs/
+        run: aws s3 cp --no-progress "$AREA".pbf s3://hikes-public/pbfs/
 

@@ -2,13 +2,23 @@ name: Merge multiple layers
 
 on:
   workflow_dispatch:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        default: north-america
+  workflow_call:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        required: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
-      #AREA: nova-scotia
+      AREA: ${{ inputs.area }}
 
     steps:
       - name: Runner diagnostics
@@ -50,7 +60,21 @@ jobs:
             echo "| Disk /mnt | $(df -h /mnt 2>/dev/null | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
+      # Only large areas need this: it takes ~3 minutes.
       - name: Maximize build space
+        if: steps.area.outputs.free_disk == 'true'
         uses: AdityaGarg8/remove-unwanted-software@v5.1
         with:
           remove-android: 'true'
@@ -61,9 +85,6 @@ jobs:
           remove-large-packages: 'true'
           remove-cached-tools: 'true'
           remove-swapfile: 'true'
-
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
 
       - name: Fetch tiles
         env:

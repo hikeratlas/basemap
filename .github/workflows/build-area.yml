@@ -1,0 +1,49 @@
+name: Build area
+
+# Runs the whole pipeline (exports -> layers -> tile-join) for one area.
+#
+# Every push to main rebuilds the small nova-scotia area, for a fast feedback
+# loop. Other areas, including north-america, can be built by hand.
+#
+# Each area's outputs live under its own name in R2, so builds of different
+# areas don't interfere:
+#   geojsonl/<area>/, layers/<area>/, <area>.pmtiles
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        default: nova-scotia
+
+# One build per area at a time. A newer push supersedes an in-progress push
+# build; manual builds queue instead of being cancelled.
+concurrency:
+  group: build-area-${{ inputs.area || 'nova-scotia' }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  exports:
+    uses: ./.github/workflows/tilemaker-exports.yml
+    with:
+      area: ${{ inputs.area || 'nova-scotia' }}
+    secrets: inherit
+
+  layers:
+    needs: exports
+    uses: ./.github/workflows/tilemaker-layers.yml
+    with:
+      area: ${{ inputs.area || 'nova-scotia' }}
+    secrets: inherit
+
+  tile-join:
+    needs: layers
+    uses: ./.github/workflows/tile-join.yml
+    with:
+      area: ${{ inputs.area || 'nova-scotia' }}
+    secrets: inherit

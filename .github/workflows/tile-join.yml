@@ -12,13 +12,16 @@ jobs:
 
     steps:
       - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v2
+        uses: AdityaGarg8/remove-unwanted-software@v5.1
         with:
           remove-android: 'true'
           remove-dotnet: 'true'
           remove-haskell: 'true'
           remove-codeql: 'true'
           remove-docker-images: 'true'
+          remove-large-packages: 'true'
+          remove-cached-tools: 'true'
+          remove-swapfile: 'true'
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
@@ -33,7 +36,14 @@ jobs:
 
       - name: tile-join
         #run: ./bin/docker-tile-join --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
-        run: ./bin/docker-tile-smush /mnt/layers/*.mbtiles
+        run: |
+          df -h /
+          du -sh /mnt/layers
+          rv=0
+          ./bin/docker-tile-smush /mnt/layers/*.mbtiles || rv=$?
+          df -h /
+          ls -l merged.mbtiles* || true
+          exit $rv
 
       - name: Free up space
         run: df -h && rm -f /mnt/layers/*.mbtiles && ls -l /mnt/layers && df -h

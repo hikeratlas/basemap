@@ -162,7 +162,7 @@ jobs:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           LAYER: ${{ matrix.layer }}
           BBOX: ${{ steps.area.outputs.bbox }}
-        run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"}
+        run: bun mapt build "$AREA".pbf $LAYER -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"}
 
       - name: Upload layer tiles
         env:
@@ -174,7 +174,7 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           AWS_RETRY_MODE: adaptive
           AWS_MAX_ATTEMPTS: 10
-          FILE: ${{ matrix.layer }}.mbtiles
+          FILE: ${{ matrix.layer }}.pmtiles
         run: |
           aws configure set default.s3.multipart_chunksize 128MB
           for i in 1 2 3 4; do

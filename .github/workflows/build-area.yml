@@ -4,7 +4,8 @@ name: Build area
 #
 # - Every push to main rebuilds nova-scotia into the "nova-scotia" namespace.
 # - Every PR rebuilds nova-scotia into its own "pr-<number>/nova-scotia"
-#   namespace, so PRs don't clobber main or each other.
+#   namespace, so PRs don't clobber main or each other. When the PR is
+#   closed or merged, its outputs are deleted from R2.
 # - Any area, including north-america, can be built by hand.
 #
 # Outputs go to R2 under the namespace (which defaults to the area name):
@@ -16,6 +17,7 @@ on:
     paths-ignore:
       - '**.md'
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     paths-ignore:
       - '**.md'
   workflow_dispatch:
@@ -30,7 +32,8 @@ on:
         default: ''
 
 # One build per namespace at a time. A newer push or PR update supersedes an
-# in-progress build; manual builds queue instead of being cancelled.
+# in-progress build, and closing a PR cancels its build before cleaning up;
+# manual builds queue instead of being cancelled.
 concurrency:
   group: >-
     build-area-${{
@@ -42,10 +45,12 @@ concurrency:
 
 jobs:
   config:
-    # PRs from forks don't get the R2 secrets, so skip them.
+    # PRs from forks don't get the R2 secrets, so skip them. Closed PRs are
+    # handled by the cleanup job instead.
     if: >-
       github.event_name != 'pull_request'
-      || github.event.pull_request.head.repo.full_name == github.repository
+      || (github.event.pull_request.head.repo.full_name == github.repository
+          && github.event.action != 'closed')
     runs-on: ubuntu-latest
     outputs:
       area: ${{ steps.config.outputs.area }}
@@ -88,3 +93,25 @@ jobs:
       area: ${{ needs.config.outputs.area }}
       namespace: ${{ needs.config.outputs.namespace }}
     secrets: inherit
+
+  cleanup:
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.action == 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - name: Delete this PR's outputs from R2
+        # The trailing slashes matter: pr-4/ must not match pr-41/.
+        run: |
+          for prefix in "geojsonl/pr-$PR/" "layers/pr-$PR/" "pr-$PR/"; do
+            echo "Deleting s3://hikes-public/$prefix"
+            aws s3 rm --recursive --no-progress "s3://hikes-public/$prefix"
+          done
+          echo "Deleted R2 outputs for PR #$PR" >> "$GITHUB_STEP_SUMMARY"

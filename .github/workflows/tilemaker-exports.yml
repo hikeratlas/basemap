@@ -273,7 +273,11 @@ jobs:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
         run: ls -l *.geojsonl && ./export/export $AREA.pbf zindex
 
-      - uses: oven-sh/setup-bun@v1
+      # A pinned version lets setup-bun use its cache; "latest" downloads from
+      # bun.sh every time, which once took 2.5 minutes of retries after a 522.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
       # Build the search index from zindex.geojsonl, so the website's search can
       # query this build with ?build=<namespace>. Uploaded alongside the

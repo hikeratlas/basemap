@@ -105,7 +105,11 @@ jobs:
           fi
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
-      - uses: oven-sh/setup-bun@v1
+      # A pinned version lets setup-bun use its cache; "latest" downloads from
+      # bun.sh every time, which once took 2.5 minutes of retries after a 522.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
 
       - name: Install mapt
         run: bun rm mapt && bun add https://github.com/cldellow/mapt

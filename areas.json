@@ -6,7 +6,7 @@
   },
   "nova-scotia": {
     "geofabrik": "north-america/canada/nova-scotia",
-    "bbox": "",
+    "bbox": "-67.5129699,42.01893,-58.22593,47.42182",
     "free_disk": false
   }
 }

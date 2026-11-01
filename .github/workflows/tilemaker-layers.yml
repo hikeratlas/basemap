@@ -131,8 +131,24 @@ jobs:
         run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync "s3://hikes-public/geojsonl/$NAMESPACE/" . --no-progress && unzstd *.zst
 
 
-      - name: Fetch coastline
+      # The coastline is an 865MB zip from osmdata.openstreetmap.de that downloads
+      # at ~20 MB/s and takes ~10s to unzip, so cache the unzipped shapefiles.
+      # The upstream data changes daily; keying by ISO week refreshes it weekly.
+      - name: Compute coastline cache key
         if: ${{ startsWith(matrix.layer, 'boundaries') }}
+        id: coastline-key
+        run: echo "week=$(date -u +%G-W%V)" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Restore cached coastline
+        if: ${{ startsWith(matrix.layer, 'boundaries') }}
+        id: coastline-cache
+        uses: actions/cache@v4
+        with:
+          path: slices/coastline
+          key: coastline-${{ steps.coastline-key.outputs.week }}
+
+      - name: Fetch coastline
+        if: ${{ startsWith(matrix.layer, 'boundaries') && steps.coastline-cache.outputs.cache-hit != 'true' }}
         run: wget --progress=dot:giga https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip && unzip water-polygons-split-4326.zip && mv water-polygons-split-4326 slices/coastline
 
       - name: Build layer

@@ -55,8 +55,23 @@ jobs:
       - name: Fetch supporting GeoJSON and QRank files
         run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
 
+      # Fetch from R2 directly with many concurrent ranged GETs; a single wget
+      # stream over the public URL tops out around 70 MB/s.
       - name: Fetch PBF
-        run: wget --progress=dot:giga https://public.hikeratlas.com/pbfs/$AREA.pbf
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_RETRY_MODE: adaptive
+          AWS_MAX_ATTEMPTS: 10
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          start=$(date +%s)
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.pbf" "$AREA.pbf"
+          secs=$(( $(date +%s) - start ))
+          echo "Downloaded $(( $(stat -c %s "$AREA.pbf") / 1048576 )) MiB in ${secs}s"
 
       - name: Export
         env:

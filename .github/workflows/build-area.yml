@@ -94,6 +94,35 @@ jobs:
       namespace: ${{ needs.config.outputs.namespace }}
     secrets: inherit
 
+  # Post (or update) a PR comment linking to the website preview of this build.
+  comment:
+    needs: [config, tile-join]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      NAMESPACE: ${{ needs.config.outputs.namespace }}
+      SHA: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - name: Comment with preview link
+        run: |
+          marker='<!-- build-area-preview -->'
+          body="$marker
+          **Preview of ${SHA:0:7}:** https://www.hikeratlas.com/map?build=$NAMESPACE
+
+          Tiles: https://public.hikeratlas.com/$NAMESPACE.pmtiles
+          Style: https://public.hikeratlas.com/$NAMESPACE.style.json"
+          id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
+            --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
+          fi
+
   cleanup:
     if: >-
       github.event_name == 'pull_request'

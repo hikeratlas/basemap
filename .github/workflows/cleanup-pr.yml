@@ -1,0 +1,43 @@
+name: Clean up PR outputs
+
+# Deletes a PR's build outputs from R2: geojsonl/pr-N/, layers/pr-N/, pr-N/.
+#
+# build-area.yml calls this when a PR is closed or merged. It can also be run
+# by hand, e.g. to clean up after a cleanup that failed.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: PR number whose R2 outputs to delete
+        type: number
+        required: true
+  workflow_call:
+    inputs:
+      pr:
+        type: number
+        required: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      PR: ${{ inputs.pr }}
+    steps:
+      - name: Delete the PR's outputs from R2
+        # The trailing slashes matter: pr-4/ must not match pr-41/.
+        # (aws s3 rm has no --no-progress option, unlike cp and sync.)
+        run: |
+          if ! [[ "$PR" =~ ^[0-9]+$ ]]; then
+            echo "::error::Invalid PR number '$PR'"
+            exit 1
+          fi
+          for prefix in "geojsonl/pr-$PR/" "layers/pr-$PR/" "pr-$PR/"; do
+            echo "Deleting s3://hikes-public/$prefix"
+            aws s3 rm --recursive "s3://hikes-public/$prefix"
+          done
+          echo "Deleted R2 outputs for PR #$PR" >> "$GITHUB_STEP_SUMMARY"

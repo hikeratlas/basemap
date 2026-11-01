@@ -7,12 +7,20 @@ on:
         description: Area to build; must be a key in areas.json
         type: string
         default: north-america
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
   workflow_call:
     inputs:
       area:
         description: Area to build; must be a key in areas.json
         type: string
         required: true
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
 
 jobs:
   # The exports that don't depend on any other export run in parallel. Keep
@@ -21,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       AREA: ${{ inputs.area }}
+      # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
 
     strategy:
       matrix:
@@ -125,6 +135,8 @@ jobs:
       contents: read
     env:
       AREA: ${{ inputs.area }}
+      # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
       # Must match the number of entries in the export job's matrix.
       EXPECTED_EXPORTS: 4
 
@@ -245,4 +257,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           FILE: parks.geojsonl
-        run: for x in *.geojsonl; do zstd -9 "$x"; aws s3 cp --no-progress "$x".zst s3://hikes-public/geojsonl/"$AREA"/"$x".zst; done
+        run: for x in *.geojsonl; do zstd -9 "$x"; aws s3 cp --no-progress "$x".zst s3://hikes-public/geojsonl/"$NAMESPACE"/"$x".zst; done

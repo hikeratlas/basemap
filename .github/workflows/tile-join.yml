@@ -7,18 +7,28 @@ on:
         description: Area to build; must be a key in areas.json
         type: string
         default: north-america
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
   workflow_call:
     inputs:
       area:
         description: Area to build; must be a key in areas.json
         type: string
         required: true
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
       AREA: ${{ inputs.area }}
+      # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
 
     steps:
       - name: Runner diagnostics
@@ -92,7 +102,7 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: sudo mkdir /mnt/layers && sudo chown runner:docker /mnt/layers && cd /mnt/layers && aws s3 sync s3://hikes-public/layers/"$AREA"/ . --no-progress
+        run: sudo mkdir /mnt/layers && sudo chown runner:docker /mnt/layers && cd /mnt/layers && aws s3 sync s3://hikes-public/layers/"$NAMESPACE"/ . --no-progress
 
       - name: tile-join
         #run: ./bin/docker-tile-join --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
@@ -126,5 +136,6 @@ jobs:
           aws configure set default.s3.multipart_chunksize 128MB
           ls -l /mnt/layers/tiles.pmtiles
           start=$(date +%s)
-          aws s3 cp --no-progress /mnt/layers/tiles.pmtiles s3://hikes-public/"$AREA".pmtiles
+          aws s3 cp --no-progress /mnt/layers/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
           echo "Uploaded in $(( $(date +%s) - start ))s"
+          echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"

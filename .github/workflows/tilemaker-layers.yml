@@ -2,13 +2,33 @@ name: Build tilemaker layers
 
 on:
   workflow_dispatch:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        default: north-america
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        required: true
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
 
 jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      AREA: north-america
-      BBOX: --bbox -170,20,-48,75
+      AREA: ${{ inputs.area }}
+      # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
 
     strategy:
       matrix:
@@ -70,6 +90,15 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
       - uses: oven-sh/setup-bun@v1
 
       - name: Install mapt
@@ -99,7 +128,7 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync s3://hikes-public/geojsonl/$AREA/ . --no-progress && unzstd *.zst
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync "s3://hikes-public/geojsonl/$NAMESPACE/" . --no-progress && unzstd *.zst
 
 
       - name: Fetch coastline
@@ -110,7 +139,8 @@ jobs:
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           LAYER: ${{ matrix.layer }}
-        run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast $BBOX
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: bun mapt build "$AREA".pbf $LAYER --mbtiles -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"}
 
       - name: Upload layer tiles
         env:
@@ -126,7 +156,7 @@ jobs:
         run: |
           aws configure set default.s3.multipart_chunksize 128MB
           for i in 1 2 3 4; do
-            aws s3 cp --no-progress "$FILE" "s3://hikes-public/layers/$AREA/$FILE" && exit 0
+            aws s3 cp --no-progress "$FILE" "s3://hikes-public/layers/$NAMESPACE/$FILE" && exit 0
             echo "Upload attempt $i failed; retrying in $((i*30))s"
             sleep $((i*30))
           done

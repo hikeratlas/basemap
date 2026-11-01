@@ -170,6 +170,9 @@ jobs:
   deploy-search:
     needs: build
     if: (inputs.namespace || inputs.area) == 'north-america'
+    permissions:
+      contents: read
+      id-token: write  # deploy-search logs in to AWS with OIDC
     uses: ./.github/workflows/deploy-search.yml
     with:
       namespace: north-america

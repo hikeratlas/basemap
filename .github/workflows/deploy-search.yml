@@ -11,9 +11,11 @@ name: Deploy search index
 # tile-join.yml calls this after a north-america build, so search goes live
 # with the tiles. It can also be run by hand.
 #
-# Needs repo secrets for an AWS IAM user allowed lambda:GetFunction,
-# lambda:GetFunctionConfiguration and lambda:UpdateFunctionCode on ha-search:
-# SEARCH_AWS_ACCESS_KEY_ID and SEARCH_AWS_SECRET_ACCESS_KEY.
+# AWS access is via GitHub's OIDC integration: the SEARCH_AWS_ROLE_ARN secret
+# names an IAM role allowed lambda:GetFunction, lambda:GetFunctionConfiguration
+# and lambda:UpdateFunctionCode on ha-search. Its trust policy only accepts
+# runs of hikeratlas/basemap on main, so this fails when run from any other
+# branch. Callers must grant `id-token: write`.
 
 on:
   workflow_dispatch:
@@ -44,6 +46,9 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # for the AWS OIDC login
     # Never run two deploys at once: each one rewrites the whole function.
     concurrency:
       group: deploy-search
@@ -51,14 +56,14 @@ jobs:
     steps:
       - name: Check inputs and secrets
         env:
-          HAS_KEY: ${{ secrets.SEARCH_AWS_ACCESS_KEY_ID != '' && secrets.SEARCH_AWS_SECRET_ACCESS_KEY != '' }}
+          HAS_ROLE: ${{ secrets.SEARCH_AWS_ROLE_ARN != '' }}
         run: |
           if ! [[ "$NAMESPACE" =~ ^[a-z0-9-]+(/[a-z0-9-]+)?$ ]]; then
             echo "::error::Invalid namespace '$NAMESPACE'"
             exit 1
           fi
-          if [ "$HAS_KEY" != true ]; then
-            echo "::error::SEARCH_AWS_ACCESS_KEY_ID and SEARCH_AWS_SECRET_ACCESS_KEY secrets are not set"
+          if [ "$HAS_ROLE" != true ]; then
+            echo "::error::The SEARCH_AWS_ROLE_ARN secret is not set"
             exit 1
           fi
 
@@ -72,11 +77,17 @@ jobs:
           AWS_REGION: auto
         run: aws s3 cp --no-progress "s3://hikes-public/$NAMESPACE.autosuggest.db" new.db
 
+      # This exports temporary AWS credentials (including AWS_SESSION_TOKEN)
+      # to every later step, so it must come after the R2 step above.
+      - name: Log in to AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.SEARCH_AWS_ROLE_ARN }}
+          role-session-name: deploy-search-${{ github.run_id }}
+          aws-region: us-east-1
+
       - name: Download the deployed function
         id: current
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SEARCH_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SEARCH_AWS_SECRET_ACCESS_KEY }}
         run: |
           aws lambda get-function --function-name "$FUNCTION" > function.json
           # The revision ID lets the upload fail, rather than clobber, if
@@ -136,8 +147,6 @@ jobs:
       - name: Upload the function
         if: steps.swap.outputs.changed == 'true'
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.SEARCH_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.SEARCH_AWS_SECRET_ACCESS_KEY }}
           REVISION: ${{ steps.current.outputs.revision }}
           OLD: ${{ steps.swap.outputs.old }}
           NEW: ${{ steps.swap.outputs.new }}

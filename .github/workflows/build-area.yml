@@ -88,6 +88,11 @@ jobs:
 
   tile-join:
     needs: [config, layers]
+    # tile-join calls deploy-search for north-america builds, which logs in to
+    # AWS with OIDC. A called workflow can't have more permissions than this.
+    permissions:
+      contents: read
+      id-token: write
     uses: ./.github/workflows/tile-join.yml
     with:
       area: ${{ needs.config.outputs.area }}

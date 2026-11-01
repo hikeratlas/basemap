@@ -145,6 +145,10 @@ function relation_scan_function()
 end
 
 function relation_function()
+	-- Tongass National Forest: polylabel, FindIntersecting and GeoJSON on its
+	-- huge geometry took ~23 minutes. Skip it until tilemaker handles it faster.
+	if Id() == '6535292' then return end
+
   local boundary = Find('boundary')
   local leisure = Find('leisure')
   local landuse = Find('landuse')

@@ -229,12 +229,23 @@ jobs:
         timeout-minutes: 60
         env:
           GH_TOKEN: ${{ github.token }}
+        # Polls with Fibonacci backoff (1, 1, 2, 3, 5, ... capped at 30s): small
+        # areas' exports finish within seconds of this job reaching here, while
+        # north-america's take many minutes.
         run: |
+          prev=0
+          delay=1
+          backoff() {
+            sleep "$delay"
+            next=$(( prev + delay ))
+            prev=$delay
+            delay=$(( next < 30 ? next : 30 ))
+          }
           while true; do
             jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
               --jq '.jobs[] | select(.name | test("(^|/ )export \\(")) | [.name, .status, (.conclusion // "")] | @tsv') || {
               echo "GitHub API request failed; retrying"
-              sleep 30
+              backoff
               continue
             }
             failed=$(awk -F'\t' '$2 == "completed" && $3 != "success"' <<< "$jobs")
@@ -248,7 +259,7 @@ jobs:
             if [ "$done_count" -ge "$EXPECTED_EXPORTS" ]; then
               break
             fi
-            sleep 30
+            backoff
           done
 
       - name: Fetch other exports

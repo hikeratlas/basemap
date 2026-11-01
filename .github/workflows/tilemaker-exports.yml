@@ -262,6 +262,28 @@ jobs:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
         run: ls -l *.geojsonl && ./export/export $AREA.pbf zindex
 
+      - uses: oven-sh/setup-bun@v1
+
+      # Build the search index from zindex.geojsonl, so the website's search can
+      # query this build with ?build=<namespace>. Uploaded alongside the
+      # GeoJSON below.
+      - name: Build autosuggest DB
+        run: |
+          bun bin/create-autosuggest-db.ts
+          items=$(python3 -c "import sqlite3; print(sqlite3.connect('autosuggest.db').execute('select count(*) from items').fetchone()[0])")
+          echo "$items items, $(stat -c %s autosuggest.db) bytes"
+
+      - name: Upload autosuggest DB
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 cp --no-progress --content-type application/vnd.sqlite3 \
+            autosuggest.db "s3://hikes-public/$NAMESPACE.autosuggest.db"
+          echo "Published https://public.hikeratlas.com/$NAMESPACE.autosuggest.db" | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Upload GeoJSON
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com

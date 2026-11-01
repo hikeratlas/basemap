@@ -4,10 +4,16 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  # The exports that don't depend on any other export run in parallel. Keep
+  # this list in sync with export/export-all.
+  export:
     runs-on: ubuntu-latest
     env:
       AREA: north-america
+
+    strategy:
+      matrix:
+        export: [city-parks, countries, parks, states]
 
     steps:
       - name: Runner diagnostics
@@ -52,9 +58,6 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
-      - name: Fetch supporting GeoJSON and QRank files
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
-
       # Fetch from R2 directly with many concurrent ranged GETs; a single wget
       # stream over the public URL tops out around 70 MB/s.
       - name: Fetch PBF
@@ -76,7 +79,131 @@ jobs:
       - name: Export
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
-        run: ./export/export-all $AREA.pbf
+          EXPORT: ${{ matrix.export }}
+        run: ./export/export $AREA.pbf "$EXPORT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: geojsonl-${{ matrix.export }}
+          path: ${{ matrix.export }}.geojsonl
+          if-no-files-found: error
+          retention-days: 1
+
+  # zindex uses FindIntersecting against the other exports. Rather than
+  # `needs: export`, it starts at the same time so that its PBF download
+  # overlaps with the other exports, then waits for them before running.
+  # It also uploads all of the exports, so R2 is only updated if every export
+  # succeeded.
+  zindex:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    env:
+      AREA: north-america
+      # Must match the number of entries in the export job's matrix.
+      EXPECTED_EXPORTS: 4
+
+    steps:
+      - name: Runner diagnostics
+        continue-on-error: true
+        run: |
+          echo "::group::OS / image"
+          uname -a
+          grep -E '^(PRETTY_NAME|VERSION)=' /etc/os-release || true
+          echo "Runner: ${RUNNER_NAME:-?} image=${ImageOS:-?} ${ImageVersion:-?} arch=${RUNNER_ARCH:-?}"
+          echo "::endgroup::"
+          echo "::group::CPU"
+          lscpu
+          nproc
+          echo "::endgroup::"
+          echo "::group::Memory"
+          free -h
+          swapon --show || true
+          echo "::endgroup::"
+          echo "::group::Disk"
+          df -h
+          lsblk -o NAME,SIZE,TYPE,ROTA,MODEL,MOUNTPOINT || true
+          echo "::endgroup::"
+          echo "::group::Azure VM metadata"
+          VMSIZE=$(curl -s --max-time 3 -H Metadata:true "http://169.254.169.254/metadata/instance/compute/vmSize?api-version=2021-02-01&format=text" || true)
+          LOCATION=$(curl -s --max-time 3 -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2021-02-01&format=text" || true)
+          echo "vmSize=${VMSIZE:-unknown} location=${LOCATION:-unknown}"
+          echo "::endgroup::"
+          {
+            echo "### Runner diagnostics"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Image | ${ImageOS:-?} ${ImageVersion:-?} |"
+            echo "| VM size | ${VMSIZE:-unknown} (${LOCATION:-unknown}) |"
+            echo "| CPU | $(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1) |"
+            echo "| vCPUs | $(nproc) |"
+            echo "| RAM | $(free -h | awk '/^Mem:/ {print $2}') |"
+            echo "| Swap | $(free -h | awk '/^Swap:/ {print $2}') |"
+            echo "| Disk / | $(df -h / | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
+            echo "| Disk /mnt | $(df -h /mnt 2>/dev/null | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: Fetch QRank file
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+
+      # Fetch from R2 directly with many concurrent ranged GETs; a single wget
+      # stream over the public URL tops out around 70 MB/s.
+      - name: Fetch PBF
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_RETRY_MODE: adaptive
+          AWS_MAX_ATTEMPTS: 10
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          start=$(date +%s)
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.pbf" "$AREA.pbf"
+          secs=$(( $(date +%s) - start ))
+          echo "Downloaded $(( $(stat -c %s "$AREA.pbf") / 1048576 )) MiB in ${secs}s"
+
+      - name: Wait for other exports
+        timeout-minutes: 60
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          while true; do
+            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
+              --jq '.jobs[] | select(.name | startswith("export (")) | [.name, .status, (.conclusion // "")] | @tsv') || {
+              echo "GitHub API request failed; retrying"
+              sleep 30
+              continue
+            }
+            failed=$(awk -F'\t' '$2 == "completed" && $3 != "success"' <<< "$jobs")
+            if [ -n "$failed" ]; then
+              echo "::error::Another export did not succeed:"
+              echo "$failed"
+              exit 1
+            fi
+            done_count=$(awk -F'\t' '$2 == "completed" && $3 == "success"' <<< "$jobs" | wc -l)
+            echo "$(date -u +%H:%M:%S) ${done_count}/${EXPECTED_EXPORTS} exports done"
+            if [ "$done_count" -ge "$EXPECTED_EXPORTS" ]; then
+              break
+            fi
+            sleep 30
+          done
+
+      - name: Fetch other exports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: geojsonl-*
+          merge-multiple: true
+
+      - name: Export
+        env:
+          TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
+        run: ls -l *.geojsonl && ./export/export $AREA.pbf zindex
 
       - name: Upload GeoJSON
         env:

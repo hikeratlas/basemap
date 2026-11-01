@@ -79,6 +79,12 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
+      # Pull the tilemaker image in the background so it overlaps with the PBF
+      # download. With no arguments, tilemaker prints its usage and exits.
+      # Background processes keep running across steps until the job ends.
+      - name: Pre-fetch tilemaker image
+        run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
+
       - name: Read area config
         id: area
         run: |
@@ -182,6 +188,12 @@ jobs:
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
+
+      # Pull the tilemaker image in the background so it overlaps with the PBF
+      # download. With no arguments, tilemaker prints its usage and exits.
+      # Background processes keep running across steps until the job ends.
+      - name: Pre-fetch tilemaker image
+        run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
 
       - name: Read area config
         id: area

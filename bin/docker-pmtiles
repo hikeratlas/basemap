@@ -1,8 +1,15 @@
 #!/bin/sh
 
+# go-pmtiles, from the merge-vector-layers branch of cldellow/go-pmtiles: its
+# `merge` can combine archives whose tiles overlap but whose layers don't,
+# which tile-join.yml uses to combine the layers.
+IMAGE=ghcr.io/cldellow/go-pmtiles:sha-796c738efe093149473a3845df8ebcd28eb94f62
+
+mkdir -p /mnt/layers /mnt/out 2>/dev/null || true
 exec docker run \
 	--rm \
-	-w $(readlink -f .) \
-	-v $(git rev-parse --show-toplevel):$(git rev-parse --show-toplevel) \
+	-w "$(readlink -f .)" \
+	-v "$(git rev-parse --show-toplevel)":"$(git rev-parse --show-toplevel)" \
 	-v /mnt/layers:/mnt/layers \
-	protomaps/go-pmtiles:main "$@"
+	-v /mnt/out:/mnt/out \
+	"$IMAGE" "$@"

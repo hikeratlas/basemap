@@ -102,24 +102,27 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: sudo mkdir /mnt/layers && sudo chown runner:docker /mnt/layers && cd /mnt/layers && aws s3 sync s3://hikes-public/layers/"$NAMESPACE"/ . --no-progress
-
-      - name: tile-join
-        #run: ./bin/docker-tile-join --no-tile-size-limit -o tiles.mbtiles /mnt/layers/*.mbtiles
+        # Only the .pmtiles: older builds also left .mbtiles layers here.
         run: |
-          df -h /
-          du -sh /mnt/layers
-          rv=0
-          ./bin/docker-tile-smush /mnt/layers/*.mbtiles || rv=$?
-          df -h /
-          ls -l merged.mbtiles* || true
-          exit $rv
+          sudo mkdir /mnt/layers /mnt/out
+          sudo chown runner:docker /mnt/layers /mnt/out
+          cd /mnt/layers
+          aws s3 sync "s3://hikes-public/layers/$NAMESPACE/" . --no-progress --exclude '*' --include '*.pmtiles'
+          ls -l
 
-      - name: Free up space
-        run: df -h && rm -f /mnt/layers/*.mbtiles && ls -l /mnt/layers && df -h
-
-      - name: convert to pmtiles
-        run: ./bin/docker-pmtiles convert --quiet --tmpdir /mnt/layers merged.mbtiles /mnt/layers/tiles.pmtiles
+      # Each layer has its own vector layers, so tiles that several layers
+      # cover are combined by concatenating them. This replaces tile-smush
+      # (mbtiles -> merged.mbtiles) followed by `pmtiles convert`.
+      - name: Merge layers
+        run: |
+          df -h / /mnt
+          start=$(date +%s)
+          ./bin/docker-pmtiles merge /mnt/layers/*.pmtiles /mnt/out/tiles.pmtiles
+          echo "Merged in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
+          ls -l /mnt/out
+          df -h / /mnt
+          ./bin/docker-pmtiles verify /mnt/out/tiles.pmtiles
+          ./bin/docker-pmtiles show /mnt/out/tiles.pmtiles
 
       - name: Upload tiles
         env:
@@ -134,9 +137,9 @@ jobs:
         run: |
           aws configure set default.s3.max_concurrent_requests 32
           aws configure set default.s3.multipart_chunksize 128MB
-          ls -l /mnt/layers/tiles.pmtiles
+          ls -l /mnt/out/tiles.pmtiles
           start=$(date +%s)
-          aws s3 cp --no-progress /mnt/layers/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
+          aws s3 cp --no-progress /mnt/out/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
           echo "Uploaded in $(( $(date +%s) - start ))s"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"
 

@@ -63,15 +63,9 @@ jobs:
             echo "| Disk /mnt | $(df -h /mnt 2>/dev/null | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Maximize build space
-        uses: AdityaGarg8/remove-unwanted-software@v2
-        with:
-          remove-android: 'true'
-          remove-dotnet: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
-
+      # No "Maximize build space" step: ubuntu-26.04 runners start with ~88G free
+      # on /, and the largest layer (ways) peaks around 45G (15.8G PBF + ~21G
+      # tilemaker store + output). The cleanup took 1-2.5 minutes per job.
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3

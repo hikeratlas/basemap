@@ -164,3 +164,13 @@ jobs:
             echo
             echo "Preview: https://www.hikeratlas.com/map?build=$NAMESPACE"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # The main site's search uses the north-america build, so redeploy it with
+  # this build's autosuggest DB once the tiles are live.
+  deploy-search:
+    needs: build
+    if: (inputs.namespace || inputs.area) == 'north-america'
+    uses: ./.github/workflows/deploy-search.yml
+    with:
+      namespace: north-america
+    secrets: inherit

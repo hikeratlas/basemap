@@ -1,0 +1,152 @@
+name: Deploy search index
+
+# Puts a build's autosuggest DB (<namespace>.autosuggest.db in R2, published
+# by tilemaker-exports.yml) into the live search Lambda, ha-search.
+#
+# The Lambda serves the main site's search from a DB bundled in its zip. This
+# downloads the deployed zip, swaps in the new DB, checks that search still
+# works, and uploads it again. The deployed lambda_function.py is kept as-is;
+# code changes are still deployed with search/publish in hikeratlas/website.
+#
+# tile-join.yml calls this after a north-america build, so search goes live
+# with the tiles. It can also be run by hand.
+#
+# Needs repo secrets for an AWS IAM user allowed lambda:GetFunction,
+# lambda:GetFunctionConfiguration and lambda:UpdateFunctionCode on ha-search:
+# SEARCH_AWS_ACCESS_KEY_ID and SEARCH_AWS_SECRET_ACCESS_KEY.
+
+on:
+  workflow_dispatch:
+    inputs:
+      namespace:
+        description: Build whose autosuggest DB to deploy
+        type: string
+        default: north-america
+      force:
+        description: Deploy even if the new DB has far fewer items than the live one
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      namespace:
+        type: string
+        default: north-america
+      force:
+        type: boolean
+        default: false
+
+env:
+  FUNCTION: ha-search
+  AWS_REGION: us-east-1
+  NAMESPACE: ${{ inputs.namespace }}
+  FORCE: ${{ inputs.force }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Never run two deploys at once: each one rewrites the whole function.
+    concurrency:
+      group: deploy-search
+      cancel-in-progress: false
+    steps:
+      - name: Check inputs and secrets
+        env:
+          HAS_KEY: ${{ secrets.SEARCH_AWS_ACCESS_KEY_ID != '' && secrets.SEARCH_AWS_SECRET_ACCESS_KEY != '' }}
+        run: |
+          if ! [[ "$NAMESPACE" =~ ^[a-z0-9-]+(/[a-z0-9-]+)?$ ]]; then
+            echo "::error::Invalid namespace '$NAMESPACE'"
+            exit 1
+          fi
+          if [ "$HAS_KEY" != true ]; then
+            echo "::error::SEARCH_AWS_ACCESS_KEY_ID and SEARCH_AWS_SECRET_ACCESS_KEY secrets are not set"
+            exit 1
+          fi
+
+      - name: Download the new DB from R2
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # R2 ignores the region, but the CLI needs one that it accepts.
+          AWS_REGION: auto
+        run: aws s3 cp --no-progress "s3://hikes-public/$NAMESPACE.autosuggest.db" new.db
+
+      - name: Download the deployed function
+        id: current
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SEARCH_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SEARCH_AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws lambda get-function --function-name "$FUNCTION" > function.json
+          # The revision ID lets the upload fail, rather than clobber, if
+          # someone deploys (e.g. with search/publish) in the meantime.
+          echo "revision=$(jq -r .Configuration.RevisionId function.json)" >> "$GITHUB_OUTPUT"
+          curl -sSf -o current.zip "$(jq -r .Code.Location function.json)"
+          mkdir pkg
+          unzip -q current.zip -d pkg
+          ls -l pkg
+
+      - name: Swap in the new DB
+        id: swap
+        run: |
+          count() {
+            python3 -c "import sqlite3, sys; print(sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True).execute('select count(*) from items').fetchone()[0])" "$1"
+          }
+          old=$(count pkg/autosuggest.db)
+          new=$(count new.db)
+          echo "Live DB: $old items, $(stat -c %s pkg/autosuggest.db) bytes"
+          echo "New DB:  $new items, $(stat -c %s new.db) bytes"
+
+          if cmp -s new.db pkg/autosuggest.db; then
+            echo "The live DB is already this one; nothing to deploy."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Search already uses \`$NAMESPACE.autosuggest.db\` ($new items); nothing deployed." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Guard against publishing a broken or truncated build to the main site.
+          if [ "$new" -lt $((old / 2)) ] && [ "$FORCE" != true ]; then
+            echo "::error::The new DB has $new items, less than half the live DB's $old. Re-run with force to deploy it anyway."
+            exit 1
+          fi
+
+          mv new.db pkg/autosuggest.db
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "old=$old" >> "$GITHUB_OUTPUT"
+          echo "new=$new" >> "$GITHUB_OUTPUT"
+
+      - name: Check that search works
+        if: steps.swap.outputs.changed == 'true'
+        working-directory: pkg
+        run: |
+          # Runs the deployed lambda_function.py against the new DB, as the
+          # Lambda would.
+          python3 - <<'EOF'
+          import json
+          import lambda_function
+
+          for q in ['trail', 'park', 'lake']:
+              resp = lambda_function.lambda_handler({'queryStringParameters': {'q': q}}, None)
+              hits = json.loads(resp['body'])
+              print(q, resp['statusCode'], len(hits), hits[:1])
+              assert resp['statusCode'] == 200 and hits, 'no results for ' + q
+          EOF
+
+      - name: Upload the function
+        if: steps.swap.outputs.changed == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SEARCH_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SEARCH_AWS_SECRET_ACCESS_KEY }}
+          REVISION: ${{ steps.current.outputs.revision }}
+          OLD: ${{ steps.swap.outputs.old }}
+          NEW: ${{ steps.swap.outputs.new }}
+        run: |
+          rm -rf pkg/__pycache__
+          (cd pkg && zip -q -9 -r ../code.zip .)
+          echo "code.zip: $(stat -c %s code.zip) bytes"
+          aws lambda update-function-code --function-name "$FUNCTION" \
+            --zip-file fileb://code.zip --revision-id "$REVISION" \
+            --query '{CodeSize: CodeSize, LastModified: LastModified}' --output table
+          aws lambda wait function-updated --function-name "$FUNCTION"
+          echo "Deployed \`$NAMESPACE.autosuggest.db\` to search: $OLD → $NEW items" >> "$GITHUB_STEP_SUMMARY"

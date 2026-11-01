@@ -139,3 +139,28 @@ jobs:
           aws s3 cp --no-progress /mnt/layers/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
           echo "Uploaded in $(( $(date +%s) - start ))s"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - uses: oven-sh/setup-bun@v1
+
+      - name: Install mapt
+        run: bun rm mapt && bun add https://github.com/cldellow/mapt
+
+      # Stitch styles/*.json into one stylesheet that points at this build's
+      # tiles, so the website can preview it with ?build=<namespace>. This
+      # never touches the root style.json, which is published separately.
+      - name: Publish style
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          bun mapt style "https://public.hikeratlas.com/$NAMESPACE.pmtiles" > "$RUNNER_TEMP/style.json"
+          jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
+          aws s3 cp --no-progress --content-type application/json \
+            "$RUNNER_TEMP/style.json" "s3://hikes-public/$NAMESPACE.style.json"
+          {
+            echo "Published https://public.hikeratlas.com/$NAMESPACE.style.json"
+            echo
+            echo "Preview: https://www.hikeratlas.com/map?build=$NAMESPACE"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

@@ -51,7 +51,7 @@ jobs:
       github.event_name != 'pull_request'
       || (github.event.pull_request.head.repo.full_name == github.repository
           && github.event.action != 'closed')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     outputs:
       area: ${{ steps.config.outputs.area }}
       namespace: ${{ steps.config.outputs.namespace }}
@@ -103,7 +103,7 @@ jobs:
   comment:
     needs: [config, tile-join]
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       pull-requests: write
     env:

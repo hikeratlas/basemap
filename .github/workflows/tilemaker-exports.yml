@@ -26,7 +26,7 @@ jobs:
   # The exports that don't depend on any other export run in parallel. Keep
   # this list in sync with export/export-all.
   export:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
       # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
@@ -135,7 +135,7 @@ jobs:
   # It also uploads all of the exports, so R2 is only updated if every export
   # succeeded.
   zindex:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     permissions:
       actions: read
       contents: read

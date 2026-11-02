@@ -92,12 +92,19 @@ jobs:
           sudo mkdir /mnt/layers /mnt/out
           sudo chown runner:docker /mnt/layers /mnt/out
           cd /mnt/layers
-          # More, bigger parts than the defaults (10 concurrent 8MB parts), as
-          # for the PBF fetch in tilemaker-layers.yml.
-          aws configure set default.s3.max_concurrent_requests 32
-          aws configure set default.s3.multipart_chunksize 64MB
+          # One `aws s3 cp` per layer, all at once, each with the CLI's defaults
+          # (10 concurrent 8MB parts). Fetching the 21G of north-america layers:
+          #   aws s3 sync, defaults:                      79-123s
+          #   aws s3 sync, 32 concurrent 64MB parts:     224-333s
+          #   one aws s3 cp per file, in parallel:        67s (~320MB/s)
+          #   s5cmd:                                      70s
+          # ~320MB/s is also what the single-file PBF fetch gets: the network.
+          set -o pipefail
           start=$(date +%s)
-          aws s3 sync "s3://hikes-public/layers/$NAMESPACE/" . --no-progress --exclude '*' --include '*.pmtiles'
+          aws s3 ls "s3://hikes-public/layers/$NAMESPACE/" | awk '$4 ~ /\.pmtiles$/ {print $4}' > layers.txt
+          [ -s layers.txt ] || { echo "::error::No layers in layers/$NAMESPACE/"; exit 1; }
+          xargs -P 16 -I{} aws s3 cp --no-progress --only-show-errors "s3://hikes-public/layers/$NAMESPACE/{}" {} < layers.txt
+          rm layers.txt
           echo "Fetched $(du -sh . | cut -f1) in $(( $(date +%s) - start ))s"
           ls -l
 

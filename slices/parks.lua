@@ -12,8 +12,14 @@ function exit_function()
 end
 
 way_keys = {'boundary=protected_area', 'boundary=national_park', 'leisure=nature_reserve', 'leisure=park', 'landuse=recreation_ground'}
+-- Some parks are mapped as a single node, e.g. Ivanhoe Lake Provincial Park:
+-- https://www.openstreetmap.org/node/3046004352
+node_keys = way_keys
 
+-- A park mapped as a node has no area to fill or outline, so it only gets a
+-- label, from the zoom the smallest park areas get theirs.
 function node_function()
+	maybe_emit(true)
 end
 
 function get_short_name(x)
@@ -25,7 +31,7 @@ function get_short_name(x)
 	return x
 end
 
-function maybe_emit()
+function maybe_emit(is_node)
 	-- If you don't have a name, you're probably not well-enough detailed
 	-- to be included, eg https://www.openstreetmap.org/way/989294968
 	-- is a broken item.
@@ -46,7 +52,7 @@ function maybe_emit()
 	local landuse = Find('landuse')
 	if boundary ~= 'national_park' and boundary ~= 'protected_area' and leisure ~= 'nature_reserve' and leisure ~= 'park' and landuse ~= 'recreation_ground' then return end
 
-	local area = math.ceil(Area())
+	local area = is_node and 0 or math.ceil(Area())
 
 	-- For now, ignore maritime parks. In the future, maybe we just draw a dark
 	-- blue border around them, but don't fill them?
@@ -65,6 +71,7 @@ function maybe_emit()
 
 	mz = 0
 
+	-- A node (area 0) ends up at z10, like the smallest park areas.
 	if area < 200000000 then
 		mz = 5
 	end
@@ -78,6 +85,20 @@ function maybe_emit()
 		mz = 10
 	end
 
+
+	if is_node then
+		Layer('park_name', false)
+		MinZoom(mz)
+		AttributeNumeric('rank', rank)
+		Attr('name', name)
+		Attr('short_name', short_name)
+		Attr('boundary', boundary)
+		Attr('leisure', leisure)
+		Attr('landuse', landuse)
+		Attr('wikidata', wikidata)
+		Attr('osm_id', Id())
+		return
+	end
 
 	Layer('park', true)
 	MinZoom(mz)

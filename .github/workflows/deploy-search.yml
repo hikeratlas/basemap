@@ -80,7 +80,7 @@ jobs:
       # This exports temporary AWS credentials (including AWS_SESSION_TOKEN)
       # to every later step, so it must come after the R2 step above.
       - name: Log in to AWS
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ secrets.SEARCH_AWS_ROLE_ARN }}
           role-session-name: deploy-search-${{ github.run_id }}

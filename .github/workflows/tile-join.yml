@@ -60,7 +60,7 @@ jobs:
           echo "::endgroup::"
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       # Runner details, a waterfall of the steps, and CPU, memory, disk and
       # network charts in the job summary; the numbers go to the log too. Needs

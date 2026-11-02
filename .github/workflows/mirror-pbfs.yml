@@ -41,7 +41,7 @@ jobs:
           echo "vmSize=${VMSIZE:-unknown} location=${LOCATION:-unknown}"
           echo "::endgroup::"
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       # Runner details, a waterfall of the steps, and CPU, memory, disk and
       # network charts in the job summary; the numbers go to the log too. Needs

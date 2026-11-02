@@ -64,7 +64,7 @@ jobs:
           echo "::endgroup::"
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       # Runner details, a waterfall of the steps, and CPU, memory, disk and
       # network charts in the job summary; the numbers go to the log too. Needs
@@ -111,7 +111,7 @@ jobs:
           EXPORT: ${{ matrix.export }}
         run: ./export/export $AREA.pbf "$EXPORT"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: geojsonl-${{ matrix.export }}
           path: ${{ matrix.export }}.geojsonl
@@ -167,7 +167,7 @@ jobs:
           echo "::endgroup::"
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       # Runner details, a waterfall of the steps, and CPU, memory, disk and
       # network charts in the job summary; the numbers go to the log too. Needs
@@ -249,7 +249,7 @@ jobs:
           done
 
       - name: Fetch other exports
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: geojsonl-*
           merge-multiple: true

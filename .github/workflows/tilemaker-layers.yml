@@ -79,7 +79,7 @@ jobs:
       # tilemaker store + output). The cleanup took 1-2.5 minutes per job.
 
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v7
 
       # Runner details, a waterfall of the steps, and CPU, memory, disk and
       # network charts in the job summary; the numbers go to the log too. Needs
@@ -149,7 +149,7 @@ jobs:
       - name: Restore cached coastline
         if: ${{ startsWith(matrix.layer, 'boundaries') }}
         id: coastline-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: slices/coastline
           key: coastline-${{ steps.coastline-key.outputs.week }}

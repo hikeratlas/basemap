@@ -168,6 +168,16 @@ jobs:
           BBOX: ${{ steps.area.outputs.bbox }}
         run: bun mapt build "$AREA".pbf $LAYER -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"}
 
+      # The slices ask tilemaker for zstd tiles. Byte 98 of a PMTiles v3
+      # header is the tile compression, and 4 means zstd.
+      - name: Check tile compression
+        env:
+          FILE: ${{ matrix.layer }}.pmtiles
+        run: |
+          c=$(od -An -tu1 -j98 -N1 "$FILE" | tr -d ' ')
+          echo "$FILE: tile compression $c"
+          [ "$c" = 4 ] || { echo "::error::$FILE does not have zstd tiles"; exit 1; }
+
       - name: Upload layer tiles
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com

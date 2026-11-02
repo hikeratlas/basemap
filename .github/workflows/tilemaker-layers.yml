@@ -132,7 +132,7 @@ jobs:
           aws configure set default.s3.max_concurrent_requests 32
           aws configure set default.s3.multipart_chunksize 64MB
           start=$(date +%s)
-          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.pbf" "$AREA.pbf"
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.zstd.pbf" "$AREA.pbf"  # see mirror-pbfs.yml
           secs=$(( $(date +%s) - start ))
           echo "Downloaded $(( $(stat -c %s "$AREA.pbf") / 1048576 )) MiB in ${secs}s"
 

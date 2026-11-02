@@ -54,14 +54,6 @@ jobs:
       group: deploy-search
       cancel-in-progress: false
     steps:
-      # CPU, memory, network and disk charts plus a step timeline in the job
-      # summary. Charts are rendered by api.globadge.com, so the metrics are
-      # sent there. No PR comments: a build has ~20 jobs.
-      - name: Collect workflow telemetry
-        uses: step-security/workflow-telemetry-action@dbe3c1c09393511e90d52c6f49096984d1b7fe3b # v2.0.0
-        with:
-          comment_on_pr: false
-
       - name: Check inputs and secrets
         env:
           HAS_ROLE: ${{ secrets.SEARCH_AWS_ROLE_ARN != '' }}

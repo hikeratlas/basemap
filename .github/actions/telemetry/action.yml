@@ -1,0 +1,14 @@
+name: Resource telemetry
+description: >
+  Samples CPU, memory, disk and network usage in the background while the job
+  runs, then writes charts to the job summary and the numbers to the log.
+  Use it as the first step of a job; it reports in its post step.
+inputs:
+  interval:
+    description: Seconds between samples.
+    default: '5'
+runs:
+  using: node24
+  main: main.js
+  post: post.js
+  post-if: always()

@@ -24,7 +24,11 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # arm64 runners have 4 full cores, where x64 ones have 2 cores with 2
+    # hyperthreads each. On north-america, tilemaker built the layers 1.48x
+    # faster on them (ways: 29 -> 20 minutes); see hikeratlas/basemap#52.
+    # The tilemaker image is multi-arch.
+    runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
       # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
@@ -83,7 +87,7 @@ jobs:
             echo "| Disk /mnt | $(df -h /mnt 2>/dev/null | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # No "Maximize build space" step: ubuntu-26.04 runners start with ~88G free
+      # No "Maximize build space" step: arm64 runners start with ~107G free
       # on /, and the largest layer (ways) peaks around 45G (15.8G PBF + ~21G
       # tilemaker store + output). The cleanup took 1-2.5 minutes per job.
 

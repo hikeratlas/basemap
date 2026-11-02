@@ -24,7 +24,9 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # arm64, like the layers: more real cores for the parallel merge, and
+    # more free disk. go-pmtiles' image is multi-arch.
+    runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
       # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
@@ -82,19 +84,9 @@ jobs:
           fi
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
-      # Only large areas need this: it takes ~3 minutes.
-      - name: Maximize build space
-        if: steps.area.outputs.free_disk == 'true'
-        uses: AdityaGarg8/remove-unwanted-software@v5.1
-        with:
-          remove-android: 'true'
-          remove-dotnet: 'true'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
-          remove-large-packages: 'true'
-          remove-cached-tools: 'true'
-          remove-swapfile: 'true'
+      # No "Maximize build space" step: arm64 runners start with ~107G free on
+      # /. north-america peaks around 51G here: the layers (17G), the merge's
+      # temporary tile data and the output (17G each).
 
       - name: Fetch tiles
         env:

@@ -3,7 +3,7 @@
 # go-pmtiles, from the merge-vector-layers branch of cldellow/go-pmtiles: its
 # `merge` can combine archives whose tiles overlap but whose layers don't,
 # which tile-join.yml uses to combine the layers.
-IMAGE=ghcr.io/cldellow/go-pmtiles:sha-24adfee5e0cfa0806ecf89b1d3dffd0d2232f08c
+IMAGE=ghcr.io/cldellow/go-pmtiles:sha-dc4d4404a04dd557895828370c4c20017d44b858
 
 mkdir -p /mnt/layers /mnt/out 2>/dev/null || true
 exec docker run \

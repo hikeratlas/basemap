@@ -10,7 +10,7 @@
 // its centre, and picks the smallest area in areas.json whose Geofabrik extract
 // contains that box. The build then uses that area's PBF but only that box.
 //
-//   bun bin/preview-target.ts    (reads PREVIEW and DEFAULT_AREA from the env)
+//   bun bin/preview-target.ts    (reads PR_BODY or PREVIEW, and DEFAULT_AREA, from the env)
 //
 // Writes area=, bbox= (empty unless an element was given), view= (a map hash,
 // zoom/lat/lon, empty if unknown) and target= to $GITHUB_OUTPUT if set, and
@@ -126,14 +126,17 @@ const boxArea = (s: string) => {
 };
 
 async function main() {
-  // Lines in ``` code blocks are examples, e.g. in this feature's own PR.
-  const text = (process.env.PREVIEW ?? '').replace(/^\s*```[\s\S]*?^\s*```/gm, '');
+  // A PR description (PR_BODY) previews whatever its "Preview:" line says,
+  // ignoring lines in ``` code blocks (examples, e.g. in this feature's own PR);
+  // a build input (PREVIEW) is the whole thing.
   const defaultArea = process.env.DEFAULT_AREA || 'nova-scotia';
-  const m = /^\s*(?:preview:\s*)?(\S.*?)\s*$/im.exec(
-    // A PR description: just the "Preview:" line. A build input: the whole thing.
-    /^\s*preview:/im.test(text) ? /^\s*preview:.*$/im.exec(text)![0] : text,
-  );
-  const spec = m ? m[1] : '';
+  let spec: string;
+  if (process.env.PR_BODY !== undefined) {
+    const body = process.env.PR_BODY.replace(/^\s*```[\s\S]*?^\s*```/gm, '');
+    spec = (/^\s*preview:\s*(\S.*?)\s*$/im.exec(body) || [])[1] || '';
+  } else {
+    spec = (process.env.PREVIEW ?? '').trim();
+  }
 
   let area = defaultArea, bbox = '', target = defaultArea;
   let v = areas[defaultArea] ? view(parseBox(areas[defaultArea].bbox)) : '';

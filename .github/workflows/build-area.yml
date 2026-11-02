@@ -87,10 +87,13 @@ jobs:
       - name: Pick what to build
         id: target
         env:
-          PREVIEW: >-
-            ${{ github.event_name == 'pull_request' && github.event.pull_request.body || inputs.preview }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PREVIEW: ${{ inputs.preview }}
           DEFAULT_AREA: ${{ inputs.area || 'nova-scotia' }}
-        run: bun bin/preview-target.ts
+        # PR_BODY is set (maybe empty) only for PRs
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != pull_request ]; then unset PR_BODY; fi
+          bun bin/preview-target.ts
 
       - id: config
         env:

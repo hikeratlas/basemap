@@ -11,6 +11,10 @@ on:
         description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
         type: string
         default: ''
+      bbox:
+        description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
+        type: string
+        default: ''
   workflow_call:
     inputs:
       area:
@@ -19,6 +23,10 @@ on:
         required: true
       namespace:
         description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
+      bbox:
+        description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
         type: string
         default: ''
 
@@ -95,12 +103,16 @@ jobs:
 
       - name: Read area config
         id: area
+        env:
+          BBOX_OVERRIDE: ${{ inputs.bbox }}
         run: |
           if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
             echo "::error::Unknown area '$AREA'; add it to areas.json"
             exit 1
           fi
-          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | grep -v '^bbox=' | tee -a "$GITHUB_OUTPUT"
+          # A preview build only covers its box; otherwise, the whole area.
+          echo "bbox=${BBOX_OVERRIDE:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)}" | tee -a "$GITHUB_OUTPUT"
 
       # A pinned version lets setup-bun use its cache; "latest" downloads from
       # bun.sh every time, which once took 2.5 minutes of retries after a 522.

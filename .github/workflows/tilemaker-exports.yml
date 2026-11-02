@@ -11,6 +11,10 @@ on:
         description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
         type: string
         default: ''
+      bbox:
+        description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
+        type: string
+        default: ''
   workflow_call:
     inputs:
       area:
@@ -19,6 +23,10 @@ on:
         required: true
       namespace:
         description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
+      bbox:
+        description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
         type: string
         default: ''
 
@@ -108,6 +116,8 @@ jobs:
       - name: Export
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
+          # A preview build only exports its box
+          BBOX: ${{ inputs.bbox }}
           EXPORT: ${{ matrix.export }}
         run: ./export/export $AREA.pbf "$EXPORT"
 
@@ -257,6 +267,8 @@ jobs:
       - name: Export
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
+          # A preview build only exports its box
+          BBOX: ${{ inputs.bbox }}
         run: ls -l *.geojsonl && ./export/export $AREA.pbf zindex
 
       # A pinned version lets setup-bun use its cache; "latest" downloads from

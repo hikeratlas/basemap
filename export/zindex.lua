@@ -12,6 +12,9 @@ local geometry = require 'geometry'
 local dump_filename = os.getenv('DUMP_FILENAME')
 
 node_keys = {
+	'boundary=national_park',
+	'boundary=protected_area',
+	'leisure=nature_reserve',
 	'natural=peak',
 	'tourism=camp_site',
 	'waterway=waterfall',
@@ -95,6 +98,14 @@ function node_function()
   local natural = Find('natural')
   local tourism = Find('tourism')
 	local waterway = Find('waterway')
+	local boundary = Find('boundary')
+	local leisure = Find('leisure')
+
+	-- Some parks are mapped as a single node, e.g. Ivanhoe Lake Provincial Park:
+	-- https://www.openstreetmap.org/node/3046004352
+	if boundary == 'national_park' or boundary == 'protected_area' or leisure == 'nature_reserve' then
+		return emit({kind='park'})
+	end
 
 	if waterway == 'waterfall' then
 		return emit({kind='waterfall'})

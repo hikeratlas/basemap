@@ -3,9 +3,15 @@ name: Build area
 # Runs the whole pipeline (exports -> layers -> tile-join) for one area.
 #
 # - Every push to main rebuilds nova-scotia into the "nova-scotia" namespace.
-# - Every PR rebuilds nova-scotia into its own "pr-<number>/nova-scotia"
-#   namespace, so PRs don't clobber main or each other. When the PR is
-#   closed or merged, its outputs are deleted from R2.
+# - Every PR builds into its own "pr-<number>/<area>" namespace, so PRs don't
+#   clobber main or each other. When the PR is closed or merged, its outputs
+#   are deleted from R2. By default a PR builds nova-scotia; a "Preview:" line
+#   in its description picks something else (see bin/preview-target.ts):
+#     Preview: https://www.openstreetmap.org/node/3046004352
+#     Preview: way/123456 radius=25km
+#     Preview: ontario
+#   For an OSM element, the PR builds just a box around it (at least 10 km in
+#   each direction) from the smallest area in areas.json that contains it.
 # - Any area, including north-america, can be built by hand.
 #
 # Outputs go to R2 under the namespace (which defaults to the area name):
@@ -17,7 +23,8 @@ on:
     paths-ignore:
       - '**.md'
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    # edited: a changed "Preview:" line rebuilds (see the config job)
+    types: [opened, synchronize, reopened, edited, closed]
     paths-ignore:
       - '**.md'
   workflow_dispatch:
@@ -27,19 +34,27 @@ on:
         type: string
         default: nova-scotia
       namespace:
-        description: R2 output name (defaults to the area), e.g. test/nova-scotia
+        description: R2 output name (defaults to the area, or test/<area> with a preview), e.g. test/nova-scotia
+        type: string
+        default: ''
+      preview:
+        description: Optional, as in a PR's "Preview:" line, e.g. node/3046004352; overrides area
         type: string
         default: ''
 
 # One build per namespace at a time. A newer push or PR update supersedes an
 # in-progress build, and closing a PR cancels its build before cleaning up;
-# manual builds queue instead of being cancelled.
+# manual builds queue instead of being cancelled. Editing a PR's title (not its
+# description) does nothing, so it gets a group of its own rather than
+# cancelling the PR's build.
 concurrency:
   group: >-
     build-area-${{
       github.event_name == 'pull_request'
-      && format('pr-{0}', github.event.pull_request.number)
-      || inputs.namespace || inputs.area || 'nova-scotia'
+      && (github.event.action == 'edited' && !github.event.changes.body
+          && format('noop-{0}', github.run_id)
+          || format('pr-{0}', github.event.pull_request.number))
+      || inputs.namespace || inputs.preview || inputs.area || 'nova-scotia'
     }}
   cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
@@ -47,28 +62,57 @@ jobs:
   config:
     # PRs from forks don't get the R2 secrets, so skip them. Closed PRs are
     # handled by the cleanup job instead.
+    # Edits only rebuild if the description changed (it may have a new
+    # "Preview:" line).
     if: >-
       github.event_name != 'pull_request'
       || (github.event.pull_request.head.repo.full_name == github.repository
-          && github.event.action != 'closed')
+          && github.event.action != 'closed'
+          && (github.event.action != 'edited' || github.event.changes.body))
     runs-on: ubuntu-24.04-arm
     outputs:
-      area: ${{ steps.config.outputs.area }}
+      area: ${{ steps.target.outputs.area }}
+      bbox: ${{ steps.target.outputs.bbox }}
+      view: ${{ steps.target.outputs.view }}
+      target: ${{ steps.target.outputs.target }}
       namespace: ${{ steps.config.outputs.namespace }}
     steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      # The area to build, and for a preview of an OSM element, the box
+      - name: Pick what to build
+        id: target
+        env:
+          PREVIEW: >-
+            ${{ github.event_name == 'pull_request' && github.event.pull_request.body || inputs.preview }}
+          DEFAULT_AREA: ${{ inputs.area || 'nova-scotia' }}
+        run: bun bin/preview-target.ts
+
       - id: config
         env:
-          AREA: ${{ inputs.area || 'nova-scotia' }}
-          NAMESPACE: >-
-            ${{
-              github.event_name == 'pull_request'
-              && format('pr-{0}/{1}', github.event.pull_request.number, inputs.area || 'nova-scotia')
-              || inputs.namespace || inputs.area || 'nova-scotia'
-            }}
+          AREA: ${{ steps.target.outputs.area }}
+          BBOX: ${{ steps.target.outputs.bbox }}
+          TARGET: ${{ steps.target.outputs.target }}
+          PR: ${{ github.event.pull_request.number }}
+          INPUT_NAMESPACE: ${{ inputs.namespace }}
+        # A manual preview of part of an area goes to test/<area> unless told
+        # otherwise, so it can't replace the area's real build.
         run: |
-          echo "area=$AREA" | tee -a "$GITHUB_OUTPUT"
+          if [ -n "$PR" ]; then
+            NAMESPACE="pr-$PR/$AREA"
+          elif [ -n "$INPUT_NAMESPACE" ]; then
+            NAMESPACE="$INPUT_NAMESPACE"
+          elif [ -n "$BBOX" ]; then
+            NAMESPACE="test/$AREA"
+          else
+            NAMESPACE="$AREA"
+          fi
           echo "namespace=$NAMESPACE" | tee -a "$GITHUB_OUTPUT"
-          echo "Building **$AREA** into \`$NAMESPACE\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Building **$TARGET** into \`$NAMESPACE\`${BBOX:+ (box $BBOX)}" >> "$GITHUB_STEP_SUMMARY"
 
   exports:
     needs: config
@@ -76,6 +120,7 @@ jobs:
     with:
       area: ${{ needs.config.outputs.area }}
       namespace: ${{ needs.config.outputs.namespace }}
+      bbox: ${{ needs.config.outputs.bbox }}
     secrets: inherit
 
   layers:
@@ -84,6 +129,7 @@ jobs:
     with:
       area: ${{ needs.config.outputs.area }}
       namespace: ${{ needs.config.outputs.namespace }}
+      bbox: ${{ needs.config.outputs.bbox }}
     secrets: inherit
 
   tile-join:
@@ -111,13 +157,15 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PR: ${{ github.event.pull_request.number }}
       NAMESPACE: ${{ needs.config.outputs.namespace }}
+      VIEW: ${{ needs.config.outputs.view }}
+      TARGET: ${{ needs.config.outputs.target }}
       SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Comment with preview link
         run: |
           marker='<!-- build-area-preview -->'
           body="$marker
-          **Preview of ${SHA:0:7}:** https://www.hikeratlas.com/map?build=$NAMESPACE
+          **Preview of ${SHA:0:7}** ($TARGET): https://www.hikeratlas.com/map?build=$NAMESPACE${VIEW:+#$VIEW}
 
           Tiles: https://public.hikeratlas.com/$NAMESPACE.pmtiles
           Style: https://public.hikeratlas.com/$NAMESPACE.style.json"

@@ -17,13 +17,14 @@ end
 function maybe_emit(is_area)
 	local in_park = Intersects('parks')
 	local in_city_park = Intersects('city_parks')
-	local tourism = Find('tourism')
+	-- Campgrounds count, too: some parks have no area to be in (e.g. Ivanhoe
+	-- Lake Provincial Park is a node), but their campgrounds do. A campground
+	-- area is inside itself, so it gets its own icon and label.
+	local in_campground = Intersects('campgrounds')
 
-	-- POIs are only shown in parks, except campgrounds: they're worth showing
-	-- anywhere, and some parks have no area to be in (e.g. Ivanhoe Lake
-	-- Provincial Park is a node, so its campgrounds weren't labelled:
-	-- https://www.openstreetmap.org/way/851820475).
-	if not in_park and not in_city_park and tourism ~= 'camp_site' then return end
+	if not in_park and not in_city_park and not in_campground then return end
+
+	local tourism = Find('tourism')
 
 	local amenity = Find('amenity')
 	local historic = Find('historic')

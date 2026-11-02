@@ -42,7 +42,7 @@ jobs:
 
     strategy:
       matrix:
-        export: [city-parks, countries, parks, states]
+        export: [campgrounds, city-parks, countries, parks, states]
 
     steps:
       - name: Runner diagnostics
@@ -147,7 +147,7 @@ jobs:
       # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
       # Must match the number of entries in the export job's matrix.
-      EXPECTED_EXPORTS: 4
+      EXPECTED_EXPORTS: 5
 
     steps:
       - name: Runner diagnostics

@@ -156,7 +156,15 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync "s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/" . --no-progress && unzstd *.zst
+        run: |
+          wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+          aws s3 sync "s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/" . --no-progress
+          unzstd *.zst
+          # A reused build from before the campgrounds export has none.
+          if [ ! -f campgrounds.geojsonl ]; then
+            echo "::warning::No campgrounds.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); using an empty one"
+            touch campgrounds.geojsonl
+          fi
 
 
       # The coastline is an 865MB zip from osmdata.openstreetmap.de that downloads

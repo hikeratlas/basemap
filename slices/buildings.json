@@ -12,6 +12,12 @@
             "source": "../city-parks.geojsonl",
             "index": true
         },
+        "campgrounds": {
+            "minzoom": 15,
+            "maxzoom": 15,
+            "source": "../campgrounds.geojsonl",
+            "index": true
+        },
         "building": {
             "zindex": 30,
             "minzoom": 12,

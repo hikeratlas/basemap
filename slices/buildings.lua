@@ -26,7 +26,9 @@ function way_function()
 
 	local in_park = Intersects('parks')
 	local in_city_park = Intersects('city_parks')
-	if not in_park and not in_city_park then return end
+	-- Campgrounds count, too: see pois.lua.
+	local in_campground = Intersects('campgrounds')
+	if not in_park and not in_city_park and not in_campground then return end
 
 	Layer('building', true)
 	Attr('amenity', amenity)

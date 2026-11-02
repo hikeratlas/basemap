@@ -10,5 +10,9 @@
   "british-columbia": {
     "geofabrik": "north-america/canada/british-columbia",
     "bbox": "-141.7761,46.41459,-114.049,60.00678"
+  },
+  "ontario": {
+    "geofabrik": "north-america/canada/ontario",
+    "bbox": "-95.15965,41.66009,-74.30998,57.50826"
   }
 }

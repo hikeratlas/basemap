@@ -28,6 +28,14 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       PR: ${{ inputs.pr }}
     steps:
+      # CPU, memory, network and disk charts plus a step timeline in the job
+      # summary. Charts are rendered by api.globadge.com, so the metrics are
+      # sent there. No PR comments: a build has ~20 jobs.
+      - name: Collect workflow telemetry
+        uses: step-security/workflow-telemetry-action@dbe3c1c09393511e90d52c6f49096984d1b7fe3b # v2.0.0
+        with:
+          comment_on_pr: false
+
       - name: Delete the PR's outputs from R2
         # The trailing slashes matter: pr-4/ must not match pr-41/.
         # (aws s3 rm has no --no-progress option, unlike cp and sync.)

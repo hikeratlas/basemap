@@ -6,5 +6,9 @@
   "nova-scotia": {
     "geofabrik": "north-america/canada/nova-scotia",
     "bbox": "-67.5129699,42.01893,-58.22593,47.42182"
+  },
+  "british-columbia": {
+    "geofabrik": "north-america/canada/british-columbia",
+    "bbox": "-141.7761,46.41459,-114.049,60.00678"
   }
 }

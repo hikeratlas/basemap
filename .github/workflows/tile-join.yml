@@ -109,14 +109,14 @@ jobs:
         run: |
           df -h / /mnt
           start=$(date +%s)
-          ./bin/docker-pmtiles merge --tile-compression=zstd /mnt/layers/*.pmtiles /mnt/out/tiles.pmtiles
+          ./bin/docker-pmtiles merge --tile-compression=gzip /mnt/layers/*.pmtiles /mnt/out/tiles.pmtiles
           echo "Merged in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
           ls -l /mnt/out
           df -h / /mnt
           ./bin/docker-pmtiles verify /mnt/out/tiles.pmtiles
           ./bin/docker-pmtiles show /mnt/out/tiles.pmtiles | tee /mnt/out/show.txt
           # The website decodes zstd tiles itself; fail if they are not.
-          grep -q '^tile compression: zstd$' /mnt/out/show.txt
+          grep -q '^tile compression: gzip$' /mnt/out/show.txt
 
       - name: Upload tiles
         env:

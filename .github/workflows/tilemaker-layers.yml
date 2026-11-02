@@ -180,7 +180,7 @@ jobs:
         run: |
           c=$(od -An -tu1 -j98 -N1 "$FILE" | tr -d ' ')
           echo "$FILE: tile compression $c"
-          [ "$c" = 4 ] || { echo "::error::$FILE does not have zstd tiles"; exit 1; }
+          [ "$c" = 2 ] || { echo "::error::$FILE does not have gzip tiles"; exit 1; }
 
       - name: Upload layer tiles
         env:

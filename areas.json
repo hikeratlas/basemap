@@ -1,12 +1,10 @@
 {
   "north-america": {
     "geofabrik": "north-america",
-    "bbox": "-170,20,-48,75",
-    "free_disk": true
+    "bbox": "-170,20,-48,75"
   },
   "nova-scotia": {
     "geofabrik": "north-america/canada/nova-scotia",
-    "bbox": "-67.5129699,42.01893,-58.22593,47.42182",
-    "free_disk": false
+    "bbox": "-67.5129699,42.01893,-58.22593,47.42182"
   }
 }

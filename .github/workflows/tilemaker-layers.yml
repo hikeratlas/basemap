@@ -24,7 +24,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: build (${{ matrix.layer }}, ${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
     env:
       AREA: ${{ inputs.area }}
       # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
@@ -43,6 +44,9 @@ jobs:
           water,
           ways
         ]
+        # EXPERIMENT: build every layer on both x64 and arm64 runners to
+        # compare their timings. Only the x64 builds are uploaded.
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
     steps:
       - name: Runner diagnostics
         continue-on-error: true
@@ -179,6 +183,7 @@ jobs:
           [ "$c" = 4 ] || { echo "::error::$FILE does not have zstd tiles"; exit 1; }
 
       - name: Upload layer tiles
+        if: ${{ matrix.runner == 'ubuntu-latest' }}
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true

@@ -99,7 +99,13 @@ jobs:
           sudo mkdir /mnt/layers /mnt/out
           sudo chown runner:docker /mnt/layers /mnt/out
           cd /mnt/layers
+          # More, bigger parts than the defaults (10 concurrent 8MB parts), as
+          # for the PBF fetch in tilemaker-layers.yml.
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          start=$(date +%s)
           aws s3 sync "s3://hikes-public/layers/$NAMESPACE/" . --no-progress --exclude '*' --include '*.pmtiles'
+          echo "Fetched $(du -sh . | cut -f1) in $(( $(date +%s) - start ))s"
           ls -l
 
       # Each layer has its own vector layers, so tiles that several layers

@@ -95,9 +95,8 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          # More, bigger parts than the defaults (10 concurrent 8MB parts).
-          aws configure set default.s3.max_concurrent_requests 32
-          aws configure set default.s3.multipart_chunksize 64MB
+          # Tuning the parts (e.g. 32 concurrent 64MB ones) didn't help here:
+          # uploads to R2 varied between ~25 and ~80 MB/s either way.
           for f in "$AREA".pbf "$AREA".zstd.pbf; do
             start=$(date +%s)
             aws s3 cp --no-progress "$f" s3://hikes-public/pbfs/

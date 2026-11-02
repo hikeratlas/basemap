@@ -6,7 +6,12 @@ description: >
 inputs:
   interval:
     description: Seconds between samples.
-    default: '5'
+    default: '1'
+  token:
+    description: >
+      Token for reading the job's name and step times from the API (needs
+      `actions: read`). Without it, the report has no step waterfall.
+    default: ${{ github.token }}
 runs:
   using: node24
   main: main.js

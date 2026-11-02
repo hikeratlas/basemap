@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
-const interval = Number(process.env['INPUT_INTERVAL'] || '5');
+const interval = Number(process.env['INPUT_INTERVAL'] || '1');
 const out = path.join(process.env.RUNNER_TEMP || '/tmp', `telemetry-${process.pid}.jsonl`);
 
 const child = spawn(process.execPath, [path.join(__dirname, 'sample.js'), out, String(interval)], {

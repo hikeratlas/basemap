@@ -108,7 +108,9 @@ jobs:
         run: |
           df -h / /mnt
           start=$(date +%s)
-          ./bin/docker-pmtiles merge --tile-compression=zstd /mnt/layers/*.pmtiles /mnt/out/tiles.pmtiles
+          # --no-progress: on north-america the progress bar adds thousands of
+          # lines to the log. The log lines (tiles merged, timings) stay.
+          ./bin/docker-pmtiles --no-progress merge --tile-compression=zstd /mnt/layers/*.pmtiles /mnt/out/tiles.pmtiles
           echo "Merged in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
           ls -l /mnt/out
           df -h / /mnt

@@ -105,8 +105,9 @@ jobs:
           jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
 
       # No "Maximize build space" step: arm64 runners start with ~107G free on
-      # /. north-america peaks around 51G here: the layers (17G), the merge's
-      # temporary tile data and the output (17G each).
+      # /. north-america peaks around 43G here: the layers (21G) and the
+      # merged output (22G). The merge writes its tiles straight into the
+      # output, with no temporary copy.
 
       - name: Fetch tiles
         env:

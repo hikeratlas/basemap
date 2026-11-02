@@ -16,6 +16,8 @@ const GIB = 1024 ** 3;
 const f1 = (n) => n.toFixed(1);
 const f0 = (n) => n.toFixed(0);
 const gb = (n) => (n / 1e9).toFixed(2);
+// Durations under 90 s in seconds, longer ones in minutes.
+const duration = (secs) => (secs >= 90 ? `${f1(secs / 60)} min` : `${f0(secs)} s`);
 
 // The job's name (with matrix values) and its steps' times, from the API.
 // Needs `actions: read`; without it the report just has no waterfall.
@@ -136,7 +138,11 @@ async function main() {
     };
   };
   const all = stats(points);
-  const minutes = (last.t - first.t) / 60000;
+  const seconds = (last.t - first.t) / 1000;
+  // Charts of jobs up to 10 minutes long count seconds; longer ones, minutes.
+  const xAxis = seconds <= 600
+    ? `"seconds" 0 --> ${Math.max(1, Math.ceil(seconds))}`
+    : `"minutes" 0 --> ${f1(seconds / 60)}`;
 
   const job = await jobInfo();
   const title = job ? job.name : process.env.GITHUB_JOB || 'job';
@@ -163,7 +169,7 @@ async function main() {
   out.push(
     '| Duration | CPU avg / peak | iowait | Memory peak | Swap | Disk read / written | Network in / out | Free disk (min) |',
     '|---|---|---|---|---|---|---|---|',
-    `| ${f1(minutes)} min | ${f0(all.busy)}% / ${f0(all.busyPeak)}% | ${f0(all.iowait)}% | ${f1(all.mem)} / ${f1(last.mem.total / GIB)} GiB | ${f1(all.swap)} GiB | ${gb(all.read)} / ${gb(all.write)} GB | ${gb(all.rx)} / ${gb(all.tx)} GB | ${mounts.map((m) => `${m} ${f1(all.free[m])} GiB`).join(', ')} |`,
+    `| ${duration(seconds)} | ${f0(all.busy)}% / ${f0(all.busyPeak)}% | ${f0(all.iowait)}% | ${f1(all.mem)} / ${f1(last.mem.total / GIB)} GiB | ${f1(all.swap)} GiB | ${gb(all.read)} / ${gb(all.write)} GB | ${gb(all.rx)} / ${gb(all.tx)} GB | ${mounts.map((m) => `${m} ${f1(all.free[m])} GiB`).join(', ')} |`,
     '',
   );
 
@@ -185,13 +191,12 @@ async function main() {
     for (const s of steps) {
       const ps = points.filter((p) => stepAt(p.t) === s);
       const secs = (s.end - s.start) / 1000;
-      const dur = secs >= 90 ? `${f1(secs / 60)} min` : `${f0(secs)} s`;
       if (!ps.length) {
-        out.push(`| ${s.n} | ${s.name} | ${dur} | | | | |`);
+        out.push(`| ${s.n} | ${s.name} | ${duration(secs)} | | | | |`);
         continue;
       }
       const st = stats(ps);
-      out.push(`| ${s.n} | ${s.name} | ${dur} | ${f0(st.busy)}% | ${f1(st.mem)} GiB | ${gb(st.read)} / ${gb(st.write)} GB | ${gb(st.rx)} GB |`);
+      out.push(`| ${s.n} | ${s.name} | ${duration(secs)} | ${f0(st.busy)}% | ${f1(st.mem)} GiB | ${gb(st.read)} / ${gb(st.write)} GB | ${gb(st.rx)} GB |`);
     }
     out.push('');
   }
@@ -223,7 +228,7 @@ async function main() {
       `%%{init: {"xyChart": {"width": 900, "height": 240}, "themeVariables": {"xyChart": {"plotColorPalette": "${[...(steps.length ? [BAND] : []), ...LINES].join(', ')}"}}}}%%`,
       'xychart-beta',
       `  title "${title}"`,
-      `  x-axis "minutes" 0 --> ${f1(Math.max(minutes, 0.1))}`,
+      `  x-axis ${xAxis}`,
       `  y-axis "${yLabel}" 0 --> ${top}`,
       ...(steps.length ? [`  bar [${shade.map((v) => fmt(v * top)).join(', ')}]`] : []),
       ...lines.map((l) => `  line [${l.map(fmt).join(', ')}]`),

@@ -147,7 +147,8 @@ async function main() {
     const name = spec.split(/\s+/)[0];
     if (el) {
       const [type, id] = [el[1].toLowerCase(), el[2]];
-      const box = widen(await elementBox(type, id), radius);
+      const elBox = await elementBox(type, id);
+      const box = widen(elBox, radius);
       const candidates = Object.entries(areas).sort(([, a], [, b]) => boxArea(a.bbox) - boxArea(b.bbox));
       let found: string | null = null;
       for (const [key, a] of candidates) {
@@ -156,7 +157,8 @@ async function main() {
       if (!found) fail(`${type}/${id} (with a ${radius} km radius) isn't inside any area in areas.json`);
       area = found;
       bbox = boxString(box);
-      v = view(box);
+      // The map opens on the element itself (a node at z14), not the whole box.
+      v = view(elBox);
       target = `${type}/${id} (${radius} km radius) from ${area}`;
     } else if (areas[name]) {
       area = name;

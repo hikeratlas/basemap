@@ -126,7 +126,8 @@ const boxArea = (s: string) => {
 };
 
 async function main() {
-  const text = process.env.PREVIEW ?? '';
+  // Lines in ``` code blocks are examples, e.g. in this feature's own PR.
+  const text = (process.env.PREVIEW ?? '').replace(/^\s*```[\s\S]*?^\s*```/gm, '');
   const defaultArea = process.env.DEFAULT_AREA || 'nova-scotia';
   const m = /^\s*(?:preview:\s*)?(\S.*?)\s*$/im.exec(
     // A PR description: just the "Preview:" line. A build input: the whole thing.

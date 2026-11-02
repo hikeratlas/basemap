@@ -212,7 +212,11 @@ async function main() {
   });
 
   const chart = (title, yLabel, lines, yMax) => {
-    const top = yMax ?? Math.max(1, ...lines.flat()) * 1.05;
+    // Round the top up to two significant digits, and use that same number for
+    // the axis and the shading bars, so the bars reach the top of the chart.
+    const raw = yMax ?? Math.max(1, ...lines.flat()) * 1.05;
+    const unit = 10 ** (Math.floor(Math.log10(raw)) - 1);
+    const top = Number((Math.ceil(raw / unit - 1e-9) * unit).toPrecision(2));
     const fmt = (v) => v.toFixed(2);
     return [
       '```mermaid',
@@ -220,7 +224,7 @@ async function main() {
       'xychart-beta',
       `  title "${title}"`,
       `  x-axis "minutes" 0 --> ${f1(Math.max(minutes, 0.1))}`,
-      `  y-axis "${yLabel}" 0 --> ${top.toFixed(top < 10 ? 1 : 0)}`,
+      `  y-axis "${yLabel}" 0 --> ${top}`,
       ...(steps.length ? [`  bar [${shade.map((v) => fmt(v * top)).join(', ')}]`] : []),
       ...lines.map((l) => `  line [${l.map(fmt).join(', ')}]`),
       '```',

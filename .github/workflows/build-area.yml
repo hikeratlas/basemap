@@ -228,7 +228,9 @@ jobs:
       REUSE: ${{ needs.config.outputs.reuse_from }}
     steps:
       - name: Copy the search DB
-        run: aws s3 cp --no-progress "s3://hikes-public/$REUSE.autosuggest.db" "s3://hikes-public/$NAMESPACE.autosuggest.db"
+        # --copy-props none: a big DB (north-america's is 51 MB) is copied in
+        # parts, and copying its tags calls GetObjectTagging, which R2 lacks.
+        run: aws s3 cp --no-progress --copy-props none "s3://hikes-public/$REUSE.autosuggest.db" "s3://hikes-public/$NAMESPACE.autosuggest.db"
 
       - uses: actions/checkout@v7
         if: needs.config.outputs.mode == 'style-only'

@@ -68,6 +68,13 @@ jobs:
       - name: Collect resource telemetry
         uses: ./.github/actions/telemetry
 
+      # Pull the go-pmtiles image in the background, so it overlaps with
+      # building the style and fetching the layers. A plain pull, not
+      # bin/docker-pmtiles: that would make Docker create /mnt/layers and
+      # /mnt/out as root.
+      - name: Pre-fetch go-pmtiles image
+        run: nohup docker pull "$(sed -n 's/^IMAGE=//p' bin/docker-pmtiles)" > "$RUNNER_TEMP/pmtiles-prefetch.log" 2>&1 &
+
       - name: Read area config
         id: area
         run: |
@@ -76,6 +83,26 @@ jobs:
             exit 1
           fi
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
+      # A pinned version lets setup-bun use its cache; "latest" downloads from
+      # bun.sh every time, which once took 2.5 minutes of retries after a 522.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      - name: Install mapt
+        run: bun rm mapt && bun add https://github.com/cldellow/mapt
+
+      # Stitch styles/*.json into one stylesheet that points at this build's
+      # tiles, so the website can preview it with ?build=<namespace>. This
+      # never touches the root style.json, which is published separately.
+      # It only needs the repo, not the tiles, so it's built before the merge
+      # (a broken style fails in seconds, not after it) and uploaded after the
+      # tiles, which it may need.
+      - name: Build style
+        run: |
+          bun mapt style "https://public.hikeratlas.com/$NAMESPACE.pmtiles" > "$RUNNER_TEMP/style.json"
+          jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
 
       # No "Maximize build space" step: arm64 runners start with ~107G free on
       # /. north-america peaks around 51G here: the layers (17G), the merge's
@@ -89,7 +116,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         # Only the .pmtiles: older builds also left .mbtiles layers here.
         run: |
-          sudo mkdir /mnt/layers /mnt/out
+          sudo mkdir -p /mnt/layers /mnt/out
           sudo chown runner:docker /mnt/layers /mnt/out
           cd /mnt/layers
           # One `aws s3 cp` per layer, all at once, each with the CLI's defaults
@@ -145,18 +172,6 @@ jobs:
           echo "Uploaded in $(( $(date +%s) - start ))s"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # A pinned version lets setup-bun use its cache; "latest" downloads from
-      # bun.sh every time, which once took 2.5 minutes of retries after a 522.
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
-
-      - name: Install mapt
-        run: bun rm mapt && bun add https://github.com/cldellow/mapt
-
-      # Stitch styles/*.json into one stylesheet that points at this build's
-      # tiles, so the website can preview it with ?build=<namespace>. This
-      # never touches the root style.json, which is published separately.
       - name: Publish style
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
@@ -164,8 +179,6 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          bun mapt style "https://public.hikeratlas.com/$NAMESPACE.pmtiles" > "$RUNNER_TEMP/style.json"
-          jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
           aws s3 cp --no-progress --content-type application/json \
             "$RUNNER_TEMP/style.json" "s3://hikes-public/$NAMESPACE.style.json"
           {

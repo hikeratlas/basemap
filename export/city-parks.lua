@@ -2,6 +2,7 @@
 
 local file_append = require 'file_append'
 local json = require 'json'
+local geometry_lib = require 'geometry'
 
 local dump_filename = os.getenv('DUMP_FILENAME')
 
@@ -52,7 +53,11 @@ function dump()
 			osm_id=Id()
 		}
 	)
-	file_append.write(dump_filename, json.encode(feature) .. '\n')
+	-- One feature per side of the antimeridian; see geometry.split_antimeridian.
+	for _, part in ipairs(geometry_lib.split_antimeridian(feature.geometry)) do
+		feature.geometry = part
+		file_append.write(dump_filename, json.encode(feature) .. '\n')
+	end
 end
 
 function way_function()

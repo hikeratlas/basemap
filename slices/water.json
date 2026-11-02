@@ -27,6 +27,11 @@
             "maxzoom": 14,
             "simplify_below": 12,
             "simplify_level": 0.0002
+        },
+        "water_barrier": {
+            "zindex": 22,
+            "minzoom": 13,
+            "maxzoom": 14
         }
 
     },

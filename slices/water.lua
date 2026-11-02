@@ -1,6 +1,7 @@
 local debug = false
 
 way_keys = {'natural=water', 'water', 'waterway'}
+node_keys = {'waterway=weir'}
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
 
@@ -10,7 +11,20 @@ end
 function exit_function()
 end
 
+-- Weirs, e.g. https://www.openstreetmap.org/way/105587319: a line across the
+-- river, or a node on it.
+function emit_weir(is_node)
+	Layer('water_barrier', false)
+	MinZoom(13)
+	Attr('kind', 'weir')
+	Attr('name', Find('name'))
+	if debug then
+		Attr('osm_id', Id())
+	end
+end
+
 function node_function()
+	if Find('waterway') == 'weir' then emit_weir(true) end
 end
 
 function maybe_emit()
@@ -20,6 +34,11 @@ function maybe_emit()
   local waterway = Find('waterway')
 
 	local id = Id()
+
+	if waterway == 'weir' then
+		emit_weir(false)
+		return
+	end
 
 	if not (natural == 'water' or water == 'lake' or waterway == 'river' or waterway == 'stream') then return end
 

@@ -40,21 +40,14 @@ jobs:
           LOCATION=$(curl -s --max-time 3 -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2021-02-01&format=text" || true)
           echo "vmSize=${VMSIZE:-unknown} location=${LOCATION:-unknown}"
           echo "::endgroup::"
-          {
-            echo "### Runner diagnostics"
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Image | ${ImageOS:-?} ${ImageVersion:-?} |"
-            echo "| VM size | ${VMSIZE:-unknown} (${LOCATION:-unknown}) |"
-            echo "| CPU | $(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1) |"
-            echo "| vCPUs | $(nproc) |"
-            echo "| RAM | $(free -h | awk '/^Mem:/ {print $2}') |"
-            echo "| Swap | $(free -h | awk '/^Swap:/ {print $2}') |"
-            echo "| Disk / | $(df -h / | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
-            echo "| Disk /mnt | $(df -h /mnt 2>/dev/null | awk 'NR==2 {print $2 " total, " $4 " free"}') |"
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/checkout@v3
+
+      # Runner details, a waterfall of the steps, and CPU, memory, disk and
+      # network charts in the job summary; the numbers go to the log too. Needs
+      # the checkout, so it doesn't sample the steps above.
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
 
       - name: Read area config
         id: area

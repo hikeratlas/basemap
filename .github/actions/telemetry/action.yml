@@ -1,0 +1,19 @@
+name: Resource telemetry
+description: >
+  Samples CPU, memory, disk and network usage in the background while the job
+  runs, then writes charts to the job summary and the numbers to the log.
+  Use it as the first step of a job; it reports in its post step.
+inputs:
+  interval:
+    description: Seconds between samples.
+    default: '1'
+  token:
+    description: >
+      Token for reading the job's name and step times from the API (needs
+      `actions: read`). Without it, the report has no step waterfall.
+    default: ${{ github.token }}
+runs:
+  using: node24
+  main: main.js
+  post: post.js
+  post-if: always()

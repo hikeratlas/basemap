@@ -15,6 +15,10 @@ on:
         description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
         type: string
         default: ''
+      geojsonl_from:
+        description: Read the exports' GeoJSON from this namespace instead of this build's (when the exports were skipped)
+        type: string
+        default: ''
   workflow_call:
     inputs:
       area:
@@ -27,6 +31,10 @@ on:
         default: ''
       bbox:
         description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
+        type: string
+        default: ''
+      geojsonl_from:
+        description: Read the exports' GeoJSON from this namespace instead of this build's (when the exports were skipped)
         type: string
         default: ''
 
@@ -143,11 +151,12 @@ jobs:
 
       - name: Fetch supporting GeoJSON and QRank files
         env:
+          GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync "s3://hikes-public/geojsonl/$NAMESPACE/" . --no-progress && unzstd *.zst
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db && aws s3 sync "s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/" . --no-progress && unzstd *.zst
 
 
       # The coastline is an 865MB zip from osmdata.openstreetmap.de that downloads

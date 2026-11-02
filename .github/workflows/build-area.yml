@@ -12,6 +12,14 @@ name: Build area
 #     Preview: ontario
 #   For an OSM element, the PR builds just a box around it (at least 10 km in
 #   each direction) from the smallest area in areas.json that contains it.
+# - A PR skips work its changes can't affect, reusing an existing build's
+#   outputs: nova-scotia's for a PR without a "Preview:" line, production
+#   north-america's otherwise (it covers every area). The PR comment says which.
+#     style-only: only styles/ (or .md) changed. No tiles are built; the
+#                 preview's style points at the reused tiles.
+#     no-exports: nothing the exports use changed. The layers read the reused
+#                 exports' GeoJSON, and search uses their autosuggest DB.
+#     full:       anything else, and every push to main.
 # - Any area, including north-america, can be built by hand.
 #
 # Outputs go to R2 under the namespace (which defaults to the area name):
@@ -41,6 +49,11 @@ on:
         description: Optional, as in a PR's "Preview:" line, e.g. node/3046004352; overrides area
         type: string
         default: ''
+      mode:
+        description: full, or reuse another build's outputs as a PR would (no-exports, style-only)
+        type: choice
+        options: [full, no-exports, style-only]
+        default: full
 
 # One build per namespace at a time. A newer push or PR update supersedes an
 # in-progress build, and closing a PR cancels its build before cleaning up;
@@ -76,6 +89,8 @@ jobs:
       view: ${{ steps.target.outputs.view }}
       target: ${{ steps.target.outputs.target }}
       namespace: ${{ steps.config.outputs.namespace }}
+      mode: ${{ steps.mode.outputs.mode }}
+      reuse_from: ${{ steps.mode.outputs.reuse_from }}
     steps:
       - uses: actions/checkout@v7
 
@@ -117,8 +132,49 @@ jobs:
           echo "namespace=$NAMESPACE" | tee -a "$GITHUB_OUTPUT"
           echo "Building **$TARGET** into \`$NAMESPACE\`${BBOX:+ (box $BBOX)}" >> "$GITHUB_STEP_SUMMARY"
 
+      # How much of the pipeline this PR needs (see the top of this file).
+      - id: mode
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          INPUT_MODE: ${{ inputs.mode }}
+          AREA: ${{ steps.target.outputs.area }}
+          BBOX: ${{ steps.target.outputs.bbox }}
+          # Files the exports (and the search DB) depend on
+          EXPORT_INPUTS: >-
+            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts)$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports)\.yml$)
+        run: |
+          if [ -n "$PR" ]; then
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
+            echo "Changed files:"; cat "$RUNNER_TEMP/changed.txt"
+            if [ ! -s "$RUNNER_TEMP/changed.txt" ]; then
+              MODE=full
+            elif ! grep -qvE '^styles/|\.md$' "$RUNNER_TEMP/changed.txt"; then
+              MODE=style-only
+            elif ! grep -qE "$EXPORT_INPUTS" "$RUNNER_TEMP/changed.txt"; then
+              MODE=no-exports
+            else
+              MODE=full
+            fi
+          else
+            MODE=${INPUT_MODE:-full}
+          fi
+          # nova-scotia is rebuilt on every push to main; production
+          # north-america covers everything else.
+          if [ "$AREA" = nova-scotia ] && [ -z "$BBOX" ]; then
+            REUSE=nova-scotia
+          else
+            REUSE=north-america
+          fi
+          echo "mode=$MODE" | tee -a "$GITHUB_OUTPUT"
+          echo "reuse_from=$REUSE" | tee -a "$GITHUB_OUTPUT"
+          if [ "$MODE" != full ]; then
+            echo "Mode **$MODE**: reusing \`$REUSE\`'s outputs" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   exports:
     needs: config
+    if: needs.config.outputs.mode == 'full'
     uses: ./.github/workflows/tilemaker-exports.yml
     with:
       area: ${{ needs.config.outputs.area }}
@@ -128,15 +184,22 @@ jobs:
 
   layers:
     needs: [config, exports]
+    # Runs after the exports, or without them (no-exports)
+    if: >-
+      !cancelled() && needs.config.result == 'success'
+      && needs.config.outputs.mode != 'style-only'
+      && (needs.exports.result == 'success' || needs.exports.result == 'skipped')
     uses: ./.github/workflows/tilemaker-layers.yml
     with:
       area: ${{ needs.config.outputs.area }}
       namespace: ${{ needs.config.outputs.namespace }}
       bbox: ${{ needs.config.outputs.bbox }}
+      geojsonl_from: ${{ needs.config.outputs.mode == 'no-exports' && needs.config.outputs.reuse_from || '' }}
     secrets: inherit
 
   tile-join:
     needs: [config, layers]
+    if: ${{ !cancelled() && needs.layers.result == 'success' }}
     # tile-join calls deploy-search for north-america builds, which logs in to
     # AWS with OIDC. A called workflow can't have more permissions than this.
     permissions:
@@ -149,10 +212,55 @@ jobs:
       namespace: ${{ needs.config.outputs.namespace }}
     secrets: inherit
 
+  # Without the exports, publish the reused build's search DB under this
+  # namespace, as the exports would. For a style-only change, also publish
+  # this branch's style, pointing at the reused tiles: no tiles are built.
+  reuse:
+    needs: config
+    if: needs.config.outputs.mode == 'no-exports' || needs.config.outputs.mode == 'style-only'
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      NAMESPACE: ${{ needs.config.outputs.namespace }}
+      REUSE: ${{ needs.config.outputs.reuse_from }}
+    steps:
+      - name: Copy the search DB
+        # --copy-props none: a big DB (north-america's is 51 MB) is copied in
+        # parts, and copying its tags calls GetObjectTagging, which R2 lacks.
+        run: aws s3 cp --no-progress --copy-props none "s3://hikes-public/$REUSE.autosuggest.db" "s3://hikes-public/$NAMESPACE.autosuggest.db"
+
+      - uses: actions/checkout@v7
+        if: needs.config.outputs.mode == 'style-only'
+
+      - uses: oven-sh/setup-bun@v2
+        if: needs.config.outputs.mode == 'style-only'
+        with:
+          bun-version-file: .bun-version
+
+      - name: Publish style
+        if: needs.config.outputs.mode == 'style-only'
+        run: |
+          bun rm mapt && bun add https://github.com/cldellow/mapt
+          bun mapt style "https://public.hikeratlas.com/$REUSE.pmtiles" > "$RUNNER_TEMP/style.json"
+          jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
+          aws s3 cp --no-progress --content-type application/json \
+            "$RUNNER_TEMP/style.json" "s3://hikes-public/$NAMESPACE.style.json"
+          {
+            echo "Published https://public.hikeratlas.com/$NAMESPACE.style.json (tiles: $REUSE)"
+            echo
+            echo "Preview: https://www.hikeratlas.com/map?build=$NAMESPACE"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
   # Post (or update) a PR comment linking to the website preview of this build.
   comment:
-    needs: [config, tile-join]
-    if: github.event_name == 'pull_request'
+    needs: [config, tile-join, reuse]
+    if: >-
+      !cancelled() && github.event_name == 'pull_request'
+      && (needs.tile-join.result == 'success'
+          || (needs.config.outputs.mode == 'style-only' && needs.reuse.result == 'success'))
     runs-on: ubuntu-24.04-arm
     permissions:
       pull-requests: write
@@ -162,15 +270,25 @@ jobs:
       NAMESPACE: ${{ needs.config.outputs.namespace }}
       VIEW: ${{ needs.config.outputs.view }}
       TARGET: ${{ needs.config.outputs.target }}
+      MODE: ${{ needs.config.outputs.mode }}
+      REUSE: ${{ needs.config.outputs.reuse_from }}
       SHA: ${{ github.event.pull_request.head.sha }}
     steps:
       - name: Comment with preview link
         run: |
           marker='<!-- build-area-preview -->'
+          tiles="$NAMESPACE"
+          case "$MODE" in
+            style-only) tiles="$REUSE"; note="Style-only change: no tiles were built; the preview uses \`$REUSE\`'s tiles and search." ;;
+            no-exports) note="No export changes: the exports were skipped; the layers and search use \`$REUSE\`'s." ;;
+            *) note="" ;;
+          esac
           body="$marker
           **Preview of ${SHA:0:7}** ($TARGET): https://www.hikeratlas.com/map?build=$NAMESPACE${VIEW:+#$VIEW}
-
-          Tiles: https://public.hikeratlas.com/$NAMESPACE.pmtiles
+          ${note:+
+          $note
+          }
+          Tiles: https://public.hikeratlas.com/$tiles.pmtiles
           Style: https://public.hikeratlas.com/$NAMESPACE.style.json"
           id=$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR/comments" \
             --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -1)

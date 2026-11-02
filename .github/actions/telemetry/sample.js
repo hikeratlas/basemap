@@ -41,11 +41,16 @@ function disk() {
   return { read, written };
 }
 
+// An interface with a master is part of another one, whose counters already
+// include its traffic: on Azure runners, accelerated networking puts a
+// Mellanox VF (enP...) under eth0, so counting both doubled the traffic.
+const enslaved = (name) => fs.existsSync(`/sys/class/net/${name}/master`);
+
 function net() {
   let rx = 0, tx = 0;
   for (const line of fs.readFileSync('/proc/net/dev', 'utf8').split('\n').slice(2)) {
     const m = line.match(/^\s*([^:]+):\s*(.*)$/);
-    if (!m || m[1] === 'lo' || m[1].startsWith('docker') || m[1].startsWith('veth') || m[1].startsWith('br-')) continue;
+    if (!m || m[1] === 'lo' || m[1].startsWith('docker') || m[1].startsWith('veth') || m[1].startsWith('br-') || enslaved(m[1])) continue;
     const f = m[2].trim().split(/\s+/).map(Number);
     rx += f[0];
     tx += f[8];

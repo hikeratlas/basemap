@@ -62,8 +62,33 @@ function emit(key, value)
 
 end
 
+-- Canyons, gorges and valleys get their name along the line. They're
+-- usually mapped as a line down the valley floor (natural=valley, sometimes
+-- gorge or canyon), but some, like Barron Canyon in Algonquin
+-- (way/628304812), only as named cliffs along the rim.
+local valley_naturals = { valley = true, gorge = true, canyon = true }
+
+local function is_canyon_cliff(name)
+	local n = string.lower(name)
+	return string.find(n, 'canyon', 1, true) ~= nil
+		or string.find(n, 'gorge', 1, true) ~= nil
+		or string.find(n, 'chasm', 1, true) ~= nil
+end
+
+function emit_landform_name(natural)
+	if IsClosed() then return end
+	local name = Find('name')
+	if name == '' then return end
+	if not (valley_naturals[natural] or (natural == 'cliff' and is_canyon_cliff(name))) then return end
+	Layer('landform_name', false)
+	Attr('name', name)
+	Attr('natural', natural)
+	Attr('wikidata', Find('wikidata'))
+end
+
 function way_function()
 	local natural = Find('natural')
+	emit_landform_name(natural)
 	if natural_filter[natural] == true then emit('natural', natural); return end
 
 	if natural == 'wetland' then emit('wetland', 'natural=wetland'); return end

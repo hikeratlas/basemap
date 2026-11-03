@@ -30,7 +30,12 @@
         },
         "water_barrier": {
             "zindex": 22,
-            "minzoom": 13,
+            "minzoom": 12,
+            "maxzoom": 14
+        },
+        "water_barrier_name": {
+            "zindex": 88,
+            "minzoom": 12,
             "maxzoom": 14
         }
 

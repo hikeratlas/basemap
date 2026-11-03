@@ -108,7 +108,12 @@ function way_function_highway(highway)
 	end
 
 	path_zoom = path_zooms[highway]
-	if path_zoom ~= nil and (highway ~= 'cycleway' or Find('foot') == 'yes' or Find('foot') == 'designated') then
+	-- Cycleways count as paths, unless walking on them is ruled out: in the US,
+	-- highway=cycleway allows pedestrians by default (see the defaults table at
+	-- https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Access_restrictions).
+	-- Until 2026 a cycleway needed foot=yes/designated, so e.g. the Bike and Hike
+	-- Trail (way/168254737) was hidden until a mapper added foot=designated.
+	if path_zoom ~= nil then
 		local footway = Find('footway')
 
 		-- In urban areas, sidewalks dominate.
@@ -122,8 +127,10 @@ function way_function_highway(highway)
 		-- For portages, e.g. Algonquin PP
 		local canoe = Find('canoe')
 
-		-- Ignore dedicated bike paths, downhill bike trails, etc.
-		if foot == 'no' then return end
+		-- Ignore paths pedestrians may not use: dedicated bike paths, downhill
+		-- bike trails, and cycleways whose pedestrians must use a sidewalk
+		-- alongside (foot=use_sidepath).
+		if foot == 'no' or foot == 'private' or foot == 'use_sidepath' then return end
 
 		if not in_park then path_zoom = path_zoom + 2 end
 

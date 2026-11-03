@@ -41,6 +41,28 @@ function sanitize_park(x)
 	return x
 end
 
+-- The feature of `layer` that the current object is in, for the context
+-- shown with a search result ("Lake X, Y Park, Z State"), or nil: the one
+-- covering more than half of the object's area (a point: the one it's in).
+--
+-- Taking the first intersecting feature gave nonsense for big objects, e.g.
+-- "Lake Huron, Pinery PP, Michigan" (hikeratlas/website#10): a lake touches
+-- many shoreline parks, and more than one state. Requiring the feature to
+-- cover the object entirely was too strict instead: a campground poking out
+-- of its park, or a park whose edge strays a few metres over a provincial
+-- border, lost its context.
+--
+-- States and countries cover all the land and water, so an object that
+-- touches only one is in it: skip measuring overlaps, which is slow against
+-- a whole province. Parks don't: Lake Huron touches just one, and isn't in it.
+function containing(layer, one_is_enough)
+	if one_is_enough then
+		local hits = FindIntersecting(layer)
+		if #hits <= 1 then return hits[1] end
+	end
+	return LargestIntersecting(layer, 0.5)
+end
+
 function emit(properties, area)
 	local sanitized_properties = {name=Find('name')}
 	local wikidata = Find('wikidata')
@@ -58,14 +80,14 @@ function emit(properties, area)
 	local centroid = Centroid('polylabel')
 	if not centroid then return end
 
-	local state = FindIntersecting('states')[1]
+	local state = containing('states', true)
 	if state then sanitized_properties['state'] = state end
 
-	local country = FindIntersecting('countries')[1]
+	local country = containing('countries', true)
 	if country then sanitized_properties['country'] = country end
 
 	if sanitized_properties['kind'] ~= 'park' then
-		local park = FindIntersecting('parks')[1]
+		local park = containing('parks')
 		if park then sanitized_properties['park'] = sanitize_park(park) end
 	end
 

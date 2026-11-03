@@ -13,20 +13,54 @@
     }
   },
   "layers": [
+    // Protected areas: a solid fill at low zooms. From z10 the fill fades, so
+    // the land cover inside shows, and an edge line plus a translucent band
+    // just inside it (line-offset into the polygon) mark the boundary, even
+    // where the park sits in forest of much the same green.
     {
       "id": "park-fill",
       "type": "fill",
       "paint": {
-        "fill-color": "emerald-200"
+        "fill-color": "emerald-200",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 9, 1, 11, 0.25, 13, 0.12]
       },
       "source-layer": "park",
-      "source": "tiles",
-      "maxzoom": 10 // We'll show an outline beyond this
+      "source": "tiles"
+    },
+    {
+      "id": "park-band",
+      "type": "line",
+      "filter": ["all", ["!=", "leisure", "park"], ["!=", "landuse", "recreation_ground"]],
+      "layout": {"line-join": "round"},
+      "paint": {
+        "line-color": "emerald-700",
+        "line-opacity": 0.4,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 5, 14, 10],
+        // Half the width, so the band sits just inside the boundary: outer
+        // rings and holes both have the park on their right.
+        "line-offset": ["interpolate", ["linear"], ["zoom"], 11, 2.5, 14, 5]
+      },
+      "minzoom": 11,
+      "source-layer": "park",
+      "source": "tiles"
+    },
+    {
+      "id": "park-edge",
+      "type": "line",
+      "filter": ["all", ["!=", "leisure", "park"], ["!=", "landuse", "recreation_ground"]],
+      "layout": {"line-join": "round"},
+      "paint": {
+        "line-color": "emerald-900",
+        "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 1.8]
+      },
+      "minzoom": 9,
+      "source-layer": "park",
+      "source": "tiles"
     },
     // City parks and recreation grounds stay filled at every zoom. A park that's
     // also a protected area (e.g. Cherry Creek State Park, leisure=park +
-    // boundary=protected_area) is treated as one: filled to z10 by park-fill,
-    // then its land (beaches, forest...) shows through.
+    // boundary=protected_area) is treated as one: park-fill fades from z10,
+    // so its land (beaches, forest...) shows through, inside an outline.
     {
       "id": "leisure-park-fill",
       "type": "fill",
@@ -45,9 +79,6 @@
       "source-layer": "park",
       "source": "tiles"
     },
-    // TODO: Figure out how to get reasonable park outlines that
-    // don't look like trails/roads. A line layer on the "park" polygons
-    // would draw them; the tiles no longer carry a separate outline layer.
 
     {
       "id": "label-park",

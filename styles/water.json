@@ -119,6 +119,28 @@
       "source": "tiles"
     },
     {
+      // Lakes too small for a centerline: their name at a point, from z12 to
+      // z14 depending on size (see water.lua).
+      "id": "lake-point-labels",
+      "type": "symbol",
+      "filter": ["==", "point_label", true],
+      "layout": {
+        "text-field": "{name}",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 15, 13],
+        "text-letter-spacing": 0.1,
+        "text-max-width": 8
+      },
+      "paint": {
+        "text-color": "sky-800",
+        "text-halo-color": "sky-100",
+        "text-halo-width": 1.5
+      },
+      "minzoom": 12,
+      "source-layer": "water_poly_name",
+      "source": "tiles"
+    },
+    {
       // River and stream names along the waterway. The tiles have carried
       // them (water_line_name) for a long time, but nothing drew them.
       "id": "river-labels",

@@ -34,7 +34,10 @@
         "path_name": {
             "zindex": 95,
             "minzoom": 0,
-            "maxzoom": 14
+            "maxzoom": 14,
+            "simplify_below": 15,
+            "simplify_level": 0.002,
+            "simplify_ratio": 2
         }
     },
     "settings": {

@@ -16,7 +16,9 @@
     // Protected areas: a solid fill at low zooms. From z10 the fill fades, so
     // the land cover inside shows, and an edge line plus a translucent band
     // just inside it (line-offset into the polygon) mark the boundary, even
-    // where the park sits in forest of much the same green.
+    // where the park sits in forest of much the same green. They're drawn from
+    // park_outline (tilemaker's outline_of), not the park polygons: those are
+    // clipped to each tile, and a line along their edges would box every tile.
     {
       "id": "park-fill",
       "type": "fill",
@@ -36,12 +38,12 @@
         "line-color": "emerald-700",
         "line-opacity": 0.4,
         "line-width": ["interpolate", ["linear"], ["zoom"], 11, 5, 14, 10],
-        // Half the width, so the band sits just inside the boundary: outer
-        // rings and holes both have the park on their right.
+        // Half the width, so the band sits just inside the boundary:
+        // park_outline lines have the park on their right.
         "line-offset": ["interpolate", ["linear"], ["zoom"], 11, 2.5, 14, 5]
       },
       "minzoom": 11,
-      "source-layer": "park",
+      "source-layer": "park_outline",
       "source": "tiles"
     },
     {
@@ -54,7 +56,7 @@
         "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 1.8]
       },
       "minzoom": 9,
-      "source-layer": "park",
+      "source-layer": "park_outline",
       "source": "tiles"
     },
     // City parks and recreation grounds stay filled at every zoom. A park that's

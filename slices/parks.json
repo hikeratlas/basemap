@@ -8,6 +8,12 @@
             "simplify_level": 0.0002,
             "simplify_algorithm": "visvalingam"
         },
+        "park_outline": {
+            "zindex": 11,
+            "minzoom": 9,
+            "maxzoom": 14,
+            "outline_of": "park"
+        },
         "park_name": {
             "zindex": 102,
             "minzoom": 0,

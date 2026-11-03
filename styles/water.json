@@ -33,7 +33,19 @@
       "source": "tiles"
     },
     {
-      "id": "weirs",
+      "id": "dams",
+      "type": "fill",
+      "filter": ["==", ["geometry-type"], "Polygon"],
+      "paint": {
+        "fill-color": "slate-400",
+        "fill-outline-color": "slate-600"
+      },
+      "minzoom": 12,
+      "source-layer": "water_barrier",
+      "source": "tiles"
+    },
+    {
+      "id": "barrier-lines",
       "type": "line",
       "filter": ["==", ["geometry-type"], "LineString"],
       "layout": {
@@ -41,35 +53,38 @@
       },
       "paint": {
         "line-color": "slate-600",
-        "line-width": ["interpolate", ["linear"], ["zoom"], 13, 1.5, 16, 4]
+        "line-width": [
+          "interpolate", ["linear"], ["zoom"],
+          12, ["match", ["get", "kind"], "dam", 2, 1],
+          16, ["match", ["get", "kind"], "dam", 6, 4]
+        ]
       },
-      "minzoom": 13,
+      "minzoom": 12,
       "source-layer": "water_barrier",
       "source": "tiles"
     },
     {
-      "id": "weir-points",
+      "id": "barrier-points",
       "type": "circle",
       "filter": ["==", ["geometry-type"], "Point"],
       "paint": {
         "circle-color": "slate-600",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 13, 2, 16, 4],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 12, 2, 16, 4],
         "circle-stroke-color": "zinc-100",
         "circle-stroke-width": 1
       },
-      "minzoom": 13,
+      "minzoom": 12,
       "source-layer": "water_barrier",
       "source": "tiles"
     },
     {
-      "id": "weir-labels",
+      "id": "barrier-labels",
       "type": "symbol",
-      "filter": ["has", "name"],
       "layout": {
         "text-field": "{name}",
         "symbol-placement": "point",
         "text-font": ["Hubot Sans-Regular"],
-        "text-size": 11,
+        "text-size": ["match", ["get", "kind"], "dam", 12, 11],
         "text-anchor": "top",
         "text-offset": [0, 0.6]
       },
@@ -78,8 +93,8 @@
         "text-halo-color": "zinc-100",
         "text-halo-width": 1.5
       },
-      "minzoom": 14,
-      "source-layer": "water_barrier",
+      "minzoom": 13,
+      "source-layer": "water_barrier_name",
       "source": "tiles"
     }
   ]

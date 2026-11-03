@@ -1,7 +1,7 @@
 local debug = false
 
 way_keys = {'natural=water', 'water', 'waterway'}
-node_keys = {'waterway=weir'}
+node_keys = {'waterway=weir', 'waterway=dam'}
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
 
@@ -11,20 +11,38 @@ end
 function exit_function()
 end
 
--- Weirs, e.g. https://www.openstreetmap.org/way/105587319: a line across the
--- river, or a node on it.
-function emit_weir(is_node)
-	Layer('water_barrier', false)
-	MinZoom(13)
-	Attr('kind', 'weir')
-	Attr('name', Find('name'))
+-- Weirs and dams, e.g. the Kitchener Weir (https://www.openstreetmap.org/way/105587319)
+-- and the Glen Canyon Dam (https://www.openstreetmap.org/way/108060498): an area,
+-- a line across the river, or a node on it. Dams are usually much bigger, so
+-- they show from a zoom earlier.
+local barrier_zooms = { dam = 12, weir = 13 }
+
+function emit_barrier(kind, is_node)
+	local mz = barrier_zooms[kind]
+	local is_area = not is_node and IsClosed()
+	Layer('water_barrier', is_area)
+	MinZoom(mz)
+	Attr('kind', kind)
 	if debug then
 		Attr('osm_id', Id())
 	end
+
+	-- The name goes on a point (an area's or line's centroid), a zoom later.
+	local name = Find('name')
+	if name == '' then return end
+	if is_node then
+		Layer('water_barrier_name', false)
+	else
+		LayerAsCentroid('water_barrier_name')
+	end
+	MinZoom(mz + 1)
+	Attr('kind', kind)
+	Attr('name', name)
 end
 
 function node_function()
-	if Find('waterway') == 'weir' then emit_weir(true) end
+	local waterway = Find('waterway')
+	if barrier_zooms[waterway] then emit_barrier(waterway, true) end
 end
 
 function maybe_emit()
@@ -35,8 +53,8 @@ function maybe_emit()
 
 	local id = Id()
 
-	if waterway == 'weir' then
-		emit_weir(false)
+	if barrier_zooms[waterway] then
+		emit_barrier(waterway, false)
 		return
 	end
 

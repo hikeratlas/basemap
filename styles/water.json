@@ -117,6 +117,52 @@
       "minzoom": 6,
       "source-layer": "lake_centerline",
       "source": "tiles"
+    },
+    {
+      // River and stream names along the waterway. The tiles have carried
+      // them (water_line_name) for a long time, but nothing drew them.
+      "id": "river-labels",
+      "type": "symbol",
+      "filter": ["==", "kind", "river"],
+      "layout": {
+        "text-field": "{name}",
+        "symbol-placement": "line",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 13],
+        "text-letter-spacing": 0.1,
+        "text-max-angle": 45,
+        "symbol-spacing": 400
+      },
+      "paint": {
+        "text-color": "sky-800",
+        "text-halo-color": "sky-100",
+        "text-halo-width": 1.5
+      },
+      "minzoom": 10,
+      "source-layer": "water_line_name",
+      "source": "tiles"
+    },
+    {
+      "id": "stream-labels",
+      "type": "symbol",
+      "filter": ["==", "kind", "stream"],
+      "layout": {
+        "text-field": "{name}",
+        "symbol-placement": "line",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-size": 11,
+        "text-letter-spacing": 0.1,
+        "text-max-angle": 45,
+        "symbol-spacing": 400
+      },
+      "paint": {
+        "text-color": "sky-800",
+        "text-halo-color": "sky-100",
+        "text-halo-width": 1.5
+      },
+      "minzoom": 13,
+      "source-layer": "water_line_name",
+      "source": "tiles"
     }
   ]
 }

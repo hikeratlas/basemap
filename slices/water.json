@@ -34,7 +34,7 @@
             "maxzoom": 14
         },
         "lake_centerline": {
-            "zindex": 89,
+            "zindex": 120,
             "minzoom": 6,
             "maxzoom": 14,
             "source": "../lake-centerlines.geojsonl",

@@ -106,7 +106,7 @@
         "text-font": ["Hubot Sans-Regular"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 14, 15],
         "text-letter-spacing": 0.1,
-        "text-max-angle": 25,
+        "text-max-angle": 45,
         "symbol-spacing": 400
       },
       "paint": {

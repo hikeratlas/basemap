@@ -1,0 +1,73 @@
+name: Prepare lake centerlines
+
+# Lake names are labelled along a centerline through the lake (issue #7). The
+# centerlines come from acalcutt/osm-lakelines' release, which has OSM ids but
+# no names, so this adds each lake's current name from the mirrored
+# north-america PBF and publishes the result to R2 as
+# lake-centerlines/north-america.geojsonl.zst, which the water layer reads.
+#
+# Run by hand, e.g. after mirroring a newer north-america PBF, to pick up
+# renamed or deleted lakes. New lakes need a newer osm-lakelines release.
+
+on:
+  workflow_dispatch:
+  # TEMPORARY: runs it once from this branch, before it's on main. Remove before merging.
+  push:
+    branches: [lake-centerlines]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+      # acalcutt/osm-lakelines v12, built from the 2022-04-10 planet
+      CENTERLINES: https://github.com/acalcutt/osm-lakelines/releases/download/v12/lake_centerline.geojson
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      - name: Install osmium
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
+
+      # Only north-america's box: no build covers anything outside it.
+      - name: Fetch and convert the centerlines
+        run: |
+          curl -sSfL -o centerlines.geojson "$CENTERLINES"
+          ls -l centerlines.geojson
+          python3 bin/lake-centerlines.py convert centerlines.geojson lines.geojsonl lake-ids.txt "$(jq -r '."north-america".bbox' areas.json)"
+
+      # The original PBF: osmium can't read the zstd copy.
+      - name: Fetch the north-america PBF
+        run: |
+          start=$(date +%s)
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          aws s3 cp --no-progress s3://hikes-public/pbfs/north-america.pbf north-america.pbf
+          echo "Fetched $(( $(stat -c %s north-america.pbf) / 1048576 )) MiB in $(( $(date +%s) - start ))s"
+
+      - name: Add the lakes' names
+        run: |
+          osmium getid north-america.pbf -i lake-ids.txt -f opl -o lakes.opl
+          python3 bin/lake-centerlines.py name lines.geojsonl lakes.opl lake-centerlines.geojsonl
+          ls -l lake-centerlines.geojsonl
+          head -c 300 lake-centerlines.geojsonl; echo
+
+      # Some R2 failures aren't retried by the CLI (e.g. "InvalidPart"), so
+      # retry the whole upload too; see mirror-pbfs.yml.
+      - name: Upload
+        run: |
+          zstd -19 -q lake-centerlines.geojsonl
+          for i in 1 2 3; do
+            aws s3 cp --no-progress lake-centerlines.geojsonl.zst s3://hikes-public/lake-centerlines/north-america.geojsonl.zst && exit 0
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30))
+          done
+          exit 1

@@ -21,7 +21,8 @@
             "filter_below": 12,
             "filter_area": 0.5,
             "simplify_below": 13,
-            "simplify_level": 0.0001
+            "simplify_level": 0.0001,
+            "simplify_algorithm": "visvalingam"
         }
     },
     "settings": {

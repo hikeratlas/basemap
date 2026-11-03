@@ -12,6 +12,9 @@ local geometry = require 'geometry'
 local dump_filename = os.getenv('DUMP_FILENAME')
 
 node_keys = {
+	'place=city',
+	'place=town',
+	'place=village',
 	'boundary=national_park',
 	'boundary=protected_area',
 	'leisure=nature_reserve',
@@ -25,6 +28,7 @@ way_keys = {
 	'landuse=recreation_ground',
 	'leisure=nature_reserve',
 	'leisure=park',
+	'natural=cliff',
 	'tourism=camp_site',
 	'water=lake',
 }
@@ -94,7 +98,16 @@ function exit_function()
 	qrank.close()
 end
 
+-- Places people search for by name, e.g. to find hiking near a town.
+-- Mapped as nodes in North America; smaller places (hamlets etc.) are left out.
+local searchable_places = { city=true, town=true, village=true }
+
 function node_function()
+	local place = Find('place')
+	if searchable_places[place] then
+		return emit({kind=place})
+	end
+
   local natural = Find('natural')
   local tourism = Find('tourism')
 	local waterway = Find('waterway')
@@ -136,6 +149,14 @@ function way_function()
 
 	if tourism == 'camp_site' then
 		return emit({kind='camp_site'}, true)
+	end
+
+	-- Usually a line along the top of the cliff, e.g. Barron Canyon:
+	-- https://www.openstreetmap.org/way/1190940447
+	-- Not cliff nodes: many are points and peninsulas (e.g. node/1402749898,
+	-- "Long Point"), or scattered markers along an escarpment.
+	if Find('natural') == 'cliff' then
+		return emit({kind='cliff'}, IsClosed())
 	end
 end
 

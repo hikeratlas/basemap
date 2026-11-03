@@ -23,13 +23,21 @@
       "source": "tiles",
       "maxzoom": 10 // We'll show an outline beyond this
     },
+    // City parks and recreation grounds stay filled at every zoom. A park that's
+    // also a protected area (e.g. Cherry Creek State Park, leisure=park +
+    // boundary=protected_area) is treated as one: filled to z10 by park-fill,
+    // then its land (beaches, forest...) shows through.
     {
       "id": "leisure-park-fill",
       "type": "fill",
       "filter": [
-        "any",
-        ["==", "leisure", "park"],
-        ["==", "landuse", "recreation_ground"]
+        "all",
+        [
+          "any",
+          ["==", "leisure", "park"],
+          ["==", "landuse", "recreation_ground"]
+        ],
+        ["!has", "boundary"]
       ],
       "paint": {
         "fill-color": "emerald-200"

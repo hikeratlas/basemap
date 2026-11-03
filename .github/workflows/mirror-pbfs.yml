@@ -87,7 +87,21 @@ jobs:
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          # R2 sometimes fails a request (e.g. a 500 InternalError); let the
+          # CLI retry those, as tile-join's upload does.
+          AWS_RETRY_MODE: adaptive
+          AWS_MAX_ATTEMPTS: 10
+        # Some failures aren't retried by the CLI, e.g. "InvalidPart" when
+        # completing a multipart upload, so also retry each whole upload.
         run: |
-          aws s3 cp --no-progress "$AREA".pbf s3://hikes-public/pbfs/
-          aws s3 cp --no-progress "$AREA".zstd.pbf s3://hikes-public/pbfs/
+          upload() {
+            for i in 1 2 3; do
+              aws s3 cp --no-progress "$1" s3://hikes-public/pbfs/ && return 0
+              echo "Uploading $1 failed (attempt $i)"
+              [ "$i" -lt 3 ] && sleep $((i * 30))
+            done
+            return 1
+          }
+          upload "$AREA".pbf
+          upload "$AREA".zstd.pbf
 

@@ -166,6 +166,23 @@ jobs:
             touch campgrounds.geojsonl
           fi
 
+      # Lake labels follow these centerlines; see lake-centerlines.yml.
+      - name: Fetch lake centerlines
+        if: ${{ startsWith(matrix.layer, 'water') }}
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if aws s3 cp --no-progress s3://hikes-public/lake-centerlines/north-america.geojsonl.zst lake-centerlines.geojsonl.zst; then
+            unzstd -f lake-centerlines.geojsonl.zst
+          else
+            echo "::warning::No lake centerlines in R2 (run lake-centerlines.yml); lakes won't be labelled"
+            touch lake-centerlines.geojsonl
+          fi
+          ls -l lake-centerlines.geojsonl
+
 
       # The coastline is an 865MB zip from osmdata.openstreetmap.de that downloads
       # at ~20 MB/s and takes ~10s to unzip, so cache the unzipped shapefiles.

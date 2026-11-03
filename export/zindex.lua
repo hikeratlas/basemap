@@ -25,6 +25,7 @@ way_keys = {
 	'landuse=recreation_ground',
 	'leisure=nature_reserve',
 	'leisure=park',
+	'natural=cliff',
 	'tourism=camp_site',
 	'water=lake',
 }
@@ -136,6 +137,14 @@ function way_function()
 
 	if tourism == 'camp_site' then
 		return emit({kind='camp_site'}, true)
+	end
+
+	-- Usually a line along the top of the cliff, e.g. Barron Canyon:
+	-- https://www.openstreetmap.org/way/1190940447
+	-- Not cliff nodes: many are points and peninsulas (e.g. node/1402749898,
+	-- "Long Point"), or scattered markers along an escarpment.
+	if Find('natural') == 'cliff' then
+		return emit({kind='cliff'}, IsClosed())
 	end
 end
 

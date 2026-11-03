@@ -8,16 +8,30 @@ function geometry.box(geom)
 	local max_lat = -999
 
 	if not geom or not geom['type'] then return nil end
-	if geom['type'] == 'MultiPolygon' then
-		for _, polygon in ipairs(geom['coordinates']) do
-			for _, coord in ipairs(polygon[1]) do
-				local lon = coord[1]
-				local lat = coord[2]
-				min_lon = math.min(min_lon, lon)
-				min_lat = math.min(min_lat, lat)
-				max_lon = math.max(max_lon, lon)
-				max_lat = math.max(max_lat, lat)
-			end
+
+	-- The coordinates that bound the geometry: outer rings of polygons, and
+	-- every point of lines (e.g. a cliff).
+	local lists = {}
+	local t = geom['type']
+	local c = geom['coordinates']
+	if t == 'MultiPolygon' then
+		for _, polygon in ipairs(c) do table.insert(lists, polygon[1]) end
+	elseif t == 'Polygon' then
+		table.insert(lists, c[1])
+	elseif t == 'MultiLineString' then
+		for _, line in ipairs(c) do table.insert(lists, line) end
+	elseif t == 'LineString' then
+		table.insert(lists, c)
+	end
+
+	for _, coords in ipairs(lists) do
+		for _, coord in ipairs(coords) do
+			local lon = coord[1]
+			local lat = coord[2]
+			min_lon = math.min(min_lon, lon)
+			min_lat = math.min(min_lat, lat)
+			max_lon = math.max(max_lon, lon)
+			max_lat = math.max(max_lat, lat)
 		end
 	end
 

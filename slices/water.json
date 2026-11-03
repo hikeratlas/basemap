@@ -5,7 +5,15 @@
             "minzoom": 0,
             "maxzoom": 14,
             "simplify_below": 12,
-            "simplify_level": 0.0002
+            "simplify_level": 0.0002,
+            "simplify_algorithm": "visvalingam"
+        },
+        "water_poly_river": {
+            "minzoom": 0,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002,
+            "write_to": "water_poly"
         },
         "water_line": {
             "zindex": 21,

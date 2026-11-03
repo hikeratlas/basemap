@@ -45,6 +45,9 @@ function node_function()
 	if barrier_zooms[waterway] then emit_barrier(waterway, true) end
 end
 
+-- water=* values for areas that are long and thin, like rivers.
+river_areas = { river = true, canal = true, stream = true, ditch = true, drain = true, tidal_channel = true }
+
 function maybe_emit()
 	local name = Find('name')
   local natural = Find('natural')
@@ -108,7 +111,13 @@ function maybe_emit()
 
 
 	local layer = 'water_line'
-	if isClosed then layer = 'water_poly' end
+	if isClosed then
+		layer = 'water_poly'
+		-- River areas are long and thin. Visvalingam (water_poly's simplifier)
+		-- breaks them into fragments at low zooms, so they keep the default
+		-- simplifier, in a layer that writes into water_poly.
+		if river_areas[water] or waterway == 'riverbank' then layer = 'water_poly_river' end
+	end
 
 	local name_layer = 'water_line_name'
 	if isClosed then name_layer = 'water_poly_name' end

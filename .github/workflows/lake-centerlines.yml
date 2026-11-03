@@ -2,9 +2,9 @@ name: Prepare lake centerlines
 
 # Lake, bay and strait names are labelled along a centerline through the
 # water (issue #7). This builds those centerlines from the mirrored
-# north-america PBF with bin/lake-centerlines.py (acalcutt/osm-lakelines'
-# method) and publishes them to R2 as
-# lake-centerlines/north-america.geojsonl.zst, which the water layer reads.
+# north-america PBF with hikeratlas/lake-centrelines (osm-lakelines' method)
+# and publishes them to R2 as lake-centerlines/north-america.geojsonl.zst,
+# which the water layer reads.
 #
 # Run by hand, e.g. after mirroring a newer north-america PBF.
 
@@ -25,13 +25,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Pinned, so a change there shows up here as a reviewed bump.
+      - uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/lake-centrelines
+          ref: ee02cf37d044d26b11ba34086ee53cfb8ed1b2d3
+          path: lake-centrelines
+
       - name: Collect resource telemetry
         uses: ./.github/actions/telemetry
 
       - name: Install osmium and Python packages
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
-          python3 -m venv venv && venv/bin/pip install -q numpy scipy shapely
+          python3 -m venv venv && venv/bin/pip install -q -r lake-centrelines/requirements.txt
 
       # The original PBF: osmium can't read the zstd copy.
       - name: Fetch the north-america PBF
@@ -45,14 +52,7 @@ jobs:
       - name: Build the centerlines
         run: |
           start=$(date +%s)
-          osmium tags-filter -o water.pbf north-america.pbf 'a/natural=water,bay,strait' 'a/water=lake,reservoir,lagoon,stream_pool,pond,oxbow'
-          rm north-america.pbf
-          # Unnamed water is most of it, and gets no label.
-          osmium tags-filter -o named.pbf water.pbf 'a/name'
-          osmium export -f geojsonseq --geometry-types=polygon --add-unique-id=type_id -o water.geojsonseq named.pbf
-          echo "Extracted $(wc -l < water.geojsonseq) water areas in $(( $(date +%s) - start ))s"
-          start=$(date +%s)
-          venv/bin/python bin/lake-centerlines.py water.geojsonseq lake-centerlines.geojsonl
+          PYTHON=venv/bin/python lake-centrelines/lake-centrelines.sh north-america.pbf lake-centerlines.geojsonl
           echo "Built in $(( $(date +%s) - start ))s"
           ls -l lake-centerlines.geojsonl
           head -c 300 lake-centerlines.geojsonl; echo

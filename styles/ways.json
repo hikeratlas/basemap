@@ -304,13 +304,13 @@
       "paint": {
         "text-color": "zinc-800",
         "text-halo-color": "zinc-50",
-        "text-halo-width": 1.5
+        "text-halo-width": 2.5
       },
       "layout": {
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
-        "text-size": 13
+        "text-size": 14
       },
       "source-layer": "path_name",
       "source": "tiles"
@@ -323,13 +323,13 @@
       "paint": {
         "text-color": "zinc-800",
         "text-halo-color": "zinc-50",
-        "text-halo-width": 1.5
+        "text-halo-width": 2.5
       },
       "layout": {
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
-        "text-size": 13
+        "text-size": 14
       },
       "source-layer": "path_name_15",
       "source": "tiles"
@@ -341,13 +341,13 @@
       "paint": {
         "text-color": "zinc-800",
         "text-halo-color": "zinc-50",
-        "text-halo-width": 1.5
+        "text-halo-width": 2.5
       },
       "layout": {
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
-        "text-size": 13
+        "text-size": 14
       },
       "source-layer": "path_name_16",
       "source": "tiles"

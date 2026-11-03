@@ -12,6 +12,9 @@ local geometry = require 'geometry'
 local dump_filename = os.getenv('DUMP_FILENAME')
 
 node_keys = {
+	'place=city',
+	'place=town',
+	'place=village',
 	'boundary=national_park',
 	'boundary=protected_area',
 	'leisure=nature_reserve',
@@ -95,7 +98,16 @@ function exit_function()
 	qrank.close()
 end
 
+-- Places people search for by name, e.g. to find hiking near a town.
+-- Mapped as nodes in North America; smaller places (hamlets etc.) are left out.
+local searchable_places = { city=true, town=true, village=true }
+
 function node_function()
+	local place = Find('place')
+	if searchable_places[place] then
+		return emit({kind=place})
+	end
+
   local natural = Find('natural')
   local tourism = Find('tourism')
 	local waterway = Find('waterway')

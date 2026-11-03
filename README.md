@@ -87,3 +87,39 @@ Unless otherwise noted, this repository is licensed under Apache 2.0. The artifa
 
 - https://osmlanduse.org/ helps identify the landuse OSM object in a given range. (I found OSM's Query Features action often omitted landcover polygons.)
 
+# Forked tools
+
+The build uses forks of two tools, published as Docker images that the scripts
+pull: [cldellow/tilemaker](https://github.com/cldellow/tilemaker), branch
+`relslow-patched` (`ghcr.io/cldellow/tilemaker:relslow-patched`, see
+`bin/docker-tilemaker`), and [cldellow/go-pmtiles](https://github.com/cldellow/go-pmtiles)
+(pinned by commit in `bin/docker-pmtiles`). Both images are built for amd64 and
+arm64, since the GitHub Actions jobs run on arm64 runners.
+
+Upstream versions won't build this repo as it is. Its config and Lua rely on
+these features of the forks:
+
+**tilemaker**
+- `"compress": "zstd"` for vector tiles (every slice), and reading `.osm.pbf`
+  files whose blobs are zstd-compressed (the mirrored `<area>.zstd.pbf`).
+- `outline_of` in a layer's config: the boundaries of another layer's polygons
+  as lines, without the edges that clipping to the tile added. `park_outline`
+  in `slices/parks.json` uses it for park outlines.
+- The `GeoJSON(area)` Lua function, which `export/zindex.lua` uses for each
+  search result's bounding box.
+- The `LargestIntersecting(layer, min_share)` Lua function: the park, state
+  or country a search result is mostly in (`export/zindex.lua`, from #90).
+
+The rest of the fork's patches only make it faster, mostly on huge polygons
+(e.g. national forests). Some of them are proposed upstream. It also logs
+relations that take more than half a second to process (`RELSLOW`), to help
+find the slow ones.
+
+**go-pmtiles**
+- `merge`, as `tile-join.yml` uses it to combine the layers into one tileset:
+  - it accepts archives whose tiles overlap, as long as their layers don't,
+    and concatenates the layers of overlapping tiles;
+  - it reads and writes zstd tiles, and recompresses to the compression given
+    by `--tile-compression`;
+  - it skips layer archives that have no tiles;
+  - `--no-progress` hides its progress bars in CI logs.

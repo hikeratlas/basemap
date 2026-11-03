@@ -12,6 +12,7 @@ local geometry = require 'geometry'
 local dump_filename = os.getenv('DUMP_FILENAME')
 
 node_keys = {
+	'natural=cliff',
 	'boundary=national_park',
 	'boundary=protected_area',
 	'leisure=nature_reserve',
@@ -25,6 +26,7 @@ way_keys = {
 	'landuse=recreation_ground',
 	'leisure=nature_reserve',
 	'leisure=park',
+	'natural=cliff',
 	'tourism=camp_site',
 	'water=lake',
 }
@@ -110,6 +112,9 @@ function node_function()
 	if waterway == 'waterfall' then
 		return emit({kind='waterfall'})
 	end
+	if natural == 'cliff' then
+		return emit({kind='cliff'})
+	end
 	if natural == 'peak' then
 		return emit({kind='peak'})
 	end
@@ -136,6 +141,12 @@ function way_function()
 
 	if tourism == 'camp_site' then
 		return emit({kind='camp_site'}, true)
+	end
+
+	-- Usually a line along the top of the cliff, e.g. Barron Canyon:
+	-- https://www.openstreetmap.org/way/1190940447
+	if Find('natural') == 'cliff' then
+		return emit({kind='cliff'}, IsClosed())
 	end
 end
 

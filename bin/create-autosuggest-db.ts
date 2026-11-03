@@ -4,6 +4,70 @@ import fs from 'node:fs';
 
 const DB_FILE = 'autosuggest.db';
 
+// Kinds that are often mapped as several pieces with the same name, e.g. the
+// three cliff ways of Barron Canyon (way/1190940447 and its neighbours).
+const MERGED_KINDS = new Set(['cliff']);
+const MERGE_DISTANCE_KM = 2;
+
+type Box = { min_lon: number; min_lat: number; max_lon: number; max_lat: number };
+
+const boxOf = (row: any): Box => row.box ?? { min_lon: row.lon, min_lat: row.lat, max_lon: row.lon, max_lat: row.lat };
+
+// Whether two boxes are within MERGE_DISTANCE_KM of each other.
+function near(a: Box, b: Box): boolean {
+	const lat = (a.min_lat + a.max_lat) / 2;
+	const dLat = MERGE_DISTANCE_KM / 111.32;
+	const dLon = MERGE_DISTANCE_KM / (111.32 * Math.cos((lat * Math.PI) / 180));
+	return a.min_lon - dLon <= b.max_lon && b.min_lon - dLon <= a.max_lon
+		&& a.min_lat - dLat <= b.max_lat && b.min_lat - dLat <= a.max_lat;
+}
+
+// Merges nearby rows of MERGED_KINDS that share a name and place into one
+// row: the union of their boxes, centred in it, with the best qrank.
+export function mergePieces(rows: any[]): any[] {
+	const out: any[] = [];
+	const groups = new Map<string, any[]>();
+	for (const row of rows) {
+		if (!MERGED_KINDS.has(row.kind)) { out.push(row); continue; }
+		const key = JSON.stringify([row.kind, row.name, row.park, row.state, row.country]);
+		if (!groups.has(key)) groups.set(key, []);
+		groups.get(key)!.push(row);
+	}
+	for (const members of groups.values()) {
+		// Single-linkage clusters: keep absorbing rows near the cluster's box.
+		const remaining = [...members];
+		while (remaining.length) {
+			const cluster = [remaining.shift()!];
+			let box = { ...boxOf(cluster[0]) };
+			for (let grew = true; grew; ) {
+				grew = false;
+				for (let i = remaining.length - 1; i >= 0; i--) {
+					if (near(box, boxOf(remaining[i]))) {
+						const r = remaining.splice(i, 1)[0];
+						const b = boxOf(r);
+						box = {
+							min_lon: Math.min(box.min_lon, b.min_lon), min_lat: Math.min(box.min_lat, b.min_lat),
+							max_lon: Math.max(box.max_lon, b.max_lon), max_lat: Math.max(box.max_lat, b.max_lat),
+						};
+						cluster.push(r);
+						grew = true;
+					}
+				}
+			}
+			if (cluster.length === 1) { out.push(cluster[0]); continue; }
+			out.push({
+				...cluster[0],
+				qrank: Math.max(...cluster.map((r) => r.qrank ?? 0)),
+				wikidata: cluster.find((r) => r.wikidata)?.wikidata,
+				lon: (box.min_lon + box.max_lon) / 2,
+				lat: (box.min_lat + box.max_lat) / 2,
+				box,
+			});
+		}
+	}
+	return out;
+}
+
 async function main() {
 	try {
 		fs.unlinkSync(DB_FILE);
@@ -32,7 +96,7 @@ max_lat NUMERIC
 )`).run();
 
 
-	const rows = (await Bun.file('zindex.geojsonl').text()).split('\n').filter(x => x).map(x => JSON.parse(x));
+	const rows = mergePieces((await Bun.file('zindex.geojsonl').text()).split('\n').filter(x => x).map(x => JSON.parse(x)));
 
 	db.query('PRAGMA synchronous = OFF').run();
 
@@ -62,4 +126,4 @@ max_lat NUMERIC
 	db.close();
 }
 
-main();
+if (import.meta.main) main();

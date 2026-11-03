@@ -303,7 +303,8 @@
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
-        "text-offset": [0, -1]
+        "text-offset": [0, -1],
+        "text-max-angle": 90
       },
       "source-layer": "path_name",
       "source": "tiles"

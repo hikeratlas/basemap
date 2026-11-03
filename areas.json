@@ -34,5 +34,9 @@
   "us-west": {
     "geofabrik": "north-america/us-west",
     "bbox": "-133.0637,31.32659,-102.0355,49.45605"
+  },
+  "great-britain": {
+    "geofabrik": "europe/great-britain",
+    "bbox": "-14.9907,49.523,2.51367,61.13564"
   }
 }

@@ -5,9 +5,12 @@ import fs from 'node:fs';
 const DB_FILE = 'autosuggest.db';
 
 // Kinds that are often mapped as several pieces with the same name, e.g. the
-// three cliff ways of Barron Canyon (way/1190940447 and its neighbours).
+// three cliff ways of Barron Canyon (way/1190940447 and its neighbours), or
+// the many sections of the Niagara Escarpment. Pieces chain together if each
+// is within MERGE_DISTANCE_KM of the next; same-named cliffs farther apart
+// (e.g. Ontario's two "Black Rock"s, 160 km apart) stay separate.
 const MERGED_KINDS = new Set(['cliff']);
-const MERGE_DISTANCE_KM = 2;
+const MERGE_DISTANCE_KM = 10;
 
 type Box = { min_lon: number; min_lat: number; max_lon: number; max_lat: number };
 

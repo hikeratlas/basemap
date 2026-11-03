@@ -5,7 +5,8 @@
             "minzoom": 10,
             "maxzoom": 14,
             "simplify_below": 12,
-            "simplify_level": 0.0002
+            "simplify_level": 0.0002,
+            "simplify_algorithm": "visvalingam"
         },
         "land_line": {
             "zindex": 3,

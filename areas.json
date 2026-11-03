@@ -14,5 +14,25 @@
   "ontario": {
     "geofabrik": "north-america/canada/ontario",
     "bbox": "-95.15965,41.66009,-74.30998,57.50826"
+  },
+  "us-midwest": {
+    "geofabrik": "north-america/us-midwest",
+    "bbox": "-104.0588,35.98507,-80.50521,49.40714"
+  },
+  "us-northeast": {
+    "geofabrik": "north-america/us-northeast",
+    "bbox": "-80.52275,38.74287,-66.87164,47.46222"
+  },
+  "us-pacific": {
+    "geofabrik": "north-america/us-pacific",
+    "bbox": "-180.0,15.92097,180.0,72.98845"
+  },
+  "us-south": {
+    "geofabrik": "north-america/us-south",
+    "bbox": "-106.6494,24.20031,-71.50981,40.64636"
+  },
+  "us-west": {
+    "geofabrik": "north-america/us-west",
+    "bbox": "-133.0637,31.32659,-102.0355,49.45605"
   }
 }

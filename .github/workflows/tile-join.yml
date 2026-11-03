@@ -94,11 +94,11 @@ jobs:
         run: bun rm mapt && bun add https://github.com/cldellow/mapt
 
       # Stitch styles/*.json into one stylesheet that points at this build's
-      # tiles, so the website can preview it with ?build=<namespace>. This
-      # never touches the root style.json, which is published separately.
-      # It only needs the repo, not the tiles, so it's built before the merge
-      # (a broken style fails in seconds, not after it) and uploaded after the
-      # tiles, which it may need.
+      # tiles, so the website can preview it with ?build=<namespace>. The
+      # north-america build also publishes it as the root style.json, which
+      # the site loads without ?build=. It only needs the repo, not the
+      # tiles, so it's built before the merge (a broken style fails in
+      # seconds, not after it) and uploaded after the tiles, which it may need.
       - name: Build style
         run: |
           bun mapt style "https://public.hikeratlas.com/$NAMESPACE.pmtiles" > "$RUNNER_TEMP/style.json"
@@ -187,6 +187,13 @@ jobs:
             echo
             echo "Preview: https://www.hikeratlas.com/map?build=$NAMESPACE"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          # The site's default style. Only north-america: its tiles are the
+          # ones the root style points at.
+          if [ "$NAMESPACE" = north-america ]; then
+            aws s3 cp --no-progress --content-type application/json \
+              "$RUNNER_TEMP/style.json" s3://hikes-public/style.json
+            echo "Published https://public.hikeratlas.com/style.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
   # The main site's search uses the north-america build, so redeploy it with
   # this build's autosuggest DB once the tiles are live.

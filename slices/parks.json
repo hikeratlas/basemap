@@ -5,14 +5,8 @@
             "minzoom": 0,
             "maxzoom": 14,
             "simplify_below": 12,
-            "simplify_level": 0.0002
-        },
-        "park_outline": {
-            "zindex": 80,
-            "minzoom": 10,
-            "maxzoom": 14,
-            "simplify_below": 12,
-            "simplify_level": 0.0002
+            "simplify_level": 0.0002,
+            "simplify_algorithm": "visvalingam"
         },
         "park_name": {
             "zindex": 102,

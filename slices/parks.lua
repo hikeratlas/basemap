@@ -112,16 +112,6 @@ function maybe_emit(is_node)
 	Attr('area', area)
 	Attr('osm_id', Id())
 
-	Layer('park_outline', false)
-	Attr('name', name)
-	AttributeNumeric('rank', rank)
-	Attr('boundary', boundary)
-	Attr('leisure', leisure)
-	Attr('landuse', landuse)
-	Attr('wikidata', wikidata)
-	Attr('area', area)
-	Attr('osm_id', Id())
-
 	if string.find(name, 'Land Use Zone', 1, true) ~= nil then
 		mz = 10
 	end

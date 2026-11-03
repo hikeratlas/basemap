@@ -46,33 +46,8 @@
       "source": "tiles"
     },
     // TODO: Figure out how to get reasonable park outlines that
-    // don't look like trails/roads. . .
-    /*
-    {
-      "id": "park-outline-blur",
-      "type": "line",
-      "filter": ["all", ["!=", "leisure", "park"]],
-      "paint": {
-        "line-color": "emerald-200",
-        "line-width": 3,
-        "line-opacity": 1
-      },
-      "source-layer": "park_outline",
-      "source": "tiles"
-    },
-    {
-      "id": "park-outline",
-      "type": "line",
-      "filter": ["all", ["!=", "leisure", "park"]],
-      "paint": {
-        "line-color": "zinc-600",
-        "line-width": 2,
-        "line-opacity": 1
-      },
-      "source-layer": "park_outline",
-      "source": "tiles"
-    },
-    */
+    // don't look like trails/roads. A line layer on the "park" polygons
+    // would draw them; the tiles no longer carry a separate outline layer.
 
     {
       "id": "label-park",

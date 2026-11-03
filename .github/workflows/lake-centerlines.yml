@@ -55,7 +55,12 @@ jobs:
 
       - name: Add the lakes' names
         run: |
-          osmium getid north-america.pbf -i lake-ids.txt -f opl -o lakes.opl
+          # osmium exits 1 if some ids weren't found (lakes deleted since the
+          # release), 2 on errors.
+          rc=0
+          osmium getid north-america.pbf -i lake-ids.txt -f opl -o lakes.opl || rc=$?
+          [ "$rc" -le 1 ] || exit "$rc"
+          echo "Found $(wc -l < lakes.opl) of $(wc -l < lake-ids.txt) lakes"
           python3 bin/lake-centerlines.py name lines.geojsonl lakes.opl lake-centerlines.geojsonl
           ls -l lake-centerlines.geojsonl
           head -c 300 lake-centerlines.geojsonl; echo

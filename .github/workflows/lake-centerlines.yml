@@ -1,0 +1,70 @@
+name: Prepare lake centerlines
+
+# Lake, bay and strait names are labelled along a centerline through the
+# water (issue #7). This builds those centerlines from the mirrored
+# north-america PBF with bin/lake-centerlines.py (acalcutt/osm-lakelines'
+# method) and publishes them to R2 as
+# lake-centerlines/north-america.geojsonl.zst, which the water layer reads.
+#
+# Run by hand, e.g. after mirroring a newer north-america PBF.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      - name: Install osmium and Python packages
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
+          python3 -m venv venv && venv/bin/pip install -q numpy scipy shapely
+
+      # The original PBF: osmium can't read the zstd copy.
+      - name: Fetch the north-america PBF
+        run: |
+          start=$(date +%s)
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          aws s3 cp --no-progress s3://hikes-public/pbfs/north-america.pbf north-america.pbf
+          echo "Fetched $(( $(stat -c %s north-america.pbf) / 1048576 )) MiB in $(( $(date +%s) - start ))s"
+
+      - name: Build the centerlines
+        run: |
+          start=$(date +%s)
+          osmium tags-filter -o water.pbf north-america.pbf 'a/natural=water,bay,strait' 'a/water=lake,reservoir,lagoon,stream_pool,pond,oxbow'
+          rm north-america.pbf
+          # Unnamed water is most of it, and gets no label.
+          osmium tags-filter -o named.pbf water.pbf 'a/name'
+          osmium export -f geojsonseq --geometry-types=polygon --add-unique-id=type_id -o water.geojsonseq named.pbf
+          echo "Extracted $(wc -l < water.geojsonseq) water areas in $(( $(date +%s) - start ))s"
+          start=$(date +%s)
+          venv/bin/python bin/lake-centerlines.py water.geojsonseq lake-centerlines.geojsonl
+          echo "Built in $(( $(date +%s) - start ))s"
+          ls -l lake-centerlines.geojsonl
+          head -c 300 lake-centerlines.geojsonl; echo
+
+      # Some R2 failures aren't retried by the CLI (e.g. "InvalidPart"), so
+      # retry the whole upload too; see mirror-pbfs.yml.
+      - name: Upload
+        run: |
+          zstd -19 -q lake-centerlines.geojsonl
+          for i in 1 2 3; do
+            aws s3 cp --no-progress lake-centerlines.geojsonl.zst s3://hikes-public/lake-centerlines/north-america.geojsonl.zst && exit 0
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30))
+          done
+          exit 1

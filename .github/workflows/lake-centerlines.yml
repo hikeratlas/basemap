@@ -10,9 +10,6 @@ name: Prepare lake centerlines
 
 on:
   workflow_dispatch:
-  # TEMPORARY: runs it once from this branch, before it's on main. Remove before merging.
-  push:
-    branches: [lake-centerlines]
 
 jobs:
   prepare:

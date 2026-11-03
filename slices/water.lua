@@ -48,6 +48,20 @@ end
 -- water=* values for areas that are long and thin, like rivers.
 river_areas = { river = true, canal = true, stream = true, ditch = true, drain = true, tidal_channel = true }
 
+-- Lakes get a centerline (and their label along it) from
+-- hikeratlas/lake-centrelines if their area, in Web Mercator, is at least
+-- this much. Its is_lake: natural=water with no water=*, or one of these.
+centerline_min_area = 2000000
+lake_water = { [''] = true, lake = true, reservoir = true, lagoon = true, stream_pool = true, pond = true, oxbow = true }
+
+-- Web Mercator stretches areas by 1/cos(latitude)^2.
+function mercator_area(area)
+	local c = Centroid()
+	if not c then return area end
+	local k = math.cos(math.rad(c[1]))
+	return area / (k * k)
+end
+
 function maybe_emit()
 	local name = Find('name')
   local natural = Find('natural')
@@ -146,7 +160,16 @@ function maybe_emit()
 	else
 		Layer(name_layer, false)
 	end
-	MinZoom(mz)
+	local label_mz = mz
+	-- Lakes too small for a centerline (see hikeratlas/lake-centrelines) get
+	-- their name at a point instead, from a zoom that suits their size.
+	if isClosed and kind == 'lake' and lake_water[water] and mercator_area(area) < centerline_min_area then
+		AttributeBoolean('point_label', true)
+		label_mz = math.max(mz, 12)
+		if area < 250000 then label_mz = math.max(mz, 13) end
+		if area < 50000 then label_mz = math.max(mz, 14) end
+	end
+	MinZoom(label_mz)
 	Attr('name', name)
 	Attr('kind', kind)
 	Attr('wikidata', Find('wikidata'))

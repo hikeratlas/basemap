@@ -10,7 +10,9 @@
 #
 #   lake-centerlines.py name IN.geojsonl LAKES.opl OUT.geojsonl
 #     Adds each lake's current name from an `osmium getid -f opl` dump of those
-#     ids, dropping lines whose lake is gone, no longer water, or unnamed.
+#     ids, dropping lines whose lake is gone, no longer water, or unnamed. Bays
+#     (natural=bay) are kept: osm-lakelines has centerlines for many inlets and
+#     fjords, e.g. Bute Inlet (relation/8350798).
 import json, math, re, sys
 
 R = 6378137.0
@@ -84,7 +86,7 @@ def name(src, opl, out):
             if tags is None:
                 gone += 1
                 continue
-            if tags.get('natural') != 'water' and 'water' not in tags:
+            if tags.get('natural') not in ('water', 'bay') and 'water' not in tags:
                 notwater += 1
                 continue
             if not tags.get('name'):

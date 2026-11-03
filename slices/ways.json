@@ -36,8 +36,22 @@
             "minzoom": 0,
             "maxzoom": 14,
             "simplify_below": 15,
-            "simplify_level": 0.0001,
+            "simplify_level": 0.00025749,
             "simplify_ratio": 2
+        },
+        "path_name_15": {
+            "zindex": 96,
+            "minzoom": 14,
+            "maxzoom": 14,
+            "simplify_below": 15,
+            "simplify_level": 0.00012875
+        },
+        "path_name_16": {
+            "zindex": 97,
+            "minzoom": 14,
+            "maxzoom": 14,
+            "simplify_below": 15,
+            "simplify_level": 0.000064373
         }
     },
     "settings": {

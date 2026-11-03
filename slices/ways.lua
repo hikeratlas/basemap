@@ -165,6 +165,14 @@ function way_function_highway(highway)
 		Attr('canoe', canoe)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
+		-- The tiles stop at z14, so z15 and z16 labels follow copies in the
+		-- z14 tiles simplified for those zooms (see path_name in ways.json).
+		if in_park and canoe ~= 'portage' then
+			Layer('path_name_15', false)
+			Attr('name', name)
+			Layer('path_name_16', false)
+			Attr('name', name)
+		end
 		return
 	end
 end

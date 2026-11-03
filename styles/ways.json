@@ -287,8 +287,15 @@
       "source": "tiles"
     },
     {
+      // Trail names sit on the trail, along a copy of it simplified by ~6 px
+      // at each zoom (path_name, path_name_15 and path_name_16 in
+      // slices/ways.json). MapLibre drops a line label wherever its line bends
+      // sharply under the text, which on a switchbacking trail is nearly
+      // everywhere; the simplified line is straight enough on straight-ish
+      // stretches, and the text and its halo cover the trail it strays from.
       "id": "park-paths-names",
       "type": "symbol",
+      "maxzoom": 15,
       "filter": [
         "all",
         ["==", "in_park", true],
@@ -297,16 +304,52 @@
       "paint": {
         "text-color": "zinc-800",
         "text-halo-color": "zinc-50",
-        "text-halo-width": 1
+        "text-halo-width": 1.5
       },
       "layout": {
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
-        "text-offset": [0, -1],
-        "text-max-angle": 90
+        "text-size": 13
       },
       "source-layer": "path_name",
+      "source": "tiles"
+    },
+    {
+      "id": "park-paths-names-15",
+      "type": "symbol",
+      "minzoom": 15,
+      "maxzoom": 16,
+      "paint": {
+        "text-color": "zinc-800",
+        "text-halo-color": "zinc-50",
+        "text-halo-width": 1.5
+      },
+      "layout": {
+        "symbol-placement": "line",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-field": "{name}",
+        "text-size": 13
+      },
+      "source-layer": "path_name_15",
+      "source": "tiles"
+    },
+    {
+      "id": "park-paths-names-16",
+      "type": "symbol",
+      "minzoom": 16,
+      "paint": {
+        "text-color": "zinc-800",
+        "text-halo-color": "zinc-50",
+        "text-halo-width": 1.5
+      },
+      "layout": {
+        "symbol-placement": "line",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-field": "{name}",
+        "text-size": 13
+      },
+      "source-layer": "path_name_16",
       "source": "tiles"
     },
     {

@@ -103,7 +103,7 @@
       "layout": {
         "text-field": "{name}",
         "symbol-placement": "line",
-        "text-font": ["Hubot Sans-Regular"],
+        "text-font": ["Hubot Sans-Regular Italic"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 14, 15],
         "text-letter-spacing": 0.1,
         "text-max-angle": 45,
@@ -126,7 +126,7 @@
       "filter": ["==", "point_label", true],
       "layout": {
         "text-field": "{name}",
-        "text-font": ["Hubot Sans-Regular"],
+        "text-font": ["Hubot Sans-Regular Italic"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 12, 11, 15, 13],
         "text-letter-spacing": 0.1,
         "text-max-width": 8
@@ -149,7 +149,7 @@
       "layout": {
         "text-field": "{name}",
         "symbol-placement": "line",
-        "text-font": ["Hubot Sans-Regular"],
+        "text-font": ["Hubot Sans-Regular Italic"],
         "text-size": ["interpolate", ["linear"], ["zoom"], 10, 10, 14, 13],
         "text-letter-spacing": 0.1,
         "text-max-angle": 45,
@@ -171,7 +171,7 @@
       "layout": {
         "text-field": "{name}",
         "symbol-placement": "line",
-        "text-font": ["Hubot Sans-Regular"],
+        "text-font": ["Hubot Sans-Regular Italic"],
         "text-size": 11,
         "text-letter-spacing": 0.1,
         "text-max-angle": 45,

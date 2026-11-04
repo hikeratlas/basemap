@@ -72,6 +72,23 @@
       "source": "tiles"
     },
     {
+      // Horizontal dashes, the usual wetland symbol (openstreetmap-carto's CC0
+      // pattern, via hikeratlas/sprites). The tiles don't keep wetland=*
+      // subtypes (land.lua emits "natural=wetland"), so it's one pattern for all.
+      "id": "moist-things-texture",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["has", "wetland"]
+      ],
+      "paint": {
+        "fill-pattern": "patterns:wetland"
+      },
+      "minzoom": 12,
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
       "id": "moist-things-edge",
       "type": "line",
       "filter": [

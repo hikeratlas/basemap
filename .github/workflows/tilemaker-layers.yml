@@ -166,6 +166,16 @@ jobs:
             touch campgrounds.geojsonl
           fi
 
+      # Parking and trailheads within 2 km of a park stay in the poi layer
+      # (see slices/pois.lua); this grows the parks by 2 km for that check.
+      - name: Grow parks for nearby parking
+        if: ${{ matrix.layer == 'pois' }}
+        run: |
+          start=$(date +%s)
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" install -q shapely
+          "$RUNNER_TEMP/venv/bin/python" bin/parks-near.py parks.geojsonl parks-near.geojsonl 2000
+          echo "Grew parks in $(( $(date +%s) - start ))s"; ls -l parks-near.geojsonl
+
       # Lake labels follow these centerlines; see lake-centerlines.yml.
       - name: Fetch lake centerlines
         if: ${{ startsWith(matrix.layer, 'water') }}

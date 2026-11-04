@@ -12,6 +12,12 @@
             "source": "../city-parks.geojsonl",
             "index": true
         },
+        "parks_near": {
+            "minzoom": 15,
+            "maxzoom": 15,
+            "source": "../parks-near.geojsonl",
+            "index": true
+        },
         "campgrounds": {
             "minzoom": 15,
             "maxzoom": 15,

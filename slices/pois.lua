@@ -22,7 +22,16 @@ function maybe_emit(is_area)
 	-- area is inside itself, so it gets its own icon and label.
 	local in_campground = Intersects('campgrounds')
 
-	if not in_park and not in_city_park and not in_campground then return end
+	-- Outside parks, keep only parking lots and trailheads within 2 km of
+	-- one (parks_near, from bin/parks-near.py): many hikes start just
+	-- outside a park's boundary, and hikeratlas/routes starts its hikes
+	-- from these.
+	if not in_park and not in_city_park and not in_campground then
+		local access = Find('access')
+		local trailhead = Find('amenity') == 'parking' or Find('highway') == 'trailhead'
+		if not trailhead or access == 'private' or access == 'no' or access == 'customers' then return end
+		if not Intersects('parks_near') then return end
+	end
 
 	local tourism = Find('tourism')
 

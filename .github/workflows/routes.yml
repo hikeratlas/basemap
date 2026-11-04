@@ -28,7 +28,9 @@ on:
 jobs:
   routes:
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 360
+    # tile-join waits for this job, so a bad run mustn't hold up the map for
+    # long. A full north-america run should take ~1-1.5 h.
+    timeout-minutes: 120
     env:
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
@@ -38,14 +40,15 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_RETRY_MODE: adaptive
       AWS_MAX_ATTEMPTS: 10
+      # Pinned, so a change there shows up here as a reviewed bump.
+      ROUTES_REF: 7066c91d80226c0c301e81dc0a91ae322ed74c36
     steps:
       - uses: actions/checkout@v7
 
-      # Pinned, so a change there shows up here as a reviewed bump.
       - uses: actions/checkout@v7
         with:
           repository: hikeratlas/routes
-          ref: 7695513fe54000e67a611b7d157e688af5e2d186
+          ref: ${{ env.ROUTES_REF }}
           path: routes-src
 
       - name: Collect resource telemetry
@@ -54,7 +57,17 @@ jobs:
       - name: Pre-fetch tilemaker image
         run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
 
+      # Building takes ~1 minute, so the binary is cached per pinned commit:
+      # only the first build after a bump compiles it.
+      - name: Restore hikeratlas/routes binary
+        id: routes-cache
+        uses: actions/cache@v6
+        with:
+          path: routes-src/target/release/routes
+          key: routes-bin-${{ runner.arch }}-${{ env.ROUTES_REF }}
+
       - name: Build hikeratlas/routes
+        if: steps.routes-cache.outputs.cache-hit != 'true'
         run: cargo build --release --locked --manifest-path routes-src/Cargo.toml
 
       # /mnt has more room than the workspace.

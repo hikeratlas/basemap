@@ -54,7 +54,7 @@
     {
       "id": "background-0",
       "type": "background",
-      "paint": {"background-color": "zinc-100"}
+      "paint": {"background-color": "#f1f8f3"}
     },
     {
       "id": "hillshading-50",
@@ -73,8 +73,10 @@
           // Ease off at trail zooms so steep slopes don't swamp trails.
           16, 0.35
         ],
-        //"hillshade-accent-color": "#777777",
-        //"hillshade-highlight-color": "#ffffff"
+        // Mint chip: chocolate shadows, so slopes read as chocolate on mint.
+        "hillshade-shadow-color": "#4a3020",
+        "hillshade-accent-color": "#5a4030",
+        "hillshade-highlight-color": "#ffffff"
       }
     },
     {
@@ -88,7 +90,7 @@
       "filter": ["==", ["get", "level"], 0],
       "minzoom": 12,
       "paint": {
-        "line-color": "amber-800",
+        "line-color": "#8a5a36",
         "line-opacity": 0.3,
         "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 16, 0.8]
       }
@@ -101,7 +103,7 @@
       "filter": [">", ["get", "level"], 0],
       "minzoom": 11,
       "paint": {
-        "line-color": "amber-800",
+        "line-color": "#8a5a36",
         "line-opacity": 0.5,
         "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.6, 16, 1.4]
       }
@@ -121,8 +123,8 @@
         "symbol-spacing": 300
       },
       "paint": {
-        "text-color": "amber-800",
-        "text-halo-color": "zinc-100",
+        "text-color": "#8a5a36",
+        "text-halo-color": "#f1f8f3",
         "text-halo-width": 1.5
       }
     }

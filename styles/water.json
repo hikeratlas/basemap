@@ -17,7 +17,7 @@
       "id": "lakes",
       "type": "fill",
       "paint": {
-        "fill-color": "sky-500"
+        "fill-color": "#5bbbe8"
       },
       "source-layer": "water_poly",
       "source": "tiles"
@@ -26,7 +26,7 @@
       "id": "rivers",
       "type": "line",
       "paint": {
-        "line-color": "sky-500",
+        "line-color": "#3aa6dd",
         "line-width": 1
       },
       "source-layer": "water_line",
@@ -110,8 +110,8 @@
         "symbol-spacing": 400
       },
       "paint": {
-        "text-color": "sky-800",
-        "text-halo-color": "sky-100",
+        "text-color": "#0c4a6e",
+        "text-halo-color": "#e0f2fe",
         "text-halo-width": 1.5
       },
       "minzoom": 6,
@@ -132,8 +132,8 @@
         "text-max-width": 8
       },
       "paint": {
-        "text-color": "sky-800",
-        "text-halo-color": "sky-100",
+        "text-color": "#0c4a6e",
+        "text-halo-color": "#e0f2fe",
         "text-halo-width": 1.5
       },
       "minzoom": 12,
@@ -156,8 +156,8 @@
         "symbol-spacing": 400
       },
       "paint": {
-        "text-color": "sky-800",
-        "text-halo-color": "sky-100",
+        "text-color": "#0c4a6e",
+        "text-halo-color": "#e0f2fe",
         "text-halo-width": 1.5
       },
       "minzoom": 10,
@@ -178,8 +178,8 @@
         "symbol-spacing": 400
       },
       "paint": {
-        "text-color": "sky-800",
-        "text-halo-color": "sky-100",
+        "text-color": "#0c4a6e",
+        "text-halo-color": "#e0f2fe",
         "text-halo-width": 1.5
       },
       "minzoom": 13,

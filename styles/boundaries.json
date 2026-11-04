@@ -17,7 +17,7 @@
       "id": "ocean",
       "type": "fill",
       "paint": {
-        "fill-color": "cyan-500"
+        "fill-color": "#5bbbe8"
       },
       "source-layer": "ocean",
       "source": "tiles"

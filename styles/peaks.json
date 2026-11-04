@@ -22,19 +22,30 @@
         "text-font": ["Hubot Sans-Regular"],
         "text-optional": true,
         "icon-image": "mountain",
-        // Name, then elevation (metres) smaller on the next line. ele arrives
-        // as a string in the tiles, hence to-number.
+        // From z12: name, then elevation (metres) smaller on the next line.
+        // Below z12 just the name, to keep the overview light. ele arrives as
+        // a string in the tiles, hence to-number.
         "text-field": [
-          "case",
-          ["has", "ele"],
+          "step", ["zoom"],
+          ["coalesce", ["get", "name"], ""],
+          12,
           [
-            "format",
-            ["coalesce", ["get", "name"], ""], {},
-            ["case", ["has", "name"], "\n", ""], {},
-            ["concat", ["to-string", ["round", ["to-number", ["get", "ele"]]]], " m"], {"font-scale": 0.8}
-          ],
-          ["coalesce", ["get", "name"], ""]
+            "case",
+            ["has", "ele"],
+            [
+              "format",
+              ["coalesce", ["get", "name"], ""], {},
+              ["case", ["has", "name"], "\n", ""], {},
+              ["concat", ["to-string", ["round", ["to-number", ["get", "ele"]]]], " m"], {"font-scale": 0.8}
+            ],
+            ["coalesce", ["get", "name"], ""]
+          ]
         ],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 10, 12, 14, 15],
+        // Higher peaks win label collisions (lower sort key places first).
+        // The tiles keep only the 3 highest peaks per tile below z14 (see
+        // slices/peaks.json), so z10 isn't crowded.
+        "symbol-sort-key": ["-", 0, ["to-number", ["coalesce", ["get", "ele"], 0]]],
         "text-anchor": "top",
         "text-offset": [0, 0.5]
       },
@@ -42,7 +53,7 @@
         "text-halo-color": "white",
         "text-halo-width": 1
       },
-      "minzoom": 12,
+      "minzoom": 10,
       "source-layer": "peak",
       "source": "tiles"
    }

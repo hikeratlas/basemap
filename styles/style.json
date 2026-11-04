@@ -14,7 +14,10 @@
       ],
       "type": "raster-dem",
       "attribution": "<a href='https://github.com/tilezen/joerd/blob/master/docs/attribution.md'>Tilezen Joerd: Attribution</a>",
-      "encoding": "terrarium"
+      "encoding": "terrarium",
+      // Terrarium serves z15 (z16 404s), but its z15 tiles show seams at tile
+      // edges in hillshade. Overzooming z14 is seamless and looks as detailed.
+      "maxzoom": 14
     },
     // Contour lines, generated in the browser from the terrarium DEM by
     // maplibre-contour; the website registers the dem-contour:// protocol
@@ -51,7 +54,7 @@
       "source": "terrain",
       "type": "hillshade",
       "minzoom": 7,
-      "maxzoom": 14,
+      // No maxzoom: relief matters most at trail-reading zooms.
       "paint": {
         //"hillshade-exaggeration": 0.1,
         "hillshade-exaggeration": [
@@ -59,7 +62,9 @@
           ["linear"],
           ["zoom"],
           8, 0.1,
-          14, 0.5
+          14, 0.5,
+          // Ease off at trail zooms so steep slopes don't swamp trails.
+          16, 0.35
         ],
         //"hillshade-accent-color": "#777777",
         //"hillshade-highlight-color": "#ffffff"

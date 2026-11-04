@@ -190,6 +190,52 @@
       "source": "tiles"
    },
    {
+      // Canoe and kayak rentals, e.g. at park access points like George Lake.
+      "id": "boat-rental",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "boat_rental"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "boat_rental",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 12,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
+      "id": "motorcycle-parking",
+      "type": "symbol",
+      "filter": ["==", ["get", "amenity"], "motorcycle_parking"],
+      "layout": {
+        "symbol-placement": "point",
+        "icon-optional": true,
+        "text-font": ["Hubot Sans-Regular"],
+        "text-optional": true,
+        "icon-image": "motorcycle",
+        "text-field": "{name}",
+        "text-anchor": "top",
+        "text-offset": [0, 0.5]
+      },
+      "paint": {
+        "icon-color": "blue-700",
+        "text-halo-color": "white",
+        "text-halo-width": 1
+      },
+      "minzoom": 14,
+      "source-layer": "poi",
+      "source": "tiles"
+   },
+   {
       "id": "bar",
       "type": "symbol",
       "filter": ["==", ["get", "amenity"], "bar"],
@@ -833,7 +879,7 @@
     {
       "id": "locker",
       "type": "symbol",
-      "filter": ["==", ["get", "amenity"], "locker"],
+      "filter": ["in", ["get", "amenity"], ["literal", ["locker", "luggage_locker"]]],
       "layout": {
         "symbol-placement": "point",
         "icon-optional": true,
@@ -1029,6 +1075,7 @@
         ["in", ["get", "amenity"], "bench"],
         ["in", ["get", "amenity"], "bicycle_parking"],
         ["in", ["get", "amenity"], "bicycle_rental"],
+        ["in", ["get", "amenity"], "boat_rental"],
         ["in", ["get", "amenity"], "bar"],
         ["in", ["get", "amenity"], "binoculars"],
         ["in", ["get", "amenity"], "fast_food"],
@@ -1043,6 +1090,8 @@
         ["in", ["get", "amenity"], "grave_yard"],
         ["in", ["get", "amenity"], "hitching_post"],
         ["in", ["get", "amenity"], "locker"],
+        ["in", ["get", "amenity"], "luggage_locker"],
+        ["in", ["get", "amenity"], "motorcycle_parking"],
         ["in", ["get", "amenity"], "parking"],
         ["in", ["get", "amenity"], "picnic_site"],
         ["in", ["get", "amenity"], "place_of_worship"],

@@ -22,7 +22,19 @@
         "text-font": ["Hubot Sans-Regular"],
         "text-optional": true,
         "icon-image": "mountain",
-        "text-field": "{name}",
+        // Name, then elevation (metres) smaller on the next line. ele arrives
+        // as a string in the tiles, hence to-number.
+        "text-field": [
+          "case",
+          ["has", "ele"],
+          [
+            "format",
+            ["coalesce", ["get", "name"], ""], {},
+            ["case", ["has", "name"], "\n", ""], {},
+            ["concat", ["to-string", ["round", ["to-number", ["get", "ele"]]]], " m"], {"font-scale": 0.8}
+          ],
+          ["coalesce", ["get", "name"], ""]
+        ],
         "text-anchor": "top",
         "text-offset": [0, 0.5]
       },

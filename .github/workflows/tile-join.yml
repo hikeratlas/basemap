@@ -103,6 +103,7 @@ jobs:
         run: |
           bun mapt style "https://public.hikeratlas.com/$NAMESPACE.pmtiles" > "$RUNNER_TEMP/style.json"
           jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
+          bin/pin-sprites "$RUNNER_TEMP/style.json"
 
       # No "Maximize build space" step: arm64 runners start with ~107G free on
       # /. north-america peaks around 43G here: the layers (21G) and the
@@ -173,6 +174,10 @@ jobs:
           echo "Uploaded in $(( $(date +%s) - start ))s"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Cache-Control: no-cache lets browsers keep the style but makes them
+      # revalidate it (a cheap 304 via ETag) on every load. Without a header,
+      # browsers cache it for a heuristic while, and a new style could take
+      # hours to show up.
       - name: Publish style
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
@@ -180,7 +185,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          aws s3 cp --no-progress --content-type application/json \
+          aws s3 cp --no-progress --content-type application/json --cache-control no-cache \
             "$RUNNER_TEMP/style.json" "s3://hikes-public/$NAMESPACE.style.json"
           {
             echo "Published https://public.hikeratlas.com/$NAMESPACE.style.json"
@@ -190,7 +195,7 @@ jobs:
           # The site's default style. Only north-america: its tiles are the
           # ones the root style points at.
           if [ "$NAMESPACE" = north-america ]; then
-            aws s3 cp --no-progress --content-type application/json \
+            aws s3 cp --no-progress --content-type application/json --cache-control no-cache \
               "$RUNNER_TEMP/style.json" s3://hikes-public/style.json
             echo "Published https://public.hikeratlas.com/style.json" | tee -a "$GITHUB_STEP_SUMMARY"
           fi

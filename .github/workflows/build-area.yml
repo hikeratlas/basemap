@@ -262,7 +262,9 @@ jobs:
           bun rm mapt && bun add https://github.com/cldellow/mapt
           bun mapt style "https://public.hikeratlas.com/$REUSE.pmtiles" > "$RUNNER_TEMP/style.json"
           jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
-          aws s3 cp --no-progress --content-type application/json \
+          bin/pin-sprites "$RUNNER_TEMP/style.json"
+          # no-cache: browsers revalidate on every load (see tile-join.yml).
+          aws s3 cp --no-progress --content-type application/json --cache-control no-cache \
             "$RUNNER_TEMP/style.json" "s3://hikes-public/$NAMESPACE.style.json"
           {
             echo "Published https://public.hikeratlas.com/$NAMESPACE.style.json (tiles: $REUSE)"

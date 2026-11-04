@@ -23,7 +23,7 @@
       "id": "park-fill",
       "type": "fill",
       "paint": {
-        "fill-color": "emerald-200",
+        "fill-color": "#b4ecd4",
         "fill-opacity": ["interpolate", ["linear"], ["zoom"], 9, 1, 11, 0.25, 13, 0.12]
       },
       "source-layer": "park",
@@ -35,7 +35,7 @@
       "filter": ["all", ["!=", "leisure", "park"], ["!=", "landuse", "recreation_ground"]],
       "layout": {"line-join": "round"},
       "paint": {
-        "line-color": "emerald-700",
+        "line-color": "#2f855a",
         "line-opacity": 0.4,
         "line-width": ["interpolate", ["linear"], ["zoom"], 11, 5, 14, 10],
         // Half the width, so the band sits just inside the boundary:
@@ -52,7 +52,7 @@
       "filter": ["all", ["!=", "leisure", "park"], ["!=", "landuse", "recreation_ground"]],
       "layout": {"line-join": "round"},
       "paint": {
-        "line-color": "emerald-900",
+        "line-color": "#3b2314",
         "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 14, 1.8]
       },
       "minzoom": 9,
@@ -76,7 +76,7 @@
         ["!has", "boundary"]
       ],
       "paint": {
-        "fill-color": "emerald-200"
+        "fill-color": "#b4ecd4"
       },
       "source-layer": "park",
       "source": "tiles"
@@ -106,10 +106,10 @@
         ]
       },
       "paint": {
-        "text-halo-color": "zinc-100",
+        "text-halo-color": "#f1f8f3",
         "text-halo-width": 2,
         "text-halo-blur": 1,
-        "text-color": "yellow-900"
+        "text-color": "#3b2314"
       },
       "minzoom": 0,
       "source-layer": "park_name",

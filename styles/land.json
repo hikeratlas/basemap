@@ -17,7 +17,7 @@
       "id": "grass-or-meadow",
       "type": "fill",
       "paint": {
-        "fill-color": "green-100"
+        "fill-color": "#d6f3e0"
       },
       "source-layer": "land",
       "source": "tiles",
@@ -37,7 +37,7 @@
         ["==", "landuse", "forest"]
       ],
       "paint": {
-        "fill-color": "green-300"
+        "fill-color": "#9fe0b8"
       },
       "source-layer": "land",
       "source": "tiles"
@@ -51,7 +51,7 @@
         ["==", "natural", "heath"]
       ],
       "paint": {
-        "fill-color": "green-200"
+        "fill-color": "#bfe9cd"
       },
       "source-layer": "land",
       "source": "tiles"
@@ -66,7 +66,7 @@
       // Pale teal, not water blue: wetlands are walkable-ish ground, and in
       // places like Killarney they'd otherwise read as hundreds of lakes.
       "paint": {
-        "fill-color": "teal-100"
+        "fill-color": "#d5f5ee"
       },
       "source-layer": "land",
       "source": "tiles"
@@ -113,7 +113,7 @@
         ["==", "natural", "sand"]
       ],
       "paint": {
-        "fill-color": "amber-200"
+        "fill-color": "#f5e3b0"
       },
       "source-layer": "land",
       "source": "tiles"
@@ -183,7 +183,7 @@
         ["==", "natural", "glacier"]
       ],
       "paint": {
-        "fill-color": "indigo-100"
+        "fill-color": "#e6ecff"
       },
       "source-layer": "land",
       "source": "tiles"
@@ -192,7 +192,7 @@
       "id": "camp-site",
       "type": "fill",
       "paint": {
-        "fill-color": "green-100"
+        "fill-color": "#d6f3e0"
       },
       "source-layer": "land",
       "source": "tiles",
@@ -223,7 +223,7 @@
       "id": "cemetery",
       "type": "fill",
       "paint": {
-        "fill-color": "green-100"
+        "fill-color": "#d6f3e0"
       },
       "source-layer": "land",
       "source": "tiles",
@@ -246,8 +246,8 @@
         "symbol-spacing": 500
       },
       "paint": {
-        "text-color": "stone-700",
-        "text-halo-color": "zinc-50",
+        "text-color": "#3b2314",
+        "text-halo-color": "#f1f8f3",
         "text-halo-width": 1.5
       },
       "minzoom": 11,

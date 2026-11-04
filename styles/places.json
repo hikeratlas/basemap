@@ -38,10 +38,10 @@
         ]
       },
       "paint": {
-        "text-halo-color": "zinc-100",
+        "text-halo-color": "#f1f8f3",
         "text-halo-width": 2,
         "text-halo-blur": 1,
-        "text-color": "yellow-900"
+        "text-color": "#3b2314"
       },
       "minzoom": 0,
       "source-layer": "place_name",

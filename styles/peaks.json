@@ -39,8 +39,10 @@
         "text-offset": [0, 0.5]
       },
       "paint": {
-        "text-halo-color": "white",
-        "text-halo-width": 1
+        "text-halo-color": "#f1f8f3",
+        "text-halo-width": 1.5,
+        "text-color": "#3b2314",
+        "icon-color": "#3b2314"
       },
       "minzoom": 12,
       "source-layer": "peak",

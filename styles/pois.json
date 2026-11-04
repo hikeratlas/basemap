@@ -1108,6 +1108,1006 @@
       "source": "tiles"
     },
 
+    // Town services and lodging: names from z15, so towns near parks stay quiet.
+   {
+      // Hotels, motels, chalets, hostels etc. Some values are lists, e.g. "hotel;motel".
+     "id": "lodging",
+     "type": "symbol",
+     "filter": [
+       "any",
+       [
+         "in",
+         [
+           "get",
+           "tourism"
+         ],
+         [
+           "literal",
+           [
+             "hotel",
+             "motel",
+             "chalet",
+             "guest_house",
+             "hostel",
+             "apartment"
+           ]
+         ]
+       ],
+       [
+         "in",
+         [
+           "get",
+           "amenity"
+         ],
+         [
+           "literal",
+           [
+             "dormitory"
+           ]
+         ]
+       ],
+       [
+         "in",
+         "hotel",
+         [
+           "coalesce",
+           [
+             "get",
+             "tourism"
+           ],
+           ""
+         ]
+       ],
+       [
+         "in",
+         "motel",
+         [
+           "coalesce",
+           [
+             "get",
+             "tourism"
+           ],
+           ""
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "lodging",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "caravan-site",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "tourism"
+       ],
+       [
+         "literal",
+         [
+           "caravan_site"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "camper_trailer",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "icon-color": "green-900",
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 13,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+      // Fuel matters for planning a trip to a trailhead, so from z13.
+     "id": "fuel",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "fuel"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "fuel",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 13,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+      // Medical: red, from z13.
+     "id": "hospital",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "hospital"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "hospital",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "icon-color": "red-700",
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 13,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "clinic",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "clinic",
+           "doctors"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "doctor",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "icon-color": "red-700",
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "pharmacy",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "pharmacy"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "pharmacy",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "police",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "police"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "police",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "fire-station",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "fire_station"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "fire-station",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "post-office",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "post_office"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "post",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "car-wash",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "car_wash"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "car",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 15,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "bus-station",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "bus_station"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "bus",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "pub",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "pub"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "beer",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "bicycle-repair",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "bicycle_repair_station"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "bicycle_repair",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+
+   {
+     "id": "bank",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "bank"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "bank",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 15,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "ice-cream",
+     "type": "symbol",
+     "filter": [
+       "in",
+       [
+         "get",
+         "amenity"
+       ],
+       [
+         "literal",
+         [
+           "ice_cream"
+         ]
+       ]
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "ice-cream",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+
     // This style is useful for debugging; should be omitting from
     // production tiles.
     {
@@ -1164,6 +2164,30 @@
         ["in", ["get", "tourism"], "viewpoint"],
         ["in", ["get", "tourism"], "alpine_hut"],
         ["in", ["get", "tourism"], "wilderness_hut"],
+        ["in", ["get", "tourism"], "hotel"],
+        ["in", ["get", "tourism"], "motel"],
+        ["in", ["get", "tourism"], "chalet"],
+        ["in", ["get", "tourism"], "guest_house"],
+        ["in", ["get", "tourism"], "hostel"],
+        ["in", ["get", "tourism"], "apartment"],
+        ["in", ["get", "tourism"], "caravan_site"],
+        ["in", ["get", "amenity"], "dormitory"],
+        ["in", ["get", "amenity"], "fuel"],
+        ["in", ["get", "amenity"], "hospital"],
+        ["in", ["get", "amenity"], "clinic"],
+        ["in", ["get", "amenity"], "doctors"],
+        ["in", ["get", "amenity"], "pharmacy"],
+        ["in", ["get", "amenity"], "police"],
+        ["in", ["get", "amenity"], "fire_station"],
+        ["in", ["get", "amenity"], "post_office"],
+        ["in", ["get", "amenity"], "car_wash"],
+        ["in", ["get", "amenity"], "bus_station"],
+        ["in", ["get", "amenity"], "pub"],
+        ["in", ["get", "amenity"], "bicycle_repair_station"],
+        ["in", ["get", "amenity"], "bank"],
+        ["in", ["get", "amenity"], "ice_cream"],
+        ["in", "hotel", ["coalesce", ["get", "tourism"], ""]],
+        ["in", "motel", ["coalesce", ["get", "tourism"], ""]],
         ["in", ["get", "waterway"], "waterfall"]
       ]],
       "layout": {

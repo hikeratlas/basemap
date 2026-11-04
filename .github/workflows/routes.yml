@@ -45,7 +45,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: hikeratlas/routes
-          ref: 1a016843195a252513f789568e2177103ca7af5b
+          ref: dd90840c0e58c53d353b1c91fd9296b8653abc5c
           path: routes-src
 
       - name: Collect resource telemetry

@@ -1,0 +1,64 @@
+{
+  "version": 8,
+  "id": "hikeratlas",
+  "name": "hikeratlas",
+  "glyphs": "http://localhost:8081/fonts/{fontstack}/{range}.pbf",
+  "sprite": "http://localhost:8081/sprite/sprite",
+  "sources": {
+    "tiles": {
+      "attribution": "\u00a9 <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "url": "pmtiles://http://localhost:8081/routes.pmtiles",
+      "type": "vector",
+      "bounds": [
+        -180,
+        -85.0511287798066,
+        180,
+        85.0511287798066
+      ]
+    }
+  },
+  "layers": [
+    {
+      "id": "route",
+      "type": "line",
+      "source": "tiles",
+      "source-layer": "route",
+      "minzoom": 9,
+      "layout": {
+        "line-join": "round",
+        "line-cap": "round"
+      },
+      "paint": {
+        "line-color": "#c026d3",
+        "line-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          0.55,
+          13,
+          0.3
+        ],
+        "line-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          9,
+          2,
+          12,
+          5,
+          14,
+          9
+        ]
+      }
+    }
+  ]
+}

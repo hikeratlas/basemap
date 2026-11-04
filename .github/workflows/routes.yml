@@ -1,0 +1,110 @@
+name: Curate routes
+
+# Curates hikes for every park in a build with hikeratlas/routes, reading
+# the build's own layer tiles. It writes:
+#   layers/<ns>/routes.pmtiles      the "route" layer, joined into the map
+#   routes/<ns>/<park osm id>.json  each park's routes in full, for the website
+
+on:
+  workflow_dispatch:
+    inputs:
+      area:
+        description: Area whose layers to read; must be a key in areas.json
+        type: string
+        default: north-america
+      namespace:
+        description: R2 namespace (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
+  workflow_call:
+    inputs:
+      area:
+        type: string
+        required: true
+      namespace:
+        type: string
+        default: ''
+
+jobs:
+  routes:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 360
+    env:
+      AREA: ${{ inputs.area }}
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned, so a change there shows up here as a reviewed bump.
+      - uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/routes
+          ref: 7695513fe54000e67a611b7d157e688af5e2d186
+          path: routes-src
+
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      - name: Pre-fetch tilemaker image
+        run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
+
+      - name: Build hikeratlas/routes
+        run: cargo build --release --locked --manifest-path routes-src/Cargo.toml
+
+      # /mnt has more room than the workspace.
+      - name: Fetch the layers routes reads, and QRank
+        run: |
+          sudo mkdir -p /mnt/routes && sudo chown "$USER" /mnt/routes
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          for layer in ways land water parks peaks pois; do
+            aws s3 cp --no-progress "s3://hikes-public/layers/$NAMESPACE/$layer.pmtiles" "/mnt/routes/$layer.pmtiles" &
+          done
+          wget -q -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db &
+          wait
+          ls -l /mnt/routes
+
+      - name: Curate
+        run: |
+          start=$(date +%s)
+          args=()
+          for layer in ways land water parks peaks pois; do args+=(--tiles "/mnt/routes/$layer.pmtiles"); done
+          routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
+            --dem-cache /mnt/routes/dem --out /mnt/routes/out 2> >(tee /mnt/routes/log.txt >&2)
+          echo "Curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "$(wc -l < /mnt/routes/out/routes.geojsonl) routes in $(ls /mnt/routes/out/parks | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routes-log
+          path: /mnt/routes/log.txt
+          if-no-files-found: ignore
+
+      # tilemaker reads only routes.geojsonl here (see slices/routes.json), so
+      # it needs no PBF.
+      - name: Build the route layer
+        run: |
+          cp /mnt/routes/out/routes.geojsonl slices/routes.geojsonl
+          cd slices
+          ../bin/docker-tilemaker --output routes.pmtiles --config routes.json --process routes.lua \
+            --bbox "$(jq -r --arg a "$AREA" '.[$a].bbox' ../areas.json)"
+          ls -l routes.pmtiles
+
+      - name: Upload
+        run: |
+          for i in 1 2 3; do
+            aws s3 cp --no-progress slices/routes.pmtiles "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" \
+              && aws s3 sync --no-progress --delete --content-type application/json /mnt/routes/out/parks/ "s3://hikes-public/routes/$NAMESPACE/" \
+              && exit 0
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30))
+          done
+          exit 1

@@ -15,6 +15,29 @@
       "type": "raster-dem",
       "attribution": "<a href='https://github.com/tilezen/joerd/blob/master/docs/attribution.md'>Tilezen Joerd: Attribution</a>",
       "encoding": "terrarium"
+    },
+    // Contour lines, generated in the browser from the terrarium DEM by
+    // maplibre-contour; the website registers the dem-contour:// protocol
+    // (hikeratlas/website app/components/Map.tsx). Without it, this source
+    // just fails to load and the rest of the map is unaffected.
+    //
+    // thresholds: zoom*minor*major intervals in metres, used from that zoom up.
+    // overzoom=1 + subsampleBelow=256 build each tile from the next-lower DEM
+    // zoom, upsampled: in flat terrain (Killarney) 10 m contours otherwise
+    // trace DEM pixels as staircases.
+    //
+    // contourLayer is "contours-15" because mapt orders layers by source-layer,
+    // and learns a root-style z-index from a "-N" suffix on a layer id (see the
+    // "contours-15" layer below): 15 puts contours above land and parks (2-11)
+    // and under water (20), so lakes hide them.
+    "contours": {
+      "type": "vector",
+      "tiles": [
+        "dem-contour://{z}/{x}/{y}?buffer=1&overzoom=1&subsampleBelow=256&contourLayer=contours-15&elevationKey=ele&extent=4096&levelKey=level&thresholds=11*100*500~12*50*200~13*20*100~14*10*50"
+      ],
+      // No layer shows contours below z11; don't make MapLibre compute them.
+      "minzoom": 11,
+      "maxzoom": 14
     }
   },
   "layers": [
@@ -40,6 +63,55 @@
         ],
         //"hillshade-accent-color": "#777777",
         //"hillshade-highlight-color": "#ffffff"
+      }
+    },
+    {
+      // level 0: minor interval; level 1: major (see thresholds above).
+      // The id doubles as mapt's z-index registration for the "contours-15"
+      // source-layer that all three contour layers share.
+      "id": "contours-15",
+      "source": "contours",
+      "source-layer": "contours-15",
+      "type": "line",
+      "filter": ["==", ["get", "level"], 0],
+      "minzoom": 12,
+      "paint": {
+        "line-color": "amber-800",
+        "line-opacity": 0.3,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 12, 0.4, 16, 0.8]
+      }
+    },
+    {
+      "id": "contour-major",
+      "source": "contours",
+      "source-layer": "contours-15",
+      "type": "line",
+      "filter": [">", ["get", "level"], 0],
+      "minzoom": 11,
+      "paint": {
+        "line-color": "amber-800",
+        "line-opacity": 0.5,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.6, 16, 1.4]
+      }
+    },
+    {
+      "id": "contour-labels",
+      "source": "contours",
+      "source-layer": "contours-15",
+      "type": "symbol",
+      "filter": [">", ["get", "level"], 0],
+      "minzoom": 13,
+      "layout": {
+        "symbol-placement": "line",
+        "text-field": ["concat", ["to-string", ["get", "ele"]], " m"],
+        "text-font": ["Hubot Sans-Regular"],
+        "text-size": 10,
+        "symbol-spacing": 300
+      },
+      "paint": {
+        "text-color": "amber-800",
+        "text-halo-color": "zinc-100",
+        "text-halo-width": 1.5
       }
     }
   ]

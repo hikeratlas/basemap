@@ -76,12 +76,26 @@ jobs:
           sudo mkdir -p /mnt/routes && sudo chown "$USER" /mnt/routes
           aws configure set default.s3.max_concurrent_requests 32
           aws configure set default.s3.multipart_chunksize 64MB
+          # Retry each download, and fail the step if any one fails: a bare
+          # `wait` returns 0 regardless, so a connection reset on one layer
+          # (water, in run 41895909397) only surfaced as Curate's panic.
+          fetch() {
+            for i in 1 2 3 4; do
+              aws s3 cp --no-progress "s3://hikes-public/layers/$NAMESPACE/$1.pmtiles" "/mnt/routes/$1.pmtiles" && return 0
+              echo "Fetching $1.pmtiles failed (attempt $i)"
+              sleep $((i * 15))
+            done
+            return 1
+          }
+          pids=()
           for layer in ways land water parks peaks pois; do
-            aws s3 cp --no-progress "s3://hikes-public/layers/$NAMESPACE/$layer.pmtiles" "/mnt/routes/$layer.pmtiles" &
+            fetch "$layer" & pids+=($!)
           done
-          wget -q -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db &
-          wait
+          wget -q --tries=4 -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db & pids+=($!)
+          failed=0
+          for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
           ls -l /mnt/routes
+          [ "$failed" = 0 ] || { echo "::error::A layer or QRank download failed"; exit 1; }
 
       - name: Curate
         run: |

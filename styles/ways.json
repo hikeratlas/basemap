@@ -271,17 +271,18 @@
       "paint": {
         "line-blur": 1,
         "line-color": {"stops": [[7, "red-800"]]},
-        // Unnamed trails that aren't part of a hiking route (on_route, from
-        // slices/ways.lua) are thinner and lighter below z13, so dense
-        // networks in city parks don't turn into solid red. Named and
-        // route trails, the ones national parks are made of, are unchanged.
+        // In city parks (Stanley Park, Pacific Spirit), unnamed trails that
+        // aren't part of a hiking route (on_route, from slices/ways.lua) are
+        // thinner and lighter below z13, so dense networks don't turn into
+        // solid red. Parks that aren't city parks (national, provincial) are
+        // unchanged: Yosemite's backcountry trails are often unnamed.
         "line-width": ["interpolate", ["linear"], ["zoom"],
-          8, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 1, 0.5],
-          10, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 2, 0.8],
-          12.9, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 2, 1.2],
+          8, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 1, 0.5],
+          10, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 2, 0.8],
+          12.9, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 2, 1.2],
           13, 2],
         "line-opacity": ["interpolate", ["linear"], ["zoom"],
-          12, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 1, 0.45],
+          12, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 1, 0.45],
           13, 1],
         "line-dasharray": [3,2],
         "line-gap-width": [
@@ -330,17 +331,18 @@
       "paint": {
         "line-blur": 1,
         "line-color": "amber-600",
-        // Unnamed trails that aren't part of a hiking route (on_route, from
-        // slices/ways.lua) are thinner and lighter below z13, so dense
-        // networks in city parks don't turn into solid red. Named and
-        // route trails, the ones national parks are made of, are unchanged.
+        // In city parks (Stanley Park, Pacific Spirit), unnamed trails that
+        // aren't part of a hiking route (on_route, from slices/ways.lua) are
+        // thinner and lighter below z13, so dense networks don't turn into
+        // solid red. Parks that aren't city parks (national, provincial) are
+        // unchanged: Yosemite's backcountry trails are often unnamed.
         "line-width": ["interpolate", ["linear"], ["zoom"],
-          8, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 1, 0.5],
-          10, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 2, 0.8],
-          12.9, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 2, 1.2],
+          8, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 1, 0.5],
+          10, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 2, 0.8],
+          12.9, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 2, 1.2],
           13, 2],
         "line-opacity": ["interpolate", ["linear"], ["zoom"],
-          12, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true]], 1, 0.45],
+          12, ["case", ["any", ["has", "name"], ["==", ["get", "on_route"], true], ["!=", ["get", "in_city_park"], true]], 1, 0.45],
           13, 1],
         "line-dasharray": [
           3,

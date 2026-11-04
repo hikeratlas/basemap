@@ -170,7 +170,11 @@ jobs:
           aws configure set default.s3.multipart_chunksize 128MB
           ls -l /mnt/out/tiles.pmtiles
           start=$(date +%s)
-          aws s3 cp --no-progress /mnt/out/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
+          # no-cache: browsers keep tile ranges but revalidate them (a 304
+          # via ETag) instead of reusing a previous build's ranges for hours
+          # after a join. pmtiles.js only refetches once it sees a mismatched
+          # ETag, which it never does if every range comes from disk.
+          aws s3 cp --no-progress --cache-control no-cache /mnt/out/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
           echo "Uploaded in $(( $(date +%s) - start ))s"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"
 

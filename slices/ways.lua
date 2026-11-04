@@ -127,10 +127,11 @@ function way_function_highway(highway)
 		-- For portages, e.g. Algonquin PP
 		local canoe = Find('canoe')
 
-		-- Ignore paths pedestrians may not use: dedicated bike paths, downhill
-		-- bike trails, and cycleways whose pedestrians must use a sidewalk
-		-- alongside (foot=use_sidepath).
-		if foot == 'no' or foot == 'private' or foot == 'use_sidepath' then return end
+		-- Ignore private paths, and cycleways whose pedestrians must use a
+		-- sidewalk alongside (foot=use_sidepath). Bike-only trails (foot=no)
+		-- stay, so the map can show them in their own style; walking routes
+		-- skip them (hikeratlas/routes, and the website's route planner).
+		if foot == 'private' or foot == 'use_sidepath' then return end
 
 		if not in_park then path_zoom = path_zoom + 2 end
 

@@ -149,9 +149,12 @@ function way_function_highway(highway)
 		Attr('canoe', canoe)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
-		-- Mountain bike trails (e.g. Whistler's), which hikeratlas/routes
-		-- avoids when the trail isn't also designated for walking (foot).
-		if Find('mtb:scale') ~= '' then AttributeBoolean('mtb', true) end
+		-- Mountain bike trails, which hikeratlas/routes avoids when the trail
+		-- isn't also designated for walking (foot). Whistler's are graded with
+		-- mtb:scale:imba rather than mtb:scale (e.g. way/1411691966).
+		if Find('mtb:scale') ~= '' or Find('mtb:scale:imba') ~= '' or Find('mtb') == 'designated' then
+			AttributeBoolean('mtb', true)
+		end
 		if debug then
 			Attr('osm_id', Id())
 		end

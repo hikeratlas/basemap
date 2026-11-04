@@ -7,6 +7,20 @@ local dump_filename = os.getenv('DUMP_FILENAME')
 
 way_keys = {'boundary=protected_area', 'boundary=national_park', 'leisure=nature_reserve'}
 
+
+-- Heritage districts aren't parks: e.g. Vancouver's First Shaughnessy Heritage
+-- Conservation Area (relation/12804067) is a residential neighbourhood mapped
+-- as boundary=protected_area, so its sidewalks drew as hiking trails.
+-- protect_class 21 and 22 are community and cultural sites. A bare "Heritage"
+-- would also catch real parks, e.g. Stein Valley Nlaka'pamux Heritage Park.
+function is_heritage_district()
+	local pc = Find('protect_class')
+	if pc == '21' or pc == '22' then return true end
+	local name = Find('name')
+	return string.find(name, 'Heritage Conservation', 1, true) ~= nil
+		or string.find(name, 'Historic District', 1, true) ~= nil
+end
+
 function build_feature(geometry, properties)
 	sanitized_properties = {}
 
@@ -31,6 +45,7 @@ function dump()
 	local boundary = Find('boundary')
 	local leisure = Find('leisure')
 	if boundary ~= 'national_park' and boundary ~= 'protected_area' and leisure ~= 'nature_reserve' then return end
+	if is_heritage_district() then return end
 
 	local geojson = GeoJSON(true)
 	if not geojson then return end

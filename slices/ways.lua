@@ -115,6 +115,10 @@ function way_function_highway(highway)
 
 	-- If a road is part of a national road route, bump its importance to
 	-- motorway. This avoids gaps at low zooms.
+	-- A path in a hiking or foot route relation is part of a trail even when
+	-- the way itself has no name (e.g. most of the climb to Upper Yosemite
+	-- Fall): the style keeps those at full weight at low zooms.
+	local on_route = false
 	while true do
 		local rel = NextRelation()
 		if not rel then break end
@@ -127,6 +131,7 @@ function way_function_highway(highway)
 		if route == 'road' and rank > 1000 then
 			highway = 'motorway'
 		end
+		if route == 'hiking' or route == 'foot' then on_route = true end
 	end
 
 	-- See https://wiki.openstreetmap.org/wiki/Key:highway#Highway
@@ -199,6 +204,7 @@ function way_function_highway(highway)
 		Attr('canoe', canoe)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
+		if on_route then AttributeBoolean('on_route', true) end
 		-- Mountain bike trails, which hikeratlas/routes avoids when the trail
 		-- isn't also designated for walking (foot). Whistler's are graded with
 		-- mtb:scale:imba rather than mtb:scale (e.g. way/1411691966).
@@ -221,6 +227,7 @@ function way_function_highway(highway)
 		Attr('canoe', canoe)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
+		if on_route then AttributeBoolean('on_route', true) end
 		-- The tiles stop at z14, so z15 and z16 labels follow copies in the
 		-- z14 tiles simplified for those zooms (see path_name in ways.json).
 		if in_park and canoe ~= 'portage' then
@@ -236,7 +243,7 @@ end
 function relation_scan_function()
 	local route = Find('route')
 	
-	if route == 'road' then
+	if route == 'road' or route == 'hiking' or route == 'foot' then
 		Accept()
 	end
 end

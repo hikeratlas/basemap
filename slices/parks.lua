@@ -2,6 +2,20 @@ qrank = nil
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
 
+
+-- Heritage districts aren't parks: e.g. Vancouver's First Shaughnessy Heritage
+-- Conservation Area (relation/12804067) is a residential neighbourhood mapped
+-- as boundary=protected_area, so its sidewalks drew as hiking trails.
+-- protect_class 21 and 22 are community and cultural sites. A bare "Heritage"
+-- would also catch real parks, e.g. Stein Valley Nlaka'pamux Heritage Park.
+function is_heritage_district()
+	local pc = Find('protect_class')
+	if pc == '21' or pc == '22' then return true end
+	local name = Find('name')
+	return string.find(name, 'Heritage Conservation', 1, true) ~= nil
+		or string.find(name, 'Historic District', 1, true) ~= nil
+end
+
 function init_function()
 	qrank = require 'qrank' 
 	qrank.init()
@@ -51,6 +65,7 @@ function maybe_emit(is_node)
 	local leisure = Find('leisure')
 	local landuse = Find('landuse')
 	if boundary ~= 'national_park' and boundary ~= 'protected_area' and leisure ~= 'nature_reserve' and leisure ~= 'park' and landuse ~= 'recreation_ground' then return end
+	if is_heritage_district() then return end
 
 	local area = is_node and 0 or math.ceil(Area())
 

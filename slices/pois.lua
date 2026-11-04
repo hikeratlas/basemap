@@ -107,6 +107,9 @@ function maybe_emit(is_area)
 	Attr('toilets:disposal', toilets_disposal)
 	Attr('name', name)
 	Attr('osm_id', Id())
+	-- In a park proper (not just a city park or near one): the style shows
+	-- unstyled POIs there from z12, so nothing in a park goes unnoticed.
+	if in_park then AttributeBoolean('in_park', true) end
 end
 
 function node_function()

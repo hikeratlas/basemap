@@ -63,9 +63,27 @@
         "any",
         ["has", "wetland"]
       ],
+      // Pale teal, not water blue: wetlands are walkable-ish ground, and in
+      // places like Killarney they'd otherwise read as hundreds of lakes.
       "paint": {
-        "fill-color": "cyan-500"
+        "fill-color": "teal-100"
       },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      "id": "moist-things-edge",
+      "type": "line",
+      "filter": [
+        "any",
+        ["has", "wetland"]
+      ],
+      "paint": {
+        "line-color": "teal-600",
+        "line-width": 1,
+        "line-dasharray": [2, 2]
+      },
+      "minzoom": 13,
       "source-layer": "land",
       "source": "tiles"
     },

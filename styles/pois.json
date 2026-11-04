@@ -1129,7 +1129,8 @@
              "chalet",
              "guest_house",
              "hostel",
-             "apartment"
+             "apartment",
+           "timeshare"
            ]
          ]
        ],
@@ -2108,6 +2109,240 @@
      "source": "tiles"
    },
 
+   {
+      // Campground amphitheatres (ranger talks) are worth finding, so names from z14.
+     "id": "amphitheater",
+     "type": "symbol",
+     "filter": [
+       "==",
+       [
+         "get",
+         "amenity"
+       ],
+       "amphitheater"
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "theatre",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         14,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 13,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "food-court",
+     "type": "symbol",
+     "filter": [
+       "==",
+       [
+         "get",
+         "amenity"
+       ],
+       "food_court"
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "restaurant",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "nightclub",
+     "type": "symbol",
+     "filter": [
+       "==",
+       [
+         "get",
+         "amenity"
+       ],
+       "nightclub"
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "music",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 15,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+   {
+     "id": "ski-school",
+     "type": "symbol",
+     "filter": [
+       "==",
+       [
+         "get",
+         "amenity"
+       ],
+       "ski_school"
+     ],
+     "layout": {
+       "symbol-placement": "point",
+       "icon-optional": true,
+       "text-font": [
+         "Hubot Sans-Regular"
+       ],
+       "text-size": [
+         "interpolate",
+         [
+           "linear"
+         ],
+         [
+           "zoom"
+         ],
+         12,
+         12,
+         16,
+         14
+       ],
+       "text-optional": true,
+       "icon-image": "skiing",
+       "text-field": [
+         "step",
+         [
+           "zoom"
+         ],
+         "",
+         15,
+         [
+           "get",
+           "name"
+         ]
+       ],
+       "text-anchor": "top",
+       "text-offset": [
+         0,
+         0.5
+       ]
+     },
+     "paint": {
+       "text-halo-color": "white",
+       "text-halo-width": 1
+     },
+     "minzoom": 14,
+     "source-layer": "poi",
+     "source": "tiles"
+   },
+
     // This style is useful for debugging; should be omitting from
     // production tiles.
     {
@@ -2186,6 +2421,11 @@
         ["in", ["get", "amenity"], "bicycle_repair_station"],
         ["in", ["get", "amenity"], "bank"],
         ["in", ["get", "amenity"], "ice_cream"],
+        ["in", ["get", "amenity"], "amphitheater"],
+        ["in", ["get", "amenity"], "food_court"],
+        ["in", ["get", "amenity"], "nightclub"],
+        ["in", ["get", "amenity"], "ski_school"],
+        ["in", ["get", "tourism"], "timeshare"],
         ["in", "hotel", ["coalesce", ["get", "tourism"], ""]],
         ["in", "motel", ["coalesce", ["get", "tourism"], ""]],
         ["in", ["get", "waterway"], "waterfall"]

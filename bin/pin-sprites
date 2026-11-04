@@ -1,0 +1,25 @@
+#!/bin/bash
+# Usage: bin/pin-sprites <style.json>
+#
+# Rewrites the style's sprite URLs from hikeratlas/sprites' main branch to the
+# commit main points at now. raw.githubusercontent.com caches a branch URL for
+# 5 minutes, so the browser could see new sprite PNGs with an old index (or
+# vice versa); a commit URL never changes, so it's safe to cache, and a sprite
+# change shows up as soon as a style referencing it is published.
+set -euo pipefail
+
+style="$1"
+sha=$(git ls-remote https://github.com/hikeratlas/sprites refs/heads/main | cut -f1)
+if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+	echo "pin-sprites: couldn't resolve hikeratlas/sprites main (got '$sha')" >&2
+	exit 1
+fi
+
+sed -i "s#raw.githubusercontent.com/hikeratlas/sprites/main/#raw.githubusercontent.com/hikeratlas/sprites/$sha/#g" "$style"
+
+# Every sprite URL should now be pinned.
+if grep -q 'hikeratlas/sprites/main/' "$style"; then
+	echo "pin-sprites: unpinned sprite URL left in $style" >&2
+	exit 1
+fi
+echo "Pinned sprites to hikeratlas/sprites@$sha"

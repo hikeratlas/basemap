@@ -72,6 +72,23 @@
       "source": "tiles"
     },
     {
+      // Horizontal dashes, the usual wetland symbol (openstreetmap-carto's CC0
+      // pattern, via hikeratlas/sprites). The tiles don't keep wetland=*
+      // subtypes (land.lua emits "natural=wetland"), so it's one pattern for all.
+      "id": "moist-things-texture",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["has", "wetland"]
+      ],
+      "paint": {
+        "fill-pattern": "patterns:wetland"
+      },
+      "minzoom": 12,
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
       "id": "moist-things-edge",
       "type": "line",
       "filter": [
@@ -115,6 +132,22 @@
       "source": "tiles"
     },
     {
+      // Stipple of small stones over the scree colour (openstreetmap-carto's
+      // CC0 pattern, via hikeratlas/sprites).
+      "id": "scree-texture",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "scree"]
+      ],
+      "paint": {
+        "fill-pattern": "patterns:scree"
+      },
+      "minzoom": 12,
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
       "id": "bare_rock",
       "type": "fill",
       "filter": [
@@ -124,6 +157,21 @@
       "paint": {
         "fill-color": "zinc-200"
       },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      // Faint rock texture, so bare rock reads differently from scree.
+      "id": "bare-rock-texture",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "bare_rock"]
+      ],
+      "paint": {
+        "fill-pattern": "patterns:rock"
+      },
+      "minzoom": 12,
       "source-layer": "land",
       "source": "tiles"
     },
@@ -156,10 +204,13 @@
     {
       "id": "cliff",
       "type": "line",
+      // A line with ticks on the downhill side (OSM draws cliffs with the
+      // drop on the right of the way's direction). The pattern's height sets
+      // the line width (9 and 13 px, including 1px padding rows); cliff2 is the
+      // larger version for close zooms.
       "paint": {
-        "line-color": "zinc-400",
-        "line-width": 3,
-        "line-opacity": 1
+        "line-pattern": ["step", ["zoom"], "patterns:cliff", 15, "patterns:cliff2"],
+        "line-width": ["step", ["zoom"], 9, 15, 13]
       },
       "source-layer": "land_line",
       "source": "tiles",

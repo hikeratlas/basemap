@@ -6,7 +6,14 @@
     "license": "https://creativecommons.org/publicdomain/zero/1.0/"
   },
   "glyphs": "https://public.hikeratlas.com/fonts/{fontstack}/{range}.pbf",
-  "sprite": "https://raw.githubusercontent.com/hikeratlas/sprites/main/output/sprite",
+  // "default" is the SDF icon sheet (unprefixed names, recoloured with
+  // icon-color); "patterns" holds full-colour fill/line patterns, referenced
+  // as "patterns:<name>". MapLibre can't use SDF images as patterns, and one
+  // sheet can't mix the two. See hikeratlas/sprites.
+  "sprite": [
+    {"id": "default", "url": "https://raw.githubusercontent.com/hikeratlas/sprites/main/output/sprite"},
+    {"id": "patterns", "url": "https://raw.githubusercontent.com/hikeratlas/sprites/main/output/patterns"}
+  ],
   "sources": {
     "terrain": {
       "tiles": [

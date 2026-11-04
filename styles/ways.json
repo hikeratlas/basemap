@@ -244,13 +244,15 @@
       "filter": [
         "all",
         ["==", "in_park", true],
-        ["==", "bridge", "yes"]
+        ["==", "bridge", "yes"],
+        ["!=", "kind", "cycleway"]
       ],
       "paint": {
-        "line-blur": 1,
-        "line-color": "zinc-800",
-        "line-width": 10,
-        "line-opacity": 1
+        "line-blur": 0.5,
+        "line-color": "zinc-600",
+        "line-opacity": 0.7,
+        // Around the trail's own width, not a 10 px bar.
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 3, 14, 5, 16, 8]
       },
       "minzoom": 11,
       "layout": {"line-join": "round"},
@@ -529,10 +531,35 @@
           "any",
           ["==", "in_city_park", true],
           ["has", "name"]
-        ]
-     ,
+        ],
         ["!=", "mtb", true],
-        ["!=", "foot", "no"]
+        ["!=", "foot", "no"],
+        ["has", "name"]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": {"stops": [[7, "rose-500"]]},
+        "line-width": {"stops": [[8, 1], [14, 2]]},
+        "line-opacity": 1
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      "id": "city-park-paths-unnamed",
+      "type": "line",
+      // Unnamed paths in city parks start at z13: across a city they were a
+      // speckle at z11. Named ones (the Bruce Trail, rail trails) keep z8.
+      "minzoom": 13,
+      "filter": [
+        "all",
+        ["!in", "kind", "ferry", "cable_car"],
+        ["==", "in_park", false],
+        ["==", "in_city_park", true],
+        ["!=", "mtb", true],
+        ["!=", "foot", "no"],
+        ["!has", "name"]
       ],
       "paint": {
         "line-blur": 1,
@@ -613,6 +640,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!=", "kind", "cycleway"],
         ["!in", "kind", "ferry", "cable_car"],
         [
           "==",
@@ -662,12 +690,58 @@
       "source": "tiles"
     },
     {
+      "id": "city-cycle-tracks",
+      "type": "line",
+      // Bike-only cycleways outside parks: mostly city cycle tracks beside
+      // streets. Shown, but quietly: thin, from z14, no bicycle icons.
+      "minzoom": 14,
+      "filter": [
+        "all",
+       
+        ["==", "kind", "cycleway"], ["!in", "kind", "ferry", "cable_car"],
+        [
+          "==",
+          "in_park",
+          false
+        ],
+        [
+          "any",
+          [
+            "==",
+            "in_city_park",
+            true
+          ],
+          [
+            "has",
+            "name"
+          ]
+        ],
+        [
+          "==",
+          "foot",
+          "no"
+        ]
+      ],
+      "paint": {
+        "line-color": "amber-600",
+        "line-width": 1,
+        "line-opacity": 0.7
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
       // Bicycle icons along bike-only trails, so the solid amber line
       // isn't mistaken for a road or boundary.
       "id": "bike-only-icons",
       "type": "symbol",
       "filter": [
         "all",
+        ["any", ["==", "in_park", true], ["!=", "kind", "cycleway"]],
         [
           "==",
           "foot",

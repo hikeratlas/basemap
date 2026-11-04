@@ -13,7 +13,9 @@ function exit_function()
 	qrank.close()
 end
 
-way_keys = {'highway', 'route=road'}
+-- route=ferry and aerialway: foot crossings that aren't highway=* ways (see
+-- way_function_crossing).
+way_keys = {'highway', 'route=road', 'route=ferry', 'aerialway'}
 
 -- These zooms are for roads, i.e. where cars go
 local road_zooms = {
@@ -60,7 +62,51 @@ end
 
 function way_function()
 	local highway = Find('highway')
-	if highway ~= '' then way_function_highway(highway) end
+	if highway ~= '' then way_function_highway(highway); return end
+	way_function_crossing()
+end
+
+-- Crossings hikers make that OSM doesn't map as highway=* ways: ferries and
+-- hand-operated cable cars, e.g. on the West Coast Trail the Nitinat Narrows
+-- and Gordon River ferries (route=ferry, foot=yes) and the Klanawa River or
+-- Cullite Creek cable cars (aerialway=yes / zip_line, foot=yes). Without
+-- them the trail is cut into pieces, and hikeratlas/routes can't walk it end
+-- to end. Only walk-on (foot=yes/designated), short ones in parks, so the
+-- path layer doesn't fill up with car ferries and ski lifts.
+local crossing_aerialways = { yes = true, zip_line = true, cable_car = true }
+
+function way_function_crossing()
+	local foot = Find('foot')
+	if foot ~= 'yes' and foot ~= 'designated' then return end
+	local kind
+	if Find('route') == 'ferry' then
+		kind = 'ferry'
+	elseif crossing_aerialways[Find('aerialway')] then
+		kind = 'cable_car'
+	else
+		return
+	end
+	if Length() > 2000 then return end
+	if not Intersects('parks') then return end
+	Layer('path', false)
+	MinZoom(12)
+	Attr('name', Find('name'))
+	Attr('kind', kind)
+	Attr('foot', foot)
+	AttributeBoolean('in_park', true)
+	AttributeBoolean('in_city_park', false)
+end
+
+-- Whether private motor vehicles may not use a road, e.g. the Lake O'Hara
+-- Fire Road (motor_vehicle=private: Parks Canada's bus only). The most
+-- specific tag that's set wins, so motor_vehicle=yes on an access=no road
+-- leaves it open.
+local function closed_to_cars()
+	for _, k in ipairs({ 'motorcar', 'motor_vehicle', 'vehicle', 'access' }) do
+		local v = Find(k)
+		if v ~= '' then return v == 'no' or v == 'private' end
+	end
+	return false
 end
 
 function way_function_highway(highway)
@@ -97,6 +143,9 @@ function way_function_highway(highway)
 		Attr('name', name)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
+		-- hikeratlas/routes walks these like tracks, and doesn't treat
+		-- campsites near them as drive-in.
+		if closed_to_cars() then AttributeBoolean('closed_to_cars', true) end
 		if name == '' then return end
 		Layer('road_name', false)
 		MinZoom(road_zoom)

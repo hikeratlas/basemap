@@ -262,6 +262,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!in", "kind", "ferry", "cable_car"],
         ["==", "in_park", true],
         ["!=", "canoe", "portage"],
         ["!=", "mtb", true],
@@ -294,6 +295,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!in", "kind", "ferry", "cable_car"],
         [
           "==",
           "in_park",
@@ -362,6 +364,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!in", "kind", "ferry", "cable_car"],
         [
           "==",
           "in_park",
@@ -396,6 +399,33 @@
       },
       "layout": {
         "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // Ferries and cable cars on trails (e.g. the West Coast Trail): a short
+      // dotted line in water blue, so it reads as a crossing, not a trail.
+      "id": "crossings",
+      "type": "line",
+      "filter": [
+        "in",
+        "kind",
+        "ferry",
+        "cable_car"
+      ],
+      "minzoom": 12,
+      "paint": {
+        "line-color": "sky-800",
+        "line-width": 2,
+        "line-dasharray": [
+          1,
+          1.5
+        ]
+      },
+      "layout": {
+        "line-cap": "butt",
         "line-join": "round"
       },
       "source-layer": "path",
@@ -493,6 +523,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!in", "kind", "ferry", "cable_car"],
         ["==", "in_park", false],
         [
           "any",
@@ -519,6 +550,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!in", "kind", "ferry", "cable_car"],
         [
           "==",
           "in_park",
@@ -581,6 +613,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!in", "kind", "ferry", "cable_car"],
         [
           "==",
           "in_park",

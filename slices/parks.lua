@@ -111,6 +111,9 @@ function maybe_emit(is_node)
 	Attr('wikidata', wikidata)
 	Attr('area', area)
 	Attr('osm_id', Id())
+	-- hikeratlas/routes skips parks closed to the public, e.g. Vancouver's
+	-- watersheds (access=private).
+	Attr('access', Find('access'))
 
 	if string.find(name, 'Land Use Zone', 1, true) ~= nil then
 		mz = 10

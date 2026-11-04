@@ -23,7 +23,8 @@ name: Build area
 # - Any area, including north-america, can be built by hand.
 #
 # Outputs go to R2 under the namespace (which defaults to the area name):
-#   geojsonl/<namespace>/, layers/<namespace>/, <namespace>.pmtiles
+#   geojsonl/<namespace>/, layers/<namespace>/, routes/<namespace>/,
+#   <namespace>.pmtiles
 
 on:
   push:
@@ -197,8 +198,20 @@ jobs:
       geojsonl_from: ${{ needs.config.outputs.mode == 'no-exports' && needs.config.outputs.reuse_from || '' }}
     secrets: inherit
 
-  tile-join:
+  # Curated hikes, from the layers just built (see routes.yml). They're a
+  # layer of their own, so tile-join waits for them; if curation fails, the
+  # map is still published, with no routes or the namespace's previous ones.
+  routes:
     needs: [config, layers]
+    if: ${{ !cancelled() && needs.layers.result == 'success' }}
+    uses: ./.github/workflows/routes.yml
+    with:
+      area: ${{ needs.config.outputs.area }}
+      namespace: ${{ needs.config.outputs.namespace }}
+    secrets: inherit
+
+  tile-join:
+    needs: [config, layers, routes]
     if: ${{ !cancelled() && needs.layers.result == 'success' }}
     # tile-join calls deploy-search for north-america builds, which logs in to
     # AWS with OIDC. A called workflow can't have more permissions than this.

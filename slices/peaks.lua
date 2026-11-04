@@ -35,6 +35,8 @@ function node_function()
 
 	Layer('peak', false)
 	Attr('name', name)
+	-- Popularity (QRank), for hikeratlas/routes to rank peaks as destinations
+	Attr('wikidata', Find('wikidata'))
 
 	if ele > 0 then
 		Attr('ele', ele)

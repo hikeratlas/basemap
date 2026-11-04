@@ -36,7 +36,7 @@ jobs:
             echo "::error::Invalid PR number '$PR'"
             exit 1
           fi
-          for prefix in "geojsonl/pr-$PR/" "layers/pr-$PR/" "pr-$PR/"; do
+          for prefix in "geojsonl/pr-$PR/" "layers/pr-$PR/" "routes/pr-$PR/" "pr-$PR/"; do
             echo "Deleting s3://hikes-public/$prefix"
             aws s3 rm --recursive "s3://hikes-public/$prefix"
           done

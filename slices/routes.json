@@ -1,0 +1,42 @@
+{
+    "layers": {
+        "route": {
+            "minzoom": 9,
+            "maxzoom": 14,
+            "source": "routes.geojsonl",
+            "source_columns": [
+                "id",
+                "park",
+                "park_id",
+                "type",
+                "title",
+                "kind",
+                "km",
+                "gain"
+            ],
+            "simplify_below": 14,
+            "simplify_level": 5e-05,
+            "simplify_ratio": 2,
+            "zindex": 49
+        }
+    },
+    "settings": {
+        "minzoom": 0,
+        "maxzoom": 14,
+        "basezoom": 14,
+        "include_ids": false,
+        "name": "Shortbread",
+        "version": "1.0",
+        "description": "Curated hiking routes, from hikeratlas/routes",
+        "compress": "zstd",
+        "filemetadata": {
+            "tilejson": "2.0.0",
+            "scheme": "xyz",
+            "type": "baselayer",
+            "format": "pbf",
+            "tiles": [
+                "https://example.com/liechtenstein/{z}/{x}/{y}.pbf"
+            ]
+        }
+    }
+}

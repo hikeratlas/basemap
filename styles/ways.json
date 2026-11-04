@@ -263,7 +263,9 @@
       "filter": [
         "all",
         ["==", "in_park", true],
-        ["!=", "canoe", "portage"]
+        ["!=", "canoe", "portage"],
+        ["!=", "mtb", true],
+        ["!=", "foot", "no"]
       ],
       "paint": {
         "line-blur": 1,
@@ -278,6 +280,119 @@
           11, 0,
           14, 1
         ]
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // Mountain bike trails walkers may also use: hiking-trail dashes in amber, so expect bikes.
+      "id": "park-paths-mtb",
+      "type": "line",
+      "filter": [
+        "all",
+        [
+          "==",
+          "in_park",
+          true
+        ],
+        [
+          "!=",
+          "canoe",
+          "portage"
+        ],
+        [
+          "==",
+          "mtb",
+          true
+        ],
+        [
+          "!=",
+          "foot",
+          "no"
+        ]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": "amber-600",
+        "line-width": {
+          "stops": [
+            [
+              8,
+              1
+            ],
+            [
+              10,
+              2
+            ]
+          ]
+        },
+        "line-opacity": 1,
+        "line-dasharray": [
+          3,
+          2
+        ],
+        "line-gap-width": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          11,
+          0,
+          14,
+          1
+        ]
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // Bike-only trails (foot=no): a solid amber line, no dashes, since walking routes avoid them.
+      "id": "park-paths-bike-only",
+      "type": "line",
+      "filter": [
+        "all",
+        [
+          "==",
+          "in_park",
+          true
+        ],
+        [
+          "==",
+          "foot",
+          "no"
+        ]
+      ],
+      "paint": {
+        "line-blur": 0.5,
+        "line-color": "amber-600",
+        "line-width": {
+          "stops": [
+            [
+              8,
+              1
+            ],
+            [
+              10,
+              1.5
+            ],
+            [
+              14,
+              2.5
+            ]
+          ]
+        },
+        "line-opacity": 1
       },
       "layout": {
         "line-cap": "round",
@@ -384,6 +499,9 @@
           ["==", "in_city_park", true],
           ["has", "name"]
         ]
+     ,
+        ["!=", "mtb", true],
+        ["!=", "foot", "no"]
       ],
       "paint": {
         "line-blur": 1,
@@ -392,6 +510,168 @@
         "line-opacity": 1
       },
       "layout": {"line-cap": "round", "line-join": "round"},
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // As park-paths-mtb, outside parks.
+      "id": "city-park-paths-mtb",
+      "type": "line",
+      "filter": [
+        "all",
+        [
+          "==",
+          "in_park",
+          false
+        ],
+        [
+          "any",
+          [
+            "==",
+            "in_city_park",
+            true
+          ],
+          [
+            "has",
+            "name"
+          ]
+        ],
+        [
+          "==",
+          "mtb",
+          true
+        ],
+        [
+          "!=",
+          "foot",
+          "no"
+        ]
+      ],
+      "paint": {
+        "line-blur": 1,
+        "line-color": "amber-600",
+        "line-width": {
+          "stops": [
+            [
+              8,
+              1
+            ],
+            [
+              14,
+              2
+            ]
+          ]
+        },
+        "line-opacity": 1,
+        "line-dasharray": [
+          3,
+          2
+        ]
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // As park-paths-bike-only, outside parks.
+      "id": "city-park-paths-bike-only",
+      "type": "line",
+      "filter": [
+        "all",
+        [
+          "==",
+          "in_park",
+          false
+        ],
+        [
+          "any",
+          [
+            "==",
+            "in_city_park",
+            true
+          ],
+          [
+            "has",
+            "name"
+          ]
+        ],
+        [
+          "==",
+          "foot",
+          "no"
+        ]
+      ],
+      "paint": {
+        "line-blur": 0.5,
+        "line-color": "amber-600",
+        "line-width": {
+          "stops": [
+            [
+              8,
+              1
+            ],
+            [
+              14,
+              2.5
+            ]
+          ]
+        },
+        "line-opacity": 1
+      },
+      "layout": {
+        "line-cap": "round",
+        "line-join": "round"
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // Bicycle icons along bike-only trails, so the solid amber line
+      // isn't mistaken for a road or boundary.
+      "id": "bike-only-icons",
+      "type": "symbol",
+      "filter": [
+        "all",
+        [
+          "==",
+          "foot",
+          "no"
+        ],
+        [
+          "any",
+          [
+            "==",
+            "in_park",
+            true
+          ],
+          [
+            "==",
+            "in_city_park",
+            true
+          ],
+          [
+            "has",
+            "name"
+          ]
+        ]
+      ],
+      "minzoom": 14,
+      "layout": {
+        "symbol-placement": "line",
+        "symbol-spacing": 220,
+        "icon-image": "bicycle",
+        "icon-size": 1.3,
+        "icon-rotation-alignment": "viewport",
+        "icon-allow-overlap": false
+      },
+      "paint": {
+        "icon-color": "amber-700",
+        "icon-halo-color": "white",
+        "icon-halo-width": 1.5
+      },
       "source-layer": "path",
       "source": "tiles"
     }

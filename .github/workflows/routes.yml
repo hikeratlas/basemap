@@ -41,7 +41,7 @@ jobs:
       AWS_RETRY_MODE: adaptive
       AWS_MAX_ATTEMPTS: 10
       # Pinned, so a change there shows up here as a reviewed bump.
-      ROUTES_REF: bfbfe55e019169cea1942c57f0827213186778b4
+      ROUTES_REF: b6e26e13ffd7f49455658b70922ae4e0cc5fb22c
     steps:
       - uses: actions/checkout@v7
 

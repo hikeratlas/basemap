@@ -41,7 +41,7 @@ jobs:
       AWS_RETRY_MODE: adaptive
       AWS_MAX_ATTEMPTS: 10
       # Pinned, so a change there shows up here as a reviewed bump.
-      ROUTES_REF: bfbfe55e019169cea1942c57f0827213186778b4
+      ROUTES_REF: b6e26e13ffd7f49455658b70922ae4e0cc5fb22c
     steps:
       - uses: actions/checkout@v7
 
@@ -94,6 +94,9 @@ jobs:
           wget -q --tries=4 -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db & pids+=($!)
           failed=0
           for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+          # Trail areas (trail networks outside parks, curated like parks): a
+          # build from before they existed has none, so they're optional.
+          fetch trailareas || echo "::warning::No trailareas.pmtiles in layers/$NAMESPACE/; curating parks only"
           ls -l /mnt/routes
           [ "$failed" = 0 ] || { echo "::error::A layer or QRank download failed"; exit 1; }
 
@@ -101,7 +104,9 @@ jobs:
         run: |
           start=$(date +%s)
           args=()
-          for layer in ways land water parks peaks pois; do args+=(--tiles "/mnt/routes/$layer.pmtiles"); done
+          for layer in ways land water parks peaks pois trailareas; do
+            [ -f "/mnt/routes/$layer.pmtiles" ] && args+=(--tiles "/mnt/routes/$layer.pmtiles")
+          done
           routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
             --dem-cache /mnt/routes/dem --out /mnt/routes/out 2> >(tee /mnt/routes/log.txt >&2)
           echo "Curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"

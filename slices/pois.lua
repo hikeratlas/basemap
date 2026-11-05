@@ -21,12 +21,16 @@ function maybe_emit(is_area)
 	-- Lake Provincial Park is a node), but their campgrounds do. A campground
 	-- area is inside itself, so it gets its own icon and label.
 	local in_campground = Intersects('campgrounds')
+	-- Trail networks outside parks that hikeratlas/routes curates (see
+	-- bin/trail-areas.py), e.g. the Skerwink Trail: their viewpoints and
+	-- parking matter as a park's do.
+	local in_trail_area = Intersects('trail_areas')
 
 	-- Outside parks, keep only parking lots and trailheads within 2 km of
 	-- one (parks_near, from bin/parks-near.py): many hikes start just
 	-- outside a park's boundary, and hikeratlas/routes starts its hikes
 	-- from these.
-	if not in_park and not in_city_park and not in_campground then
+	if not in_park and not in_city_park and not in_campground and not in_trail_area then
 		local access = Find('access')
 		local trailhead = Find('amenity') == 'parking' or Find('highway') == 'trailhead'
 		if not trailhead or access == 'private' or access == 'no' or access == 'customers' then return end

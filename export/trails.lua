@@ -4,7 +4,8 @@
 -- curates, as it does parks.
 --
 -- Each line is a Feature with properties kind (trail, viewpoint, waterfall,
--- peak, parking, trailhead) and osm_id; trails also have a name.
+-- peak, parking, trailhead) and osm_id; trails also have a name. Parking lots
+-- mapped as areas are polygons.
 
 local file_append = require 'file_append'
 local json = require 'json'
@@ -48,9 +49,9 @@ function way_function()
 	if Find('amenity') == 'parking' then
 		local kind = point_kind()
 		if not kind or not IsClosed() then return end
-		-- A lot's centroid is enough to count it and to find it.
-		local lat, lon = Centroid()
-		if lat then write(kind, { type = "Point", coordinates = { lon, lat } }) end
+		-- The lot's area; bin/trail-areas.py uses its centroid.
+		local geojson = GeoJSON(true)
+		if geojson then write(kind, json.decode(geojson)) end
 		return
 	end
 

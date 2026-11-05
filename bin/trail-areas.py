@@ -11,14 +11,16 @@
 # A network is the named trails outside parks that share nodes. It's kept if:
 #   - it has at least MIN_KM of trail,
 #   - at least MIN_DESTS viewpoints, waterfalls or peaks are within DEST_M,
-#   - it isn't in a city: fewer than half of the points sampled along it
+#   - and it isn't in a city: fewer than half of the points sampled along it
 #     have URBAN_LOTS or more parking lots within 1 km (as hikeratlas/routes'
-#     urban_lots: remote trailheads have a handful nearby, cities dozens),
-#   - and at most MAX_BIKE_SKI of its length is graded for mountain bikes or
-#     is a ski piste, whatever its foot tags: mountain-bike parks (Whistler's
-#     Into The Mystic network, 78%) and Nordic ski networks (Fireweed, 66%)
-#     aren't hiking networks, though hikers may use them; shared trails with
-#     some graded sections are (Ski Hill Climb, 17%).
+#     urban_lots: remote trailheads have a handful nearby, cities dozens).
+#
+# Trails graded for mountain bikes or that are ski pistes (bike=yes, ski=yes
+# in the export) are left out before forming networks, whatever their foot
+# tags: mountain-bike parks and Nordic ski networks aren't hiking networks,
+# though hikers may use them. Dropping whole networks that were mostly these
+# also dropped hiking trails joined to them (Whistler's Skywalk North, part
+# of a network 59% bike-graded); leaving out the ways keeps those.
 #
 # Distances are approximate: each network is measured with longitude scaled
 # by the cosine of its latitude.
@@ -33,7 +35,6 @@ MIN_DESTS = 2
 DEST_M = 300.0
 BUFFER_M = 500.0
 URBAN_LOTS = 12
-MAX_BIKE_SKI = 0.5
 SNAP = 1e-6  # nodes shared between ways have identical coordinates
 M_PER_DEG = 111_320.0
 
@@ -91,15 +92,15 @@ for f in read(trails_path):
         dests.append(g.centroid)
     elif kind in ('parking', 'trailhead'):
         lots.append(g.centroid)
-print(f'{len(lines)} named trail ways, {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
+print(f'{len(lines)} named trail ways ({sum(bikeski)} for bikes or skis), {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
 
-# Drop trails inside parks (by midpoint).
+# Drop trails inside parks (by midpoint), and bike and ski trails.
 if lines:
     mids = shapely.line_interpolate_point(np.array(lines, dtype=object), 0.5, normalized=True)
     inside = np.zeros(len(lines), bool)
     if parks:
         inside[np.unique(park_tree.query(mids, predicate='within')[0])] = True
-    keep = np.nonzero(~inside)[0]
+    keep = np.nonzero(~inside & ~np.array(bikeski, bool))[0]
     lines = [lines[i] for i in keep]; names = [names[i] for i in keep]; ids = [ids[i] for i in keep]
     bikeski = [bikeski[i] for i in keep]
 
@@ -147,9 +148,6 @@ for members in groups.values():
     km = km_of(ls, k)
     if km < MIN_KM:
         dropped['short'] += 1
-        continue
-    if km_of([lines[i] for i in members if bikeski[i]], k) > MAX_BIKE_SKI * km:
-        dropped['mostly bike or ski'] += 1
         continue
     # In a city? Sample up to 40 points along the network. First, as it's
     # cheap: a city's footways can join into one network of thousands of ways.

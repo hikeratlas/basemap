@@ -31,13 +31,17 @@ trails_path, out_path = args
 
 
 def centroid(g):
-    """A rough centre: the mean of a point's or polygon's outer ring."""
-    if g['type'] == 'Point':
-        return g['coordinates'][:2]
-    ring = g['coordinates'][0] if g['type'] == 'Polygon' else g['coordinates'][0][0]
-    xs = [c[0] for c in ring]
-    ys = [c[1] for c in ring]
-    return sum(xs) / len(xs), sum(ys) / len(ys)
+    """A rough centre: the mean of a point's or polygon's outer ring, or None
+    for an empty geometry (the export has some)."""
+    try:
+        if g['type'] == 'Point':
+            return tuple(g['coordinates'][:2])
+        ring = g['coordinates'][0] if g['type'] == 'Polygon' else g['coordinates'][0][0]
+        xs = [c[0] for c in ring]
+        ys = [c[1] for c in ring]
+        return sum(xs) / len(xs), sum(ys) / len(ys)
+    except (IndexError, KeyError, TypeError, ZeroDivisionError):
+        return None
 
 
 pts = []
@@ -52,7 +56,10 @@ with open(trails_path) as f:
             continue
         if ft['properties'].get('kind') not in ('parking', 'trailhead'):
             continue
-        lon, lat = centroid(ft['geometry'])
+        c = centroid(ft.get('geometry') or {})
+        if c is None:
+            continue
+        lon, lat = c
         # The box plus a margin, so lots near its edge count their neighbours.
         if bbox and not (bbox[0] - 0.05 <= lon <= bbox[2] + 0.05 and bbox[1] - 0.05 <= lat <= bbox[3] + 0.05):
             continue

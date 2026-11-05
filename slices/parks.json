@@ -20,14 +20,6 @@
             "maxzoom": 14,
             "simplify_below": 12,
             "simplify_level": 0.0002
-        },
-        "trail_area": {
-            "minzoom": 8,
-            "maxzoom": 14,
-            "source": "../trail-areas.geojsonl",
-            "source_columns": ["name", "osm_id", "km", "area"],
-            "simplify_below": 12,
-            "simplify_level": 0.0002
         }
     },
     "settings": {

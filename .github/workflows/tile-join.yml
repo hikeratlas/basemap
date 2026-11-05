@@ -130,7 +130,9 @@ jobs:
           # ~320MB/s is also what the single-file PBF fetch gets: the network.
           set -o pipefail
           start=$(date +%s)
-          aws s3 ls "s3://hikes-public/layers/$NAMESPACE/" | awk '$4 ~ /\.pmtiles$/ {print $4}' > layers.txt
+          # trailareas.pmtiles is for hikeratlas/routes only (see
+          # tilemaker-layers.yml): leave it out of the map.
+          aws s3 ls "s3://hikes-public/layers/$NAMESPACE/" | awk '$4 ~ /\.pmtiles$/ && $4 != "trailareas.pmtiles" {print $4}' > layers.txt
           [ -s layers.txt ] || { echo "::error::No layers in layers/$NAMESPACE/"; exit 1; }
           xargs -P 16 -I{} aws s3 cp --no-progress --only-show-errors "s3://hikes-public/layers/$NAMESPACE/{}" {} < layers.txt
           rm layers.txt

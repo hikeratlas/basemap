@@ -13,9 +13,11 @@ local json = require 'json'
 local dump_filename = os.getenv('DUMP_FILENAME')
 
 node_keys = {'tourism=viewpoint', 'waterway=waterfall', 'natural=peak', 'amenity=parking', 'highway=trailhead'}
-way_keys = {'highway=path', 'highway=footway', 'highway=bridleway', 'highway=track', 'highway=steps', 'amenity=parking'}
+way_keys = {'highway=path', 'highway=footway', 'highway=bridleway', 'highway=steps', 'amenity=parking'}
 
-local trail_kinds = { path = true, footway = true, bridleway = true, track = true, steps = true }
+-- Not tracks: named ones are mostly roads (County Road 133, Forest Road
+-- 8410), and joined networks of them thousands of km long.
+local trail_kinds = { path = true, footway = true, bridleway = true, steps = true }
 
 local function write(kind, geometry, extra)
 	local properties = { kind = kind, osm_id = Id() }
@@ -62,6 +64,11 @@ function way_function()
 	if foot == 'no' or foot == 'private' or foot == 'use_sidepath' then return end
 	local access = Find('access')
 	if access == 'private' or access == 'no' then return end
+	-- Snowmobile trails (the 2,800 km Snoman Trail network), unless they're
+	-- also for walking.
+	local snowmobile = Find('snowmobile')
+	if (snowmobile == 'designated' or snowmobile == 'yes') and foot ~= 'designated' and foot ~= 'yes' then return end
+	if string.find(name, '[Ss]nowmobile') then return end
 
 	local geojson = GeoJSON(false)
 	if geojson then write('trail', json.decode(geojson), { name = name }) end

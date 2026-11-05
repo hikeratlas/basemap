@@ -42,7 +42,7 @@ jobs:
 
     strategy:
       matrix:
-        export: [campgrounds, city-parks, countries, parks, states]
+        export: [campgrounds, city-parks, countries, parks, states, trails]
 
     steps:
       - name: Runner diagnostics

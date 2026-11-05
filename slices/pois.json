@@ -24,6 +24,12 @@
             "source": "../campgrounds.geojsonl",
             "index": true
         },
+        "trail_areas": {
+            "minzoom": 15,
+            "maxzoom": 15,
+            "source": "../trail-areas.geojsonl",
+            "index": true
+        },
         "poi": {
             "zindex": 86,
             "minzoom": 8,

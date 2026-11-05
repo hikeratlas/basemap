@@ -165,6 +165,11 @@ jobs:
             echo "::warning::No campgrounds.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); using an empty one"
             touch campgrounds.geojsonl
           fi
+          # Likewise the trails export (bin/trail-areas.py): no trail areas.
+          if [ ! -f trails.geojsonl ]; then
+            echo "::warning::No trails.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no trail areas"
+            touch trails.geojsonl
+          fi
 
       # Parking and trailheads within 2 km of a park stay in the poi layer
       # (see slices/pois.lua); this grows the parks by 2 km for that check.
@@ -178,6 +183,19 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" install -q shapely
           "$RUNNER_TEMP/venv/bin/python" bin/parks-near.py parks.geojsonl parks-near.geojsonl 2000 ${BBOX:+--bbox "$BBOX"}
           echo "Grew parks in $(( $(date +%s) - start ))s"; ls -l parks-near.geojsonl
+
+      # Trail networks outside parks that hikeratlas/routes curates as it does
+      # parks (see bin/trail-areas.py): the parks layer publishes them as
+      # trail_area, and the pois layer keeps POIs inside them.
+      - name: Find trail areas
+        if: ${{ matrix.layer == 'pois' || matrix.layer == 'parks' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: |
+          start=$(date +%s)
+          python3 -m venv "$RUNNER_TEMP/venv-trails" && "$RUNNER_TEMP/venv-trails/bin/pip" install -q shapely numpy
+          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"}
+          echo "Found trail areas in $(( $(date +%s) - start ))s"; ls -l trail-areas.geojsonl
 
       # Lake labels follow these centerlines; see lake-centerlines.yml.
       - name: Fetch lake centerlines

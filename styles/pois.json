@@ -825,7 +825,7 @@
     {
       "id": "parking",
       "type": "symbol",
-      "filter": ["==", ["get", "amenity"], "parking"],
+      "filter": ["all", ["==", ["get", "amenity"], "parking"], ["!", ["to-boolean", ["get", "urban"]]]],
       "layout": {
         "symbol-placement": "point",
         "icon-optional": true,

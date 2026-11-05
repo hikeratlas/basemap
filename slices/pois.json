@@ -30,6 +30,12 @@
             "source": "../trail-areas.geojsonl",
             "index": true
         },
+        "urban_lots": {
+            "minzoom": 15,
+            "maxzoom": 15,
+            "source": "../urban-lots.geojsonl",
+            "index": true
+        },
         "poi": {
             "zindex": 86,
             "minzoom": 8,

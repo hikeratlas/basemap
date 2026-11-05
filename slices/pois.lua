@@ -114,6 +114,14 @@ function maybe_emit(is_area)
 	-- In a park proper (not just a city park or near one): the style shows
 	-- unstyled POIs there from z12, so nothing in a park goes unnoticed.
 	if in_park then AttributeBoolean('in_park', true) end
+	-- A lot in a city (see bin/urban-lots.py), which the style hides: a city
+	-- has one on every block. Kept in the tiles, as hikeratlas/routes reads
+	-- them. Not in parks proper or trail areas, whose lots are where hikes
+	-- start, nor one named for a trail.
+	if amenity == 'parking' and not in_park and not in_trail_area and not in_campground
+		and not string.find(name, 'Trail') and Intersects('urban_lots') then
+		AttributeBoolean('urban', true)
+	end
 end
 
 function node_function()

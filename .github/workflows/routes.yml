@@ -29,7 +29,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: 30cc6d9d74b98c4169c00ef0caa28586f435a29a
+  ROUTES_REF: 0fde265b7e4ac867878b040d8cf9bfa6adbddfc0
 
 jobs:
   curate:
@@ -42,10 +42,13 @@ jobs:
       matrix:
         shard: [0, 1, 2, 3]
     # tile-join waits for these jobs, so a bad run mustn't hold up the map
-    # for long.
-    timeout-minutes: 150
+    # for long: a shard should take 10-20 min. A slow park is cut short by
+    # PARK_TIMEOUT instead, and named in the summary.
+    timeout-minutes: 45
     env:
       SHARDS: 4
+      # Seconds. The slowest park (the Mississippi NRRA) takes ~2 min.
+      PARK_TIMEOUT: 180
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
       AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
@@ -121,7 +124,11 @@ jobs:
           done
           routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
             --dem-cache /mnt/routes/dem --shard "${{ matrix.shard }}/$SHARDS" --out /mnt/routes/out \
-            2> >(tee /mnt/routes/log.txt >&2)
+            --park-timeout "$PARK_TIMEOUT" 2> >(tee /mnt/routes/log.txt >&2)
+          grep -a '^TIMEOUT: ' /mnt/routes/log.txt | while read -r line; do
+            echo "::warning::$line"; echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          done
+          grep -a '^searching ' /mnt/routes/log.txt >> "$GITHUB_STEP_SUMMARY" || true
           echo "Shard ${{ matrix.shard }}/$SHARDS curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "$(ls /mnt/routes/out/raw | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
 
@@ -143,7 +150,7 @@ jobs:
   merge:
     needs: curate
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}

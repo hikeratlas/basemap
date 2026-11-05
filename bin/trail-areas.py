@@ -101,15 +101,25 @@ def find(a):
     while parent[a] != a:
         parent[a] = parent[parent[a]]; a = parent[a]
     return a
-first_at = {}
-for i, l in enumerate(lines):
-    for x, y in l.coords:
-        k = (round(x / SNAP), round(y / SNAP))
-        j = first_at.setdefault(k, i)
-        if j != i:
+# Shared nodes, found by sorting every vertex's snapped position: a dict of
+# North America's ~10^8 vertices needed over 11 GB, and killed the runner.
+if lines:
+    xy, owner = shapely.get_coordinates(np.array(lines, dtype=object), return_index=True)
+    key = (np.round((xy[:, 0] + 180) / SNAP).astype(np.int64) << 32) | np.round((xy[:, 1] + 90) / SNAP).astype(np.int64)
+    del xy
+    order = np.argsort(key, kind='stable')
+    key, owner = key[order], owner[order]
+    del order
+    # Each vertex after the first at a position joins the first's way.
+    same = np.nonzero(key[1:] == key[:-1])[0] + 1
+    run_start = np.maximum.accumulate(np.where(np.r_[True, key[1:] != key[:-1]], np.arange(len(key)), 0))
+    del key
+    for i, j in zip(owner[same].tolist(), owner[run_start[same]].tolist()):
+        if i != j:
             a, b = find(i), find(j)
             if a != b:
                 parent[a] = b
+    del owner, run_start, same
 groups = defaultdict(list)
 for i in range(len(lines)):
     groups[find(i)].append(i)
@@ -130,14 +140,8 @@ for members in groups.values():
     if km < MIN_KM:
         dropped['short'] += 1
         continue
-    # Work in degrees with longitude scaled, so buffers are round.
-    scaled = shapely.transform(MultiLineString(ls), lambda c: c * [k, 1])
-    near = shapely.transform(scaled.buffer(DEST_M / M_PER_DEG, quad_segs=4), lambda c: c / [k, 1])
-    n_dests = len(dest_tree.query(near, predicate='contains')) if dest_tree else 0
-    if n_dests < MIN_DESTS:
-        dropped['few destinations'] += 1
-        continue
-    # In a city? Sample up to 40 points along the network.
+    # In a city? Sample up to 40 points along the network. First, as it's
+    # cheap: a city's footways can join into one network of thousands of ways.
     coords = [c for l in ls for c in l.coords]
     samples = coords[:: max(1, len(coords) // 40)]
     urban = 0
@@ -151,6 +155,19 @@ for members in groups.values():
     if urban * 2 >= len(samples):
         dropped['urban'] += 1
         continue
+    # Destinations within DEST_M of a trail, measured in degrees of latitude:
+    # a little short east-west, which errs towards dropping. Buffering the
+    # whole network instead took over 11 GB on North America.
+    n_dests = 0
+    if dest_tree is not None:
+        hits = dest_tree.query(np.array(ls, dtype=object), predicate='dwithin', distance=DEST_M / M_PER_DEG)[1]
+        n_dests = len(np.unique(hits))
+    if n_dests < MIN_DESTS:
+        dropped['few destinations'] += 1
+        continue
+    # Work in degrees with longitude scaled, so buffers are round. Simplified
+    # first: the area is a 500 m buffer, so 20 m of detail doesn't matter.
+    scaled = shapely.transform(MultiLineString(ls), lambda c: c * [k, 1]).simplify(20 / M_PER_DEG)
     area = scaled.buffer(BUFFER_M / M_PER_DEG, quad_segs=4).simplify(50 / M_PER_DEG)
     area_m2 = area.area * M_PER_DEG ** 2
     poly = shapely.transform(area, lambda c: c / [k, 1])

@@ -29,8 +29,9 @@ jobs:
   routes:
     runs-on: ubuntu-24.04-arm
     # tile-join waits for this job, so a bad run mustn't hold up the map for
-    # long. A full north-america run should take ~1-1.5 h.
-    timeout-minutes: 120
+    # long. A full north-america run took 1.75 h (101 min to curate) in run
+    # 42053576296, before trail areas, so 2 h left too little room.
+    timeout-minutes: 150
     env:
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}

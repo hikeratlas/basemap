@@ -11,9 +11,14 @@
 # A network is the named trails outside parks that share nodes. It's kept if:
 #   - it has at least MIN_KM of trail,
 #   - at least MIN_DESTS viewpoints, waterfalls or peaks are within DEST_M,
-#   - and it isn't in a city: fewer than half of the points sampled along it
+#   - it isn't in a city: fewer than half of the points sampled along it
 #     have URBAN_LOTS or more parking lots within 1 km (as hikeratlas/routes'
-#     urban_lots: remote trailheads have a handful nearby, cities dozens).
+#     urban_lots: remote trailheads have a handful nearby, cities dozens),
+#   - and at most MAX_BIKE_SKI of its length is graded for mountain bikes or
+#     is a ski piste, whatever its foot tags: mountain-bike parks (Whistler's
+#     Into The Mystic network, 78%) and Nordic ski networks (Fireweed, 66%)
+#     aren't hiking networks, though hikers may use them; shared trails with
+#     some graded sections are (Ski Hill Climb, 17%).
 #
 # Distances are approximate: each network is measured with longitude scaled
 # by the cosine of its latitude.
@@ -28,6 +33,7 @@ MIN_DESTS = 2
 DEST_M = 300.0
 BUFFER_M = 500.0
 URBAN_LOTS = 12
+MAX_BIKE_SKI = 0.5
 SNAP = 1e-6  # nodes shared between ways have identical coordinates
 M_PER_DEG = 111_320.0
 
@@ -66,7 +72,7 @@ for f in read(parks_path):
         parks.append(g)
 park_tree = shapely.STRtree(parks)
 
-lines, names, ids = [], [], []
+lines, names, ids, bikeski = [], [], [], []
 dests, lots = [], []
 for f in read(trails_path):
     p = f.get('properties', {})
@@ -80,6 +86,7 @@ for f in read(trails_path):
     if kind == 'trail' and g.geom_type in ('LineString', 'MultiLineString'):
         for part in (g.geoms if g.geom_type == 'MultiLineString' else [g]):
             lines.append(part); names.append(p.get('name', '')); ids.append(int(p.get('osm_id', 0)))
+            bikeski.append(p.get('bike') == 'yes' or p.get('ski') == 'yes')
     elif kind in ('viewpoint', 'waterfall', 'peak'):
         dests.append(g.centroid)
     elif kind in ('parking', 'trailhead'):
@@ -94,6 +101,7 @@ if lines:
         inside[np.unique(park_tree.query(mids, predicate='within')[0])] = True
     keep = np.nonzero(~inside)[0]
     lines = [lines[i] for i in keep]; names = [names[i] for i in keep]; ids = [ids[i] for i in keep]
+    bikeski = [bikeski[i] for i in keep]
 
 # Networks: union-find over ways that share a node.
 parent = list(range(len(lines)))
@@ -139,6 +147,9 @@ for members in groups.values():
     km = km_of(ls, k)
     if km < MIN_KM:
         dropped['short'] += 1
+        continue
+    if km_of([lines[i] for i in members if bikeski[i]], k) > MAX_BIKE_SKI * km:
+        dropped['mostly bike or ski'] += 1
         continue
     # In a city? Sample up to 40 points along the network. First, as it's
     # cheap: a city's footways can join into one network of thousands of ways.

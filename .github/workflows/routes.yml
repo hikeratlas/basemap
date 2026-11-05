@@ -1,7 +1,9 @@
 name: Curate routes
 
 # Curates hikes for every park in a build with hikeratlas/routes, reading
-# the build's own layer tiles. It writes:
+# the build's own layer tiles. The parks are split over SHARDS machines
+# (routes --shard), whose results one more job merges (routes --merge). It
+# writes:
 #   layers/<ns>/routes.pmtiles      the "route" layer, joined into the map
 #   routes/<ns>/<park osm id>.json  each park's routes in full, for the website
 
@@ -25,14 +27,28 @@ on:
         type: string
         default: ''
 
+env:
+  # Pinned, so a change there shows up here as a reviewed bump.
+  ROUTES_REF: f1869daebc7f7b3d945aa0c27c5402876b5a4cfa
+
 jobs:
-  routes:
+  curate:
     runs-on: ubuntu-24.04-arm
-    # tile-join waits for this job, so a bad run mustn't hold up the map for
-    # long. A full north-america run took 1.75 h (101 min to curate) in run
-    # 42053576296, before trail areas, so 2 h left too little room.
-    timeout-minutes: 150
+    strategy:
+      fail-fast: true
+      # Must match SHARDS below. North America on one machine took 101 min to
+      # curate (run 42053576296); split four ways, each shard gets about a
+      # quarter of the parks, by tile count.
+      matrix:
+        shard: [0, 1, 2, 3]
+    # tile-join waits for these jobs, so a bad run mustn't hold up the map
+    # for long: a shard should take 10-20 min. A slow park is cut short by
+    # PARK_TIMEOUT instead, and named in the summary.
+    timeout-minutes: 45
     env:
+      SHARDS: 4
+      # Seconds. The slowest park (the Mississippi NRRA) takes ~2 min.
+      PARK_TIMEOUT: 180
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
       AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
@@ -41,8 +57,6 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       AWS_RETRY_MODE: adaptive
       AWS_MAX_ATTEMPTS: 10
-      # Pinned, so a change there shows up here as a reviewed bump.
-      ROUTES_REF: b6e26e13ffd7f49455658b70922ae4e0cc5fb22c
     steps:
       - uses: actions/checkout@v7
 
@@ -109,17 +123,79 @@ jobs:
             [ -f "/mnt/routes/$layer.pmtiles" ] && args+=(--tiles "/mnt/routes/$layer.pmtiles")
           done
           routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
-            --dem-cache /mnt/routes/dem --out /mnt/routes/out 2> >(tee /mnt/routes/log.txt >&2)
-          echo "Curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo "$(wc -l < /mnt/routes/out/routes.geojsonl) routes in $(ls /mnt/routes/out/parks | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
+            --dem-cache /mnt/routes/dem --shard "${{ matrix.shard }}/$SHARDS" --out /mnt/routes/out \
+            --park-timeout "$PARK_TIMEOUT" 2> >(tee /mnt/routes/log.txt >&2)
+          grep -a '^TIMEOUT: ' /mnt/routes/log.txt | while read -r line; do
+            echo "::warning::$line"; echo "$line" >> "$GITHUB_STEP_SUMMARY"
+          done
+          grep -a '^searching ' /mnt/routes/log.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo "Shard ${{ matrix.shard }}/$SHARDS curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "$(ls /mnt/routes/out/raw | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: routes-log
+          name: routes-log-${{ matrix.shard }}
           path: /mnt/routes/log.txt
           if-no-files-found: ignore
+
+      - name: Upload the shard's routes
+        uses: actions/upload-artifact@v4
+        with:
+          name: routes-raw-${{ matrix.shard }}
+          path: /mnt/routes/out/raw/
+          if-no-files-found: warn
+
+  merge:
+    needs: curate
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    env:
+      AREA: ${{ inputs.area }}
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Pre-fetch tilemaker image
+        run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
+
+      - name: Restore hikeratlas/routes binary
+        uses: actions/cache/restore@v6
+        with:
+          path: routes-src/target/release/routes
+          key: routes-bin-${{ runner.arch }}-${{ env.ROUTES_REF }}
+          fail-on-cache-miss: true
+
+      # Each shard's DIR/raw/, as shards/<k>/raw/.
+      - name: Fetch the shards' routes
+        uses: actions/download-artifact@v8
+        continue-on-error: true  # none, if no shard had a park
+        with:
+          pattern: routes-raw-*
+          path: shards
+
+      - name: Merge
+        run: |
+          shopt -s nullglob
+          sudo mkdir -p /mnt/routes && sudo chown "$USER" /mnt/routes
+          args=()
+          for d in shards/routes-raw-*; do
+            mkdir -p "$d.dir" && mv "$d" "$d.dir/raw" && args+=(--merge "$d.dir")
+          done
+          if [ ${#args[@]} = 0 ]; then
+            # No parks in any shard (a small preview): nothing to merge.
+            mkdir -p /mnt/routes/out/parks && : > /mnt/routes/out/routes.geojsonl
+          else
+            routes-src/target/release/routes "${args[@]}" --out /mnt/routes/out
+          fi
+          echo "$(wc -l < /mnt/routes/out/routes.geojsonl) routes in $(ls /mnt/routes/out/parks | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
 
       # tilemaker reads only routes.geojsonl here (see slices/routes.json), so
       # it needs no PBF.

@@ -6,7 +6,10 @@
 # output (its parking lots and trailheads) and writes CELL_M grid cells, merged
 # into runs along each row, that hold an urban lot: one with URBAN_LOTS or more
 # lots within 1 km, as hikeratlas/routes' urban_lots (remote trailheads have a
-# handful nearby, cities dozens). slices/pois.lua marks parking in these cells
+# handful nearby, cities dozens), or WIDE_LOTS or more within 3 km, for
+# residential neighbourhoods, whose few lots are spread out: Vancouver's Dunbar
+# has 4-6 within 1 km but 73-81 within 3 km, where trailheads outside parks
+# have 3-27 (Skerwink 12, Mt Si 27). slices/pois.lua marks parking in these cells
 # urban=true and the style leaves those out; the lots stay in the tiles, so
 # hikeratlas/routes still sees them.
 #
@@ -18,6 +21,8 @@ import numpy as np
 
 URBAN_LOTS = 12
 RADIUS_M = 1000.0
+WIDE_LOTS = 40
+WIDE_RADIUS_M = 3000.0
 CELL_M = 500.0
 M_PER_DEG = 111_320.0
 
@@ -68,19 +73,26 @@ with open(trails_path) as f:
 xy = np.array([(lon * M_PER_DEG * math.cos(math.radians(lat)), lat * M_PER_DEG) for lon, lat in pts]).reshape(-1, 2)
 ll = np.array(pts).reshape(-1, 2)
 
-# Count each lot's neighbours within RADIUS_M, a RADIUS_M grid at a time.
-grid = defaultdict(list)
-for i, (x, y) in enumerate(xy):
-    grid[(int(x // RADIUS_M), int(y // RADIUS_M))].append(i)
-grid = {k: np.array(v) for k, v in grid.items()}
-urban = np.zeros(len(xy), dtype=bool)
-r2 = RADIUS_M * RADIUS_M
-for (cx, cy), idx in grid.items():
-    near = np.concatenate([grid[(cx + dx, cy + dy)] for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (cx + dx, cy + dy) in grid])
-    if len(near) <= URBAN_LOTS:
-        continue  # the lot itself counts, so it needs URBAN_LOTS others
-    d = ((xy[idx, None, :] - xy[None, near, :]) ** 2).sum(axis=2)
-    urban[idx] = (d <= r2).sum(axis=1) > URBAN_LOTS
+def crowded(radius, min_others):
+    """Whether each lot has min_others or more other lots within radius."""
+    grid = defaultdict(list)
+    for i, (x, y) in enumerate(xy):
+        grid[(int(x // radius), int(y // radius))].append(i)
+    grid = {k: np.array(v) for k, v in grid.items()}
+    out = np.zeros(len(xy), dtype=bool)
+    r2 = radius * radius
+    for (cx, cy), idx in grid.items():
+        near = np.concatenate([grid[(cx + dx, cy + dy)] for dx in (-1, 0, 1) for dy in (-1, 0, 1) if (cx + dx, cy + dy) in grid])
+        if len(near) <= min_others:
+            continue  # the lot itself counts, so it needs min_others more
+        for s in range(0, len(idx), 256):  # a city's cell can hold thousands
+            part = idx[s:s + 256]
+            d = ((xy[part, None, :] - xy[None, near, :]) ** 2).sum(axis=2)
+            out[part] = (d <= r2).sum(axis=1) > min_others
+    return out
+
+
+urban = crowded(RADIUS_M, URBAN_LOTS) | crowded(WIDE_RADIUS_M, WIDE_LOTS)
 
 # Cells in degrees: CELL_M of latitude per row, and CELL_M of longitude at the
 # row's latitude.

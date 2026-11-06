@@ -15,8 +15,11 @@ const DB_FILE = 'autosuggest.db';
 // showed up five times (#130). A merged park keeps its best piece's osm_id
 // and label point (the relation with the qrank, not a box centre that may be
 // in the sea); the box is the union, so the map fits all of it.
-const MERGED_KINDS = new Set(['cliff', 'park']);
-const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1 };
+//
+// Trails too: a trail is many ways (and maybe a hiking route relation over
+// them), each with the trail's name.
+const MERGED_KINDS = new Set(['cliff', 'park', 'trail']);
+const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1 };
 
 type Box = { min_lon: number; min_lat: number; max_lon: number; max_lat: number };
 

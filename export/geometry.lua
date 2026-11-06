@@ -45,6 +45,29 @@ function geometry.box(geom)
 	}
 end
 
+-- Km along a LineString or MultiLineString (haversine), or nil for other
+-- geometries: a trail's length for search results (website#44). tilemaker's
+-- Length() doesn't measure relations.
+function geometry.line_km(geom)
+	if not geom then return nil end
+	local t, c = geom['type'], geom['coordinates']
+	local lines = {}
+	if t == 'LineString' then lines = {c}
+	elseif t == 'MultiLineString' then lines = c
+	else return nil end
+	local r = 6371.0088
+	local km = 0
+	for _, line in ipairs(lines) do
+		for i = 2, #line do
+			local lon1, lat1 = math.rad(line[i - 1][1]), math.rad(line[i - 1][2])
+			local lon2, lat2 = math.rad(line[i][1]), math.rad(line[i][2])
+			local h = math.sin((lat2 - lat1) / 2) ^ 2 + math.cos(lat1) * math.cos(lat2) * math.sin((lon2 - lon1) / 2) ^ 2
+			km = km + 2 * r * math.asin(math.sqrt(h))
+		end
+	end
+	return km
+end
+
 -- Splits a MultiPolygon that crosses the antimeridian (e.g. the Aleutian
 -- Islands, Alaska, the United States) into its eastern and western parts.
 --

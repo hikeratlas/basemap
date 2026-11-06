@@ -36,6 +36,16 @@ function near(a: Box, b: Box, km: number): boolean {
 
 // Merges nearby rows of MERGED_KINDS that share a name and place into one
 // row: the union of their boxes, centred in it, with the best qrank.
+// A merged trail's length: its ways' lengths added up, or its hiking route
+// relation's (export/zindex.lua marks those `relation`), whichever is
+// longer. A relation and its ways cover the same ground, and the ways are
+// only the ones in parks.
+function trailKm(cluster: any[]): number {
+	const sum = (rs: any[]) => rs.reduce((t, r) => t + (r.km ?? 0), 0);
+	const km = Math.max(sum(cluster.filter((r) => r.relation)), sum(cluster.filter((r) => !r.relation)));
+	return Math.round(km * 10) / 10;
+}
+
 export function mergePieces(rows: any[]): any[] {
 	const out: any[] = [];
 	const groups = new Map<string, any[]>();
@@ -73,11 +83,12 @@ export function mergePieces(rows: any[]): any[] {
 			const area = (r: any) => r.box ? (r.box.max_lon - r.box.min_lon) * (r.box.max_lat - r.box.min_lat) : -1;
 			const best = cluster.reduce((a, b) =>
 				((b.qrank ?? 0) - (a.qrank ?? 0) || area(b) - area(a)) > 0 ? b : a);
-			if (best.kind === 'park') {
+			if (best.kind === 'park' || best.kind === 'trail') {
 				out.push({
 					...best,
 					wikidata: best.wikidata ?? cluster.find((r) => r.wikidata)?.wikidata,
 					box,
+					...(best.kind === 'trail' ? { km: trailKm(cluster) || null } : {}),
 				});
 				continue;
 			}
@@ -162,7 +173,10 @@ lat NUMERIC NOT NULL,
 min_lon NUMERIC,
 min_lat NUMERIC,
 max_lon NUMERIC,
-max_lat NUMERIC
+max_lat NUMERIC,
+ele INTEGER,
+km NUMERIC,
+area INTEGER
 )`).run();
 
 
@@ -170,9 +184,9 @@ max_lat NUMERIC
 
 	db.query('PRAGMA synchronous = OFF').run();
 
-	const ins = db.query(`INSERT INTO items (qrank, wikidata, osm_id, kind, park, country, state, name, lon, lat, min_lon, min_lat, max_lon, max_lat) VALUES ($qrank, $wikidata, $osm_id, $kind, $park, $country, $state, $name, $lon, $lat, $min_lon, $min_lat, $max_lon, $max_lat)`);
+	const ins = db.query(`INSERT INTO items (qrank, wikidata, osm_id, kind, park, country, state, name, lon, lat, min_lon, min_lat, max_lon, max_lat, ele, km, area) VALUES ($qrank, $wikidata, $osm_id, $kind, $park, $country, $state, $name, $lon, $lat, $min_lon, $min_lat, $max_lon, $max_lat, $ele, $km, $area)`);
 	for (const row of rows) {
-		let { wikidata, park, qrank, country, lon, lat, kind, state, osm_id, name, box } = row;
+		let { wikidata, park, qrank, country, lon, lat, kind, state, osm_id, name, box, ele, km, area } = row;
 		ins.run({
 			$qrank: qrank,
 			$wikidata: wikidata,
@@ -188,6 +202,10 @@ max_lat NUMERIC
 			$min_lat: box?.min_lat || null,
 			$max_lon: box?.max_lon || null,
 			$max_lat: box?.max_lat || null,
+			// For the search result's second line (website#44).
+			$ele: Number.isFinite(ele) ? ele : null,
+			$km: Number.isFinite(km) ? km : null,
+			$area: Number.isFinite(area) ? area : null,
 		});
 	}
 

@@ -170,6 +170,11 @@ jobs:
             echo "::warning::No trails.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no trail areas"
             touch trails.geojsonl
           fi
+          # And the hiking-routes export: no known hikes for routes to check.
+          if [ ! -f hiking-routes.geojsonl ]; then
+            echo "::warning::No hiking-routes.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no known hikes"
+            touch hiking-routes.geojsonl
+          fi
 
       # Parking and trailheads within 2 km of a park stay in the poi layer
       # (see slices/pois.lua); this grows the parks by 2 km for that check.
@@ -225,6 +230,27 @@ jobs:
           ls -l trailareas.pmtiles
           for i in 1 2 3; do
             aws s3 cp --no-progress trailareas.pmtiles "s3://hikes-public/layers/$NAMESPACE/trailareas.pmtiles" && exit 0
+            echo "Upload failed (attempt $i)"; sleep $((i * 15))
+          done
+          exit 1
+
+      # OSM hiking route relations, which hikeratlas/routes checks its routes
+      # against: like trail areas, their own file, left out of the map.
+      - name: Build and upload hiking routes
+        if: ${{ matrix.layer == 'parks' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "$(wc -l < hiking-routes.geojsonl) hiking route relations"
+          cd slices
+          ../bin/docker-tilemaker --output hikingroutes.pmtiles --config hikingroutes.json --process hikingroutes.lua --bbox "$BBOX"
+          ls -l hikingroutes.pmtiles
+          for i in 1 2 3; do
+            aws s3 cp --no-progress hikingroutes.pmtiles "s3://hikes-public/layers/$NAMESPACE/hikingroutes.pmtiles" && exit 0
             echo "Upload failed (attempt $i)"; sleep $((i * 15))
           done
           exit 1

@@ -29,7 +29,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: f1869daebc7f7b3d945aa0c27c5402876b5a4cfa
+  ROUTES_REF: 3c34b2028a6d7b42be110c15c1b897307ccc9d5b
 
 jobs:
   curate:
@@ -112,6 +112,8 @@ jobs:
           # Trail areas (trail networks outside parks, curated like parks): a
           # build from before they existed has none, so they're optional.
           fetch trailareas || echo "::warning::No trailareas.pmtiles in layers/$NAMESPACE/; curating parks only"
+          # OSM hiking routes, to check the routes against (known.jsonl): optional too.
+          fetch hikingroutes || echo "::warning::No hikingroutes.pmtiles in layers/$NAMESPACE/; no check against known hikes"
           ls -l /mnt/routes
           [ "$failed" = 0 ] || { echo "::error::A layer or QRank download failed"; exit 1; }
 
@@ -119,7 +121,7 @@ jobs:
         run: |
           start=$(date +%s)
           args=()
-          for layer in ways land water parks peaks pois trailareas; do
+          for layer in ways land water parks peaks pois trailareas hikingroutes; do
             [ -f "/mnt/routes/$layer.pmtiles" ] && args+=(--tiles "/mnt/routes/$layer.pmtiles")
           done
           routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
@@ -196,6 +198,38 @@ jobs:
             routes-src/target/release/routes "${args[@]}" --out /mnt/routes/out
           fi
           echo "$(wc -l < /mnt/routes/out/routes.geojsonl) routes in $(ls /mnt/routes/out/parks | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
+          # How many OSM hiking routes the routes find (routes' known.jsonl),
+          # and the most notable ones they miss: national and regional
+          # networks, then those with a Wikidata item, then the longest.
+          if [ -s /mnt/routes/out/known.jsonl ]; then
+            python3 - /mnt/routes/out/known.jsonl <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          best = {}
+          for line in open(sys.argv[1]):
+              k = json.loads(line)
+              if k['id'] not in best or k['coverage'] > best[k['id']]['coverage']:
+                  best[k['id']] = k
+          ks = list(best.values())
+          found = sum(k['coverage'] >= 0.7 for k in ks)
+          partly = sum(0.3 <= k['coverage'] < 0.7 for k in ks)
+          print(f"\n**Known hikes** (OSM hiking routes in or near a park): {len(ks)}; found {found}, partly {partly}, missed {len(ks) - found - partly}\n")
+          rank = {'iwn': 0, 'nwn': 1, 'rwn': 2, 'lwn': 3}
+          missed = sorted((k for k in ks if k['coverage'] < 0.3),
+                          key=lambda k: (rank.get(k.get('network', ''), 4), 'wikidata' not in k, -k['km']))
+          if missed:
+              print('| missed | network | km | park | best route (coverage) |\n|---|---|---|---|---|')
+              for k in missed[:25]:
+                  print(f"| [{k['name']}](https://www.openstreetmap.org/relation/{k['id']}) | {k.get('network', '')} | {k['km']} | {k['park']} | {k['best'] or '—'} ({k['coverage']:.0%}) |")
+          PY
+          fi
+
+      - name: Upload the known-hike check
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: known-hikes
+          path: /mnt/routes/out/known.jsonl
+          if-no-files-found: ignore
 
       # tilemaker reads only routes.geojsonl here (see slices/routes.json), so
       # it needs no PBF.

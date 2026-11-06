@@ -4,7 +4,8 @@
 -- curates, as it does parks.
 --
 -- Each line is a Feature with properties kind (trail, viewpoint, waterfall,
--- peak, parking, trailhead) and osm_id; trails also have a name. Parking lots
+-- peak, parking, trailhead) and osm_id; trails also have a name, and bike=yes
+-- if graded for mountain bikes or ski=yes if a ski piste. Parking lots
 -- mapped as areas are polygons.
 
 local file_append = require 'file_append'
@@ -70,6 +71,13 @@ function way_function()
 	if (snowmobile == 'designated' or snowmobile == 'yes') and foot ~= 'designated' and foot ~= 'yes' then return end
 	if string.find(name, '[Ss]nowmobile') then return end
 
+	-- Mountain-bike trails and ski pistes, which hikers may share but which
+	-- aren't hiking trails: bin/trail-areas.py drops a network that's mostly
+	-- these (mountain-bike parks; Nordic ski networks).
+	local extra = { name = name }
+	if Find('mtb:scale') ~= '' or Find('mtb:scale:imba') ~= '' or Find('mtb') == 'designated' then extra.bike = 'yes' end
+	if Find('piste:type') ~= '' then extra.ski = 'yes' end
+
 	local geojson = GeoJSON(false)
-	if geojson then write('trail', json.decode(geojson), { name = name }) end
+	if geojson then write('trail', json.decode(geojson), extra) end
 end

@@ -15,6 +15,13 @@
 #     have URBAN_LOTS or more parking lots within 1 km (as hikeratlas/routes'
 #     urban_lots: remote trailheads have a handful nearby, cities dozens).
 #
+# Trails graded for mountain bikes or that are ski pistes (bike=yes, ski=yes
+# in the export) are left out before forming networks, whatever their foot
+# tags: mountain-bike parks and Nordic ski networks aren't hiking networks,
+# though hikers may use them. Dropping whole networks that were mostly these
+# also dropped hiking trails joined to them (Whistler's Skywalk North, part
+# of a network 59% bike-graded); leaving out the ways keeps those.
+#
 # Distances are approximate: each network is measured with longitude scaled
 # by the cosine of its latitude.
 import json, math, sys
@@ -66,7 +73,7 @@ for f in read(parks_path):
         parks.append(g)
 park_tree = shapely.STRtree(parks)
 
-lines, names, ids = [], [], []
+lines, names, ids, bikeski = [], [], [], []
 dests, lots = [], []
 for f in read(trails_path):
     p = f.get('properties', {})
@@ -80,20 +87,22 @@ for f in read(trails_path):
     if kind == 'trail' and g.geom_type in ('LineString', 'MultiLineString'):
         for part in (g.geoms if g.geom_type == 'MultiLineString' else [g]):
             lines.append(part); names.append(p.get('name', '')); ids.append(int(p.get('osm_id', 0)))
+            bikeski.append(p.get('bike') == 'yes' or p.get('ski') == 'yes')
     elif kind in ('viewpoint', 'waterfall', 'peak'):
         dests.append(g.centroid)
     elif kind in ('parking', 'trailhead'):
         lots.append(g.centroid)
-print(f'{len(lines)} named trail ways, {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
+print(f'{len(lines)} named trail ways ({sum(bikeski)} for bikes or skis), {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
 
-# Drop trails inside parks (by midpoint).
+# Drop trails inside parks (by midpoint), and bike and ski trails.
 if lines:
     mids = shapely.line_interpolate_point(np.array(lines, dtype=object), 0.5, normalized=True)
     inside = np.zeros(len(lines), bool)
     if parks:
         inside[np.unique(park_tree.query(mids, predicate='within')[0])] = True
-    keep = np.nonzero(~inside)[0]
+    keep = np.nonzero(~inside & ~np.array(bikeski, bool))[0]
     lines = [lines[i] for i in keep]; names = [names[i] for i in keep]; ids = [ids[i] for i in keep]
+    bikeski = [bikeski[i] for i in keep]
 
 # Networks: union-find over ways that share a node.
 parent = list(range(len(lines)))

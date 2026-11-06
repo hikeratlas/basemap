@@ -76,14 +76,6 @@ function elevation(v)
 	return math.floor(n + 0.5)
 end
 
--- A line's length in km (one decimal), for the search result's second line
--- (website#44); nil if tilemaker can't measure it.
-function line_km()
-	local ok, m = pcall(Length)
-	if not ok or not m or m <= 0 then return nil end
-	return math.floor(m / 100 + 0.5) / 10
-end
-
 function emit(properties, area)
 	local sanitized_properties = {name=Find('name')}
 	local wikidata = Find('wikidata')
@@ -126,6 +118,11 @@ function emit(properties, area)
 	if geom then geom = json.decode(geom) end
 	local box = geometry.box(geom)
 	sanitized_properties['box'] = box
+	-- A trail's length, for its search result (website#44).
+	if sanitized_properties['kind'] == 'trail' then
+		local km = geometry.line_km(geom)
+		if km and km > 0 then sanitized_properties['km'] = math.floor(km * 10 + 0.5) / 10 end
+	end
 
 	encoded = json.encode(sanitized_properties)
 	file_append.write(dump_filename, encoded .. '\n')
@@ -191,7 +188,7 @@ end
 
 function way_function()
 	if is_trail_way() then
-		return emit({kind='trail', km=line_km()})
+		return emit({kind='trail'})
 	end
 
   local boundary = Find('boundary')
@@ -270,6 +267,6 @@ function relation_function()
 	end
 
 	if is_trail_relation() then
-		return emit({kind='trail', km=line_km(), relation=true})
+		return emit({kind='trail', relation=true})
 	end
 end

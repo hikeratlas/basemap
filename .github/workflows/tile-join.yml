@@ -208,7 +208,8 @@ jobs:
           fi
 
   # The main site's search uses the north-america build, so redeploy it with
-  # this build's autosuggest DB once the tiles are live.
+  # this build's autosuggest DB once the tiles are live, and with
+  # hikeratlas/website main's search code, so the two don't drift apart.
   deploy-search:
     needs: build
     if: (inputs.namespace || inputs.area) == 'north-america'
@@ -218,4 +219,5 @@ jobs:
     uses: ./.github/workflows/deploy-search.yml
     with:
       namespace: north-america
+      website_ref: main
     secrets: inherit

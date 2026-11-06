@@ -5,8 +5,13 @@ name: Deploy search index
 #
 # The Lambda serves the main site's search from a DB bundled in its zip. This
 # downloads the deployed zip, swaps in the new DB, checks that search still
-# works, and uploads it again. The deployed lambda_function.py is kept as-is;
-# code changes are still deployed with search/publish in hikeratlas/website.
+# works, and uploads it again.
+#
+# It deploys the search code too: with website_ref (e.g. main), it swaps in
+# hikeratlas/website's search/lambda_function.py at that ref. Otherwise the
+# deployed lambda_function.py is kept. An empty namespace keeps the deployed
+# DB, to deploy only code: run it by hand with namespace empty and
+# website_ref main after merging a search change in hikeratlas/website.
 #
 # tile-join.yml calls this after a north-america build, so search goes live
 # with the tiles. It can also be run by hand.
@@ -21,9 +26,13 @@ on:
   workflow_dispatch:
     inputs:
       namespace:
-        description: Build whose autosuggest DB to deploy
+        description: Build whose autosuggest DB to deploy (empty keeps the deployed DB)
         type: string
         default: north-america
+      website_ref:
+        description: hikeratlas/website ref whose search/lambda_function.py to deploy (empty keeps the deployed code)
+        type: string
+        default: ''
       force:
         description: Deploy even if the new DB has far fewer items than the live one
         type: boolean
@@ -33,6 +42,9 @@ on:
       namespace:
         type: string
         default: north-america
+      website_ref:
+        type: string
+        default: ''
       force:
         type: boolean
         default: false
@@ -41,6 +53,7 @@ env:
   FUNCTION: ha-search
   AWS_REGION: us-east-1
   NAMESPACE: ${{ inputs.namespace }}
+  WEBSITE_REF: ${{ inputs.website_ref }}
   FORCE: ${{ inputs.force }}
 
 jobs:
@@ -58,8 +71,16 @@ jobs:
         env:
           HAS_ROLE: ${{ secrets.SEARCH_AWS_ROLE_ARN != '' }}
         run: |
-          if ! [[ "$NAMESPACE" =~ ^[a-z0-9-]+(/[a-z0-9-]+)?$ ]]; then
+          if [ -n "$NAMESPACE" ] && ! [[ "$NAMESPACE" =~ ^[a-z0-9-]+(/[a-z0-9-]+)?$ ]]; then
             echo "::error::Invalid namespace '$NAMESPACE'"
+            exit 1
+          fi
+          if [ -n "$WEBSITE_REF" ] && ! [[ "$WEBSITE_REF" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::Invalid website_ref '$WEBSITE_REF'"
+            exit 1
+          fi
+          if [ -z "$NAMESPACE" ] && [ -z "$WEBSITE_REF" ]; then
+            echo "::error::Nothing to deploy: give a namespace, a website_ref, or both"
             exit 1
           fi
           if [ "$HAS_ROLE" != true ]; then
@@ -68,6 +89,7 @@ jobs:
           fi
 
       - name: Download the new DB from R2
+        if: inputs.namespace != ''
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
@@ -76,6 +98,15 @@ jobs:
           # R2 ignores the region, but the CLI needs one that it accepts.
           AWS_REGION: auto
         run: aws s3 cp --no-progress "s3://hikes-public/$NAMESPACE.autosuggest.db" new.db
+
+      - name: Fetch the search code
+        if: inputs.website_ref != ''
+        uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/website
+          ref: ${{ inputs.website_ref }}
+          path: website
+          sparse-checkout: search
 
       # This exports temporary AWS credentials (including AWS_SESSION_TOKEN)
       # to every later step, so it must come after the R2 step above.
@@ -98,41 +129,57 @@ jobs:
           unzip -q current.zip -d pkg
           ls -l pkg
 
-      - name: Swap in the new DB
+      - name: Swap in the new DB and code
         id: swap
         run: |
           count() {
             python3 -c "import sqlite3, sys; print(sqlite3.connect('file:' + sys.argv[1] + '?mode=ro', uri=True).execute('select count(*) from items').fetchone()[0])" "$1"
           }
           old=$(count pkg/autosuggest.db)
-          new=$(count new.db)
-          echo "Live DB: $old items, $(stat -c %s pkg/autosuggest.db) bytes"
-          echo "New DB:  $new items, $(stat -c %s new.db) bytes"
+          new=$old
+          changed=false
 
-          if cmp -s new.db pkg/autosuggest.db; then
-            echo "The live DB is already this one; nothing to deploy."
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "Search already uses \`$NAMESPACE.autosuggest.db\` ($new items); nothing deployed." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
+          if [ -n "$NAMESPACE" ]; then
+            new=$(count new.db)
+            echo "Live DB: $old items, $(stat -c %s pkg/autosuggest.db) bytes"
+            echo "New DB:  $new items, $(stat -c %s new.db) bytes"
+            if cmp -s new.db pkg/autosuggest.db; then
+              echo "The live DB is already this one."
+            else
+              # Guard against publishing a broken or truncated build to the main site.
+              if [ "$new" -lt $((old / 2)) ] && [ "$FORCE" != true ]; then
+                echo "::error::The new DB has $new items, less than half the live DB's $old. Re-run with force to deploy it anyway."
+                exit 1
+              fi
+              mv new.db pkg/autosuggest.db
+              changed=true
+              echo "- DB: \`$NAMESPACE.autosuggest.db\`, $old → $new items" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
-          # Guard against publishing a broken or truncated build to the main site.
-          if [ "$new" -lt $((old / 2)) ] && [ "$FORCE" != true ]; then
-            echo "::error::The new DB has $new items, less than half the live DB's $old. Re-run with force to deploy it anyway."
-            exit 1
+          if [ -n "$WEBSITE_REF" ]; then
+            sha=$(git -C website rev-parse --short HEAD)
+            if cmp -s website/search/lambda_function.py pkg/lambda_function.py; then
+              echo "The live code is already website@$sha's."
+            else
+              diff -u pkg/lambda_function.py website/search/lambda_function.py || true
+              cp website/search/lambda_function.py pkg/lambda_function.py
+              changed=true
+              echo "- Code: hikeratlas/website@$sha ($WEBSITE_REF) search/lambda_function.py" >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi
 
-          mv new.db pkg/autosuggest.db
-          echo "changed=true" >> "$GITHUB_OUTPUT"
-          echo "old=$old" >> "$GITHUB_OUTPUT"
-          echo "new=$new" >> "$GITHUB_OUTPUT"
+          if [ "$changed" != true ]; then
+            echo "Search is already up to date; nothing deployed." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
 
       - name: Check that search works
         if: steps.swap.outputs.changed == 'true'
         working-directory: pkg
         run: |
-          # Runs the deployed lambda_function.py against the new DB, as the
-          # Lambda would.
+          # Runs the lambda_function.py being deployed against the DB being
+          # deployed, as the Lambda would.
           python3 - <<'EOF'
           import json
           import lambda_function
@@ -148,8 +195,6 @@ jobs:
         if: steps.swap.outputs.changed == 'true'
         env:
           REVISION: ${{ steps.current.outputs.revision }}
-          OLD: ${{ steps.swap.outputs.old }}
-          NEW: ${{ steps.swap.outputs.new }}
         run: |
           rm -rf pkg/__pycache__
           (cd pkg && zip -q -9 -r ../code.zip .)
@@ -158,4 +203,4 @@ jobs:
             --zip-file fileb://code.zip --revision-id "$REVISION" \
             --query '{CodeSize: CodeSize, LastModified: LastModified}' --output table
           aws lambda wait function-updated --function-name "$FUNCTION"
-          echo "Deployed \`$NAMESPACE.autosuggest.db\` to search: $OLD → $NEW items" >> "$GITHUB_STEP_SUMMARY"
+          echo "Deployed." >> "$GITHUB_STEP_SUMMARY"

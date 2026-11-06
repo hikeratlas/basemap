@@ -98,6 +98,10 @@
       "source": "tiles"
     },
     {
+      // symbol-spacing 300, not 400: with 400, lakes whose centerline is
+      // only a little longer than their name went unlabelled (Lake Magog at
+      // z13, #129); 250 repeats the name three times across Lake Minnewanka
+      // at z12.
       "id": "lake-labels",
       "type": "symbol",
       "layout": {
@@ -107,7 +111,7 @@
         "text-size": ["interpolate", ["linear"], ["zoom"], 6, 10, 14, 15],
         "text-letter-spacing": 0.1,
         "text-max-angle": 45,
-        "symbol-spacing": 400
+        "symbol-spacing": 300
       },
       "paint": {
         "text-color": "#0c4a6e",

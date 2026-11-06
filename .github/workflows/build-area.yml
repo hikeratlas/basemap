@@ -221,7 +221,7 @@ jobs:
     needs: [config, layers]
     if: ${{ !cancelled() && needs.layers.result == 'success' && needs.config.outputs.namespace == 'north-america' }}
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 60
     env:
       AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
       AWS_EC2_METADATA_DISABLED: true
@@ -239,12 +239,23 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install -q pmtiles requests
           "$RUNNER_TEMP/venv/bin/python" routes-src/fixtures/extract.py https://public.hikeratlas.com/layers/north-america tiles
+          # routes' oracle sample (fixtures/oracle.json): ~160 parks with OSM
+          # hiking routes, to measure route-proposer changes against.
+          if [ -f routes-src/fixtures/oracle.json ]; then
+            "$RUNNER_TEMP/venv/bin/python" routes-src/fixtures/extract.py --parks routes-src/fixtures/oracle.json \
+              https://public.hikeratlas.com/layers/north-america tiles/oracle
+          fi
           tar czf fixtures.tar.gz tiles
           ls -l fixtures.tar.gz
 
       - name: Upload, then point latest.json at it
         run: |
-          parks=$(sha256sum routes-src/fixtures/parks.json | cut -d' ' -f1)
+          # Must match how routes' fixtures.yml hashes them.
+          if [ -f routes-src/fixtures/oracle.json ]; then
+            parks=$(cat routes-src/fixtures/parks.json routes-src/fixtures/oracle.json | sha256sum | cut -d' ' -f1)
+          else
+            parks=$(sha256sum routes-src/fixtures/parks.json | cut -d' ' -f1)
+          fi
           aws s3 cp --no-progress fixtures.tar.gz "s3://hikes-public/fixtures/$ID/fixtures.tar.gz"
           jq -n --arg id "$ID" --arg parks "$parks" --arg built "$(date -u +%FT%TZ)" \
             --arg url "https://public.hikeratlas.com/fixtures/$ID/fixtures.tar.gz" \

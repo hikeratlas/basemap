@@ -11,6 +11,11 @@
 # A network is the named trails outside parks that share nodes. It's kept if:
 #   - it has at least MIN_KM of trail,
 #   - at least MIN_DESTS viewpoints, waterfalls or peaks are within DEST_M,
+#     or one peak is: a named trail to a summit is a hike on its own (5040
+#     Peak on Vancouver Island, hikeratlas/routes#49). On north-america this
+#     keeps 470 more networks (966 -> 1436); one viewpoint or waterfall alone
+#     would add 487 more, many of them mountain-bike and equestrian trails,
+#     so those still need a second,
 #   - and it isn't in a city: fewer than half of the points sampled along it
 #     have URBAN_LOTS or more parking lots within 1 km (as hikeratlas/routes'
 #     urban_lots: remote trailheads have a handful nearby, cities dozens).
@@ -75,6 +80,7 @@ park_tree = shapely.STRtree(parks)
 
 lines, names, ids, bikeski = [], [], [], []
 dests, lots = [], []
+dest_peak = []  # whether each destination is a peak
 for f in read(trails_path):
     p = f.get('properties', {})
     try:
@@ -90,6 +96,7 @@ for f in read(trails_path):
             bikeski.append(p.get('bike') == 'yes' or p.get('ski') == 'yes')
     elif kind in ('viewpoint', 'waterfall', 'peak'):
         dests.append(g.centroid)
+        dest_peak.append(kind == 'peak')
     elif kind in ('parking', 'trailhead'):
         lots.append(g.centroid)
 print(f'{len(lines)} named trail ways ({sum(bikeski)} for bikes or skis), {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
@@ -170,8 +177,12 @@ for members in groups.values():
     n_dests = 0
     if dest_tree is not None:
         hits = dest_tree.query(np.array(ls, dtype=object), predicate='dwithin', distance=DEST_M / M_PER_DEG)[1]
-        n_dests = len(np.unique(hits))
-    if n_dests < MIN_DESTS:
+        hits = np.unique(hits)
+        n_dests = len(hits)
+        peaks = sum(dest_peak[h] for h in hits)
+    else:
+        peaks = 0
+    if n_dests < MIN_DESTS and peaks == 0:
         dropped['few destinations'] += 1
         continue
     # Work in degrees with longitude scaled, so buffers are round. Simplified

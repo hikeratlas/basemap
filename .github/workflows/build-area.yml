@@ -201,9 +201,11 @@ jobs:
   # Curated hikes, from the layers just built (see routes.yml). They're a
   # layer of their own, so tile-join waits for them; if curation fails, the
   # map is still published, with no routes or the namespace's previous ones.
+  # It waits for reuse too: it adds the hikes to the namespace's search DB,
+  # which reuse may copy in from the reused build first.
   routes:
-    needs: [config, layers]
-    if: ${{ !cancelled() && needs.layers.result == 'success' }}
+    needs: [config, layers, reuse]
+    if: ${{ !cancelled() && needs.layers.result == 'success' && needs.reuse.result != 'failure' }}
     uses: ./.github/workflows/routes.yml
     with:
       area: ${{ needs.config.outputs.area }}

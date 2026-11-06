@@ -269,6 +269,20 @@ jobs:
           done
           echo "Routes: $(jq '.parks | length' index.json) parks in $dest/$BUNDLE ($(stat -c %s /mnt/routes/out/routes.bin) bytes)" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Curated hikes in search (hikeratlas/website#44): the search DB is
+      # built with the exports, before the routes, so they're added to it here
+      # (bin/search-add-hikes.py; a reused DB's earlier hikes are replaced).
+      # A download and an upload of the DB per build.
+      - name: Add hikes to search
+        run: |
+          db="s3://hikes-public/$NAMESPACE.autosuggest.db"
+          if ! aws s3 cp --no-progress "$db" autosuggest.db; then
+            echo "::warning::No $NAMESPACE.autosuggest.db, so search won't find this build's hikes"
+            exit 0
+          fi
+          python3 bin/search-add-hikes.py autosuggest.db /mnt/routes/out/parks | tee -a "$GITHUB_STEP_SUMMARY"
+          aws s3 cp --no-progress autosuggest.db "$db"
+
       # Deletes are free on R2: the per-park files from before the bundle,
       # and bundles older than this one and the previous. In batches of up to
       # 1,000 keys a request: one request per file (~5,500 for north-america)

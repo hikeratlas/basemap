@@ -152,7 +152,7 @@ jobs:
   merge:
     needs: curate
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 15
+    timeout-minutes: 30
     env:
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
@@ -270,16 +270,23 @@ jobs:
           echo "Routes: $(jq '.parks | length' index.json) parks in $dest/$BUNDLE ($(stat -c %s /mnt/routes/out/routes.bin) bytes)" | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Deletes are free on R2: the per-park files from before the bundle,
-      # and bundles older than this one and the previous.
+      # and bundles older than this one and the previous. In batches of up to
+      # 1,000 keys a request: one request per file (~5,500 for north-america)
+      # ran the job out of time (run 42159189381).
       - name: Remove old route files
         continue-on-error: true
         env:
           BUNDLE: ${{ github.run_id }}.bin
         run: |
-          dest="s3://hikes-public/routes/$NAMESPACE"
-          aws s3 ls "$dest/" | awk '{print $4}' | while read -r f; do
-            case "$f" in
-              index.json|"$BUNDLE"|"$PREV") ;;
-              *.json|*.bin) aws s3 rm --only-show-errors "$dest/$f" ;;
-            esac
+          prefix="routes/$NAMESPACE/"
+          aws s3api list-objects-v2 --bucket hikes-public --prefix "$prefix" --query 'Contents[].Key' --output json > keys.json
+          jq -r --arg p "$prefix" --arg keep1 "index.json" --arg keep2 "$BUNDLE" --arg keep3 "$PREV" \
+            '(. // [])[] | select(ltrimstr($p) | test("/") | not)
+             | select(ltrimstr($p) as $f | ($f != $keep1 and $f != $keep2 and $f != $keep3 and ($f | test("\\.(json|bin)$"))))' keys.json > old.txt
+          echo "Removing $(wc -l < old.txt) old route files"
+          split -l 1000 old.txt batch-
+          for b in batch-*; do
+            [ -s "$b" ] || continue
+            jq -R -s -c '{Objects: (split("\n") | map(select(length > 0)) | map({Key: .})), Quiet: true}' "$b" > delete.json
+            aws s3api delete-objects --bucket hikes-public --delete file://delete.json > /dev/null
           done

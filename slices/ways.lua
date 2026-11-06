@@ -175,6 +175,13 @@ function way_function_highway(highway)
 
 		local bicycle = Find('bicycle')
 		local foot = Find('foot')
+		-- A closed trail, which hikeratlas/routes mustn't use: access=no with
+		-- no permission for walkers, or a mapper's 'Trail Closed' name (Gros
+		-- Morne's way/168941774 and way/420891009). It's still drawn.
+		local closed = false
+		if Find('access') == 'no' and foot ~= 'yes' and foot ~= 'designated' and foot ~= 'permissive' then closed = true end
+		local lname = string.lower(Find('name'))
+		if lname == 'trail closed' or lname == 'closed trail' or lname == 'closed' or string.find(lname, '%(closed%)') then closed = true end
 		local segregated = Find('segregated')
 		local surface = Find('surface')
 		local bridge = Find('bridge')
@@ -205,6 +212,7 @@ function way_function_highway(highway)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		if on_route then AttributeBoolean('on_route', true) end
+		if closed then AttributeBoolean('closed', true) end
 		-- Mountain bike trails, which hikeratlas/routes avoids when the trail
 		-- isn't also designated for walking (foot). Whistler's are graded with
 		-- mtb:scale:imba rather than mtb:scale (e.g. way/1411691966).
@@ -228,6 +236,7 @@ function way_function_highway(highway)
 		AttributeBoolean('in_park', in_park)
 		AttributeBoolean('in_city_park', in_city_park)
 		if on_route then AttributeBoolean('on_route', true) end
+		if closed then AttributeBoolean('closed', true) end
 		-- The tiles stop at z14, so z15 and z16 labels follow copies in the
 		-- z14 tiles simplified for those zooms (see path_name in ways.json).
 		if in_park and canoe ~= 'portage' then

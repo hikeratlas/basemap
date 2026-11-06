@@ -21,7 +21,7 @@
         "icon-optional": true,
         "text-font": ["Hubot Sans-Regular"],
         "text-optional": true,
-        "icon-image": "mountain",
+        "icon-image": "ridgeline",
         // From z12: name, then elevation (metres) smaller on the next line.
         // Below z12 just the name, to keep the overview light. ele arrives as
         // a string in the tiles, hence to-number.

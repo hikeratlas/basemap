@@ -41,7 +41,8 @@ export function mergePieces(rows: any[]): any[] {
 	const groups = new Map<string, any[]>();
 	for (const row of rows) {
 		if (!MERGED_KINDS.has(row.kind)) { out.push(row); continue; }
-		const key = JSON.stringify([row.kind, row.name, row.park, row.state, row.country]);
+		// Case aside: "Acadian Trail" and "Acadian trail" are one trail.
+		const key = JSON.stringify([row.kind, String(row.name).toLowerCase(), row.park, row.state, row.country]);
 		if (!groups.has(key)) groups.set(key, []);
 		groups.get(key)!.push(row);
 	}

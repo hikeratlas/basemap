@@ -245,6 +245,24 @@ jobs:
             --bbox "$(jq -r --arg a "$AREA" '.[$a].bbox' ../areas.json)"
           ls -l routes.pmtiles
 
+      # The search DB (built with the exports, before the routes), for the
+      # parks' places in the hike paths below and for adding the hikes to
+      # search after the upload. One download a build.
+      - name: Fetch the search DB
+        run: |
+          if ! aws s3 cp --no-progress "s3://hikes-public/$NAMESPACE.autosuggest.db" autosuggest.db; then
+            echo "::warning::No $NAMESPACE.autosuggest.db: no hike paths, and search won't find this build's hikes"
+          fi
+
+      # The website's /hikes/<country>/<state>/<park> URLs (website#55, #56):
+      # regions.json lists every country, state and park with its slug, and
+      # index.json gains park id -> path (bin/hike-paths.py).
+      - name: Hike paths
+        run: |
+          if [ -s autosuggest.db ]; then
+            python3 bin/hike-paths.py autosuggest.db /mnt/routes/out/parks /mnt/routes/out/index.json /mnt/routes/out/regions.json | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
       # The parks' routes for the website go up as 2 files, not one per park
       # (~5,500 writes a north-america build): a bundle of every park's JSON
       # gzipped, named for this run, then index.json pointing into it. The
@@ -262,6 +280,7 @@ jobs:
           for i in 1 2 3; do
             aws s3 cp --no-progress slices/routes.pmtiles "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" \
               && aws s3 cp --no-progress --content-type application/octet-stream /mnt/routes/out/routes.bin "$dest/$BUNDLE" \
+              && { [ ! -s /mnt/routes/out/regions.json ] || aws s3 cp --no-progress --content-type application/json --cache-control no-cache /mnt/routes/out/regions.json "$dest/regions.json"; } \
               && aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json" \
               && break
             echo "Upload failed (attempt $i)"
@@ -275,13 +294,9 @@ jobs:
       # A download and an upload of the DB per build.
       - name: Add hikes to search
         run: |
-          db="s3://hikes-public/$NAMESPACE.autosuggest.db"
-          if ! aws s3 cp --no-progress "$db" autosuggest.db; then
-            echo "::warning::No $NAMESPACE.autosuggest.db, so search won't find this build's hikes"
-            exit 0
-          fi
+          [ -s autosuggest.db ] || exit 0
           python3 bin/search-add-hikes.py autosuggest.db /mnt/routes/out/parks | tee -a "$GITHUB_STEP_SUMMARY"
-          aws s3 cp --no-progress autosuggest.db "$db"
+          aws s3 cp --no-progress autosuggest.db "s3://hikes-public/$NAMESPACE.autosuggest.db"
 
       # Deletes are free on R2: the per-park files from before the bundle,
       # and bundles older than this one and the previous. In batches of up to
@@ -294,9 +309,9 @@ jobs:
         run: |
           prefix="routes/$NAMESPACE/"
           aws s3api list-objects-v2 --bucket hikes-public --prefix "$prefix" --query 'Contents[].Key' --output json > keys.json
-          jq -r --arg p "$prefix" --arg keep1 "index.json" --arg keep2 "$BUNDLE" --arg keep3 "$PREV" \
+          jq -r --arg p "$prefix" --arg keep1 "index.json" --arg keep2 "$BUNDLE" --arg keep3 "$PREV" --arg keep4 "regions.json" \
             '(. // [])[] | select(ltrimstr($p) | test("/") | not)
-             | select(ltrimstr($p) as $f | ($f != $keep1 and $f != $keep2 and $f != $keep3 and ($f | test("\\.(json|bin)$"))))' keys.json > old.txt
+             | select(ltrimstr($p) as $f | ($f != $keep1 and $f != $keep2 and $f != $keep3 and $f != $keep4 and ($f | test("\\.(json|bin)$"))))' keys.json > old.txt
           echo "Removing $(wc -l < old.txt) old route files"
           split -l 1000 old.txt batch-
           for b in batch-*; do

@@ -31,6 +31,8 @@ way_keys = {
 	'natural=cliff',
 	'tourism=camp_site',
 	'water=lake',
+	'highway=path',
+	'highway=footway',
 }
 
 function sanitize_park(x)
@@ -154,7 +156,22 @@ function node_function()
 	end
 end
 
+-- Trails people search for by name (website#11): the West Coast Trail is a
+-- hiking route relation, the Skerwink Trail only named ways. Only in parks:
+-- named footways are mostly city sidewalks and plazas. A trail's ways are
+-- merged into one result by bin/create-autosuggest-db.ts.
+local trail_highways = { path=true, footway=true }
+
+function is_trail_way()
+	return trail_highways[Find('highway')] and Find('name') ~= ''
+		and (Intersects('parks') or Intersects('city_parks'))
+end
+
 function way_function()
+	if is_trail_way() then
+		return emit({kind='trail'})
+	end
+
   local boundary = Find('boundary')
   local leisure = Find('leisure')
   local landuse = Find('landuse')
@@ -193,9 +210,18 @@ function relation_scan_function()
 		boundary == 'protected_area' or
 		leisure == 'nature_reserve' or
 		tourism == 'camp_site' or
-		water == 'lake' then
+		water == 'lake' or
+		is_trail_relation() then
 		Accept()
 	end
+end
+
+-- Hiking route relations (not superroutes, which only group them: the
+-- Appalachian Trail's are per state).
+local trail_routes = { hiking=true, foot=true }
+
+function is_trail_relation()
+	return Find('type') == 'route' and trail_routes[Find('route')] and Find('name') ~= ''
 end
 
 function relation_function()
@@ -219,5 +245,9 @@ function relation_function()
 
 	if water == 'lake' then
 		return emit({kind='lake'}, true)
+	end
+
+	if is_trail_relation() then
+		return emit({kind='trail'})
 	end
 end

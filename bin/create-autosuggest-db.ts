@@ -94,6 +94,50 @@ export function mergePieces(rows: any[]): any[] {
 	return out;
 }
 
+// As export/zindex.lua's sanitize_park: a row's park is its park's name
+// shortened this way.
+function sanitizePark(x: string): string {
+	return x.replaceAll('National Park', 'NP').replaceAll('State Park', 'SP')
+		.replaceAll('Provincial Park', 'PP').replaceAll('National Forest', 'NF');
+}
+
+// Of a park's QRank, the share a row in it with no QRank of its own gets
+// (#142): only 590 of 145,522 trails have one, so they all tied at 1 and a
+// search for "Tonquin" listed five pieces of Oregon's Tonquin Trail before
+// Jasper's Tonquin Valley trail. Jasper NP's QRank is 104,358, so its
+// unranked trails get up to ~1,000: above an unranked trail elsewhere, below
+// the park itself.
+const PARK_SHARE = 0.01;
+// A trail's share scales with its length (its box's diagonal) up to this,
+// so a park's long trails rank above its short spurs.
+const TRAIL_FULL_KM = 5;
+
+function diagKm(box: Box | undefined): number {
+	if (!box) return 0;
+	const lat = ((box.min_lat + box.max_lat) / 2) * Math.PI / 180;
+	const dx = (box.max_lon - box.min_lon) * 111.32 * Math.cos(lat);
+	const dy = (box.max_lat - box.min_lat) * 111.32;
+	return Math.hypot(dx, dy);
+}
+
+// Rows with no QRank of their own (1) take a share of their park's.
+export function rankByPark(rows: any[]): any[] {
+	const parkRank = new Map<string, number>();
+	for (const r of rows) {
+		if (r.kind !== 'park' || !(r.qrank > 1)) continue;
+		const key = JSON.stringify([sanitizePark(r.name), r.state]);
+		parkRank.set(key, Math.max(parkRank.get(key) ?? 0, r.qrank));
+	}
+	for (const r of rows) {
+		if (r.kind === 'park' || (r.qrank ?? 0) > 1 || !r.park) continue;
+		const pq = parkRank.get(JSON.stringify([r.park, r.state]));
+		if (!pq) continue;
+		const w = r.kind === 'trail' ? Math.min(1, Math.max(0.2, diagKm(r.box) / TRAIL_FULL_KM)) : 0.5;
+		r.qrank = Math.max(r.qrank ?? 1, Math.round(pq * PARK_SHARE * w));
+	}
+	return rows;
+}
+
 async function main() {
 	try {
 		fs.unlinkSync(DB_FILE);
@@ -122,7 +166,7 @@ max_lat NUMERIC
 )`).run();
 
 
-	const rows = mergePieces((await Bun.file('zindex.geojsonl').text()).split('\n').filter(x => x).map(x => JSON.parse(x)));
+	const rows = rankByPark(mergePieces((await Bun.file('zindex.geojsonl').text()).split('\n').filter(x => x).map(x => JSON.parse(x))));
 
 	db.query('PRAGMA synchronous = OFF').run();
 

@@ -9,18 +9,24 @@ const DB_FILE = 'autosuggest.db';
 // the many sections of the Niagara Escarpment. Pieces chain together if each
 // is within MERGE_DISTANCE_KM of the next; same-named cliffs farther apart
 // (e.g. Ontario's two "Black Rock"s, 160 km apart) stay separate.
-const MERGED_KINDS = new Set(['cliff']);
-const MERGE_DISTANCE_KM = 10;
+//
+// Parks too: Cape Breton Highlands National Park is a relation, a second
+// relation (relation/17879029) and three CanVec nature_reserve nodes, and
+// showed up five times (#130). A merged park keeps its best piece's osm_id
+// and label point (the relation with the qrank, not a box centre that may be
+// in the sea); the box is the union, so the map fits all of it.
+const MERGED_KINDS = new Set(['cliff', 'park']);
+const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1 };
 
 type Box = { min_lon: number; min_lat: number; max_lon: number; max_lat: number };
 
 const boxOf = (row: any): Box => row.box ?? { min_lon: row.lon, min_lat: row.lat, max_lon: row.lon, max_lat: row.lat };
 
-// Whether two boxes are within MERGE_DISTANCE_KM of each other.
-function near(a: Box, b: Box): boolean {
+// Whether two boxes are within km of each other.
+function near(a: Box, b: Box, km: number): boolean {
 	const lat = (a.min_lat + a.max_lat) / 2;
-	const dLat = MERGE_DISTANCE_KM / 111.32;
-	const dLon = MERGE_DISTANCE_KM / (111.32 * Math.cos((lat * Math.PI) / 180));
+	const dLat = km / 111.32;
+	const dLon = km / (111.32 * Math.cos((lat * Math.PI) / 180));
 	return a.min_lon - dLon <= b.max_lon && b.min_lon - dLon <= a.max_lon
 		&& a.min_lat - dLat <= b.max_lat && b.min_lat - dLat <= a.max_lat;
 }
@@ -45,7 +51,7 @@ export function mergePieces(rows: any[]): any[] {
 			for (let grew = true; grew; ) {
 				grew = false;
 				for (let i = remaining.length - 1; i >= 0; i--) {
-					if (near(box, boxOf(remaining[i]))) {
+					if (near(box, boxOf(remaining[i]), MERGE_DISTANCE_KM[cluster[0].kind])) {
 						const r = remaining.splice(i, 1)[0];
 						const b = boxOf(r);
 						box = {
@@ -58,6 +64,19 @@ export function mergePieces(rows: any[]): any[] {
 				}
 			}
 			if (cluster.length === 1) { out.push(cluster[0]); continue; }
+			// The best piece: highest qrank, then an area over a point, then
+			// the biggest area.
+			const area = (r: any) => r.box ? (r.box.max_lon - r.box.min_lon) * (r.box.max_lat - r.box.min_lat) : -1;
+			const best = cluster.reduce((a, b) =>
+				((b.qrank ?? 0) - (a.qrank ?? 0) || area(b) - area(a)) > 0 ? b : a);
+			if (best.kind === 'park') {
+				out.push({
+					...best,
+					wikidata: best.wikidata ?? cluster.find((r) => r.wikidata)?.wikidata,
+					box,
+				});
+				continue;
+			}
 			out.push({
 				...cluster[0],
 				qrank: Math.max(...cluster.map((r) => r.qrank ?? 0)),

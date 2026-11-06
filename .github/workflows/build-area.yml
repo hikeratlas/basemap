@@ -210,6 +210,57 @@ jobs:
       namespace: ${{ needs.config.outputs.namespace }}
     secrets: inherit
 
+  # A frozen copy of the fixture parks' tiles (hikeratlas/routes'
+  # fixtures/parks.json) from this build's finished layers, for routes'
+  # fixture CI to compare pull requests on. CI used to extract them from the
+  # live layers, which a running build rewrites in place: a read mid-rewrite
+  # failed (416), or could silently mix two builds' tiles. Each snapshot is
+  # written once to fixtures/<run id>/ and never changed; fixtures/latest.json
+  # moves to it only once it's complete.
+  fixtures:
+    needs: [config, layers]
+    if: ${{ !cancelled() && needs.layers.result == 'success' && needs.config.outputs.namespace == 'north-america' }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ID: ${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/routes
+          path: routes-src
+
+      - name: Extract the fixture tiles
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install -q pmtiles requests
+          "$RUNNER_TEMP/venv/bin/python" routes-src/fixtures/extract.py https://public.hikeratlas.com/layers/north-america tiles
+          tar czf fixtures.tar.gz tiles
+          ls -l fixtures.tar.gz
+
+      - name: Upload, then point latest.json at it
+        run: |
+          parks=$(sha256sum routes-src/fixtures/parks.json | cut -d' ' -f1)
+          aws s3 cp --no-progress fixtures.tar.gz "s3://hikes-public/fixtures/$ID/fixtures.tar.gz"
+          jq -n --arg id "$ID" --arg parks "$parks" --arg built "$(date -u +%FT%TZ)" \
+            --arg url "https://public.hikeratlas.com/fixtures/$ID/fixtures.tar.gz" \
+            '{id: $id, url: $url, parks_sha256: $parks, built: $built}' > latest.json
+          cat latest.json
+          aws s3 cp --no-progress --content-type application/json --cache-control no-cache latest.json s3://hikes-public/fixtures/latest.json
+          echo "Fixture snapshot: https://public.hikeratlas.com/fixtures/$ID/fixtures.tar.gz ($(stat -c %s fixtures.tar.gz) bytes)" >> "$GITHUB_STEP_SUMMARY"
+
+      # Keep the newest 5 snapshots.
+      - name: Prune old snapshots
+        continue-on-error: true
+        run: |
+          aws s3 ls s3://hikes-public/fixtures/ | awk '$1 == "PRE" {print $2}' | tr -d / | sort -n | head -n -5 | while read -r old; do
+            aws s3 rm --recursive --only-show-errors "s3://hikes-public/fixtures/$old/"
+          done
+
   tile-join:
     needs: [config, layers, routes]
     if: ${{ !cancelled() && needs.layers.result == 'success' }}

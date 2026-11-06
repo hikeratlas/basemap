@@ -29,7 +29,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: 81a52026c4c6501e4d3ab45590f5b89219e26f54
+  ROUTES_REF: ac3111246603dc952aea91a60d468ae277885ca4
 
 jobs:
   curate:
@@ -200,8 +200,10 @@ jobs:
           fi
           echo "$(wc -l < /mnt/routes/out/routes.geojsonl) routes in $(ls /mnt/routes/out/parks | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
           # How many OSM hiking routes the routes find (routes' known.jsonl),
-          # and the most notable ones they miss: national and regional
-          # networks, then those with a Wikidata item, then the longest.
+          # and the most notable ones they miss: those with a Wikidata item
+          # first, then local and regional routes before national and
+          # international ones (whose sections are rarely a hike), shortest
+          # first.
           if [ -s /mnt/routes/out/known.jsonl ]; then
             python3 - /mnt/routes/out/known.jsonl <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json, sys
@@ -214,13 +216,14 @@ jobs:
           found = sum(k['coverage'] >= 0.7 for k in ks)
           partly = sum(0.3 <= k['coverage'] < 0.7 for k in ks)
           print(f"\n**Known hikes** (OSM hiking routes in or near a park): {len(ks)}; found {found}, partly {partly}, missed {len(ks) - found - partly}\n")
-          rank = {'iwn': 0, 'nwn': 1, 'rwn': 2, 'lwn': 3}
+          long_distance = {'iwn', 'nwn'}
           missed = sorted((k for k in ks if k['coverage'] < 0.3),
-                          key=lambda k: (rank.get(k.get('network', ''), 4), 'wikidata' not in k, -k['km']))
+                          key=lambda k: (not k.get('wikidata'), k.get('network', '') in long_distance, k['km']))
           if missed:
-              print('| missed | network | km | park | best route (coverage) |\n|---|---|---|---|---|')
+              print('| missed | network | Wikidata | km | park | best route (coverage) |\n|---|---|---|---|---|---|')
               for k in missed[:25]:
-                  print(f"| [{k['name']}](https://www.openstreetmap.org/relation/{k['id']}) | {k.get('network', '')} | {k['km']} | {k['park']} | {k['best'] or '—'} ({k['coverage']:.0%}) |")
+                  wd = f"[{k['wikidata']}](https://www.wikidata.org/wiki/{k['wikidata']})" if k.get('wikidata') else ''
+                  print(f"| [{k['name']}](https://www.openstreetmap.org/relation/{k['id']}) | {k.get('network', '')} | {wd} | {k['km']} | {k['park']} | {k['best'] or '—'} ({k['coverage']:.0%}) |")
           PY
           fi
 

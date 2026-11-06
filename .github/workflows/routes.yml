@@ -29,7 +29,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: 9bd9608b6402792f349fe773edd06a6c197a07ba
+  ROUTES_REF: c89b5c774193970adb3c71576f1d0f4c10a1b9eb
 
 jobs:
   curate:
@@ -194,6 +194,7 @@ jobs:
           if [ ${#args[@]} = 0 ]; then
             # No parks in any shard (a small preview): nothing to merge.
             mkdir -p /mnt/routes/out/parks && : > /mnt/routes/out/routes.geojsonl
+            : > /mnt/routes/out/routes.bin && echo '{"bundle":"routes.bin","parks":{}}' > /mnt/routes/out/index.json
           else
             routes-src/target/release/routes "${args[@]}" --out /mnt/routes/out
           fi
@@ -241,13 +242,41 @@ jobs:
             --bbox "$(jq -r --arg a "$AREA" '.[$a].bbox' ../areas.json)"
           ls -l routes.pmtiles
 
+      # The parks' routes for the website go up as 2 files, not one per park
+      # (~5,500 writes a north-america build): a bundle of every park's JSON
+      # gzipped, named for this run, then index.json pointing into it. The
+      # bundle goes first and the index after, so a browser never gets an
+      # index whose bundle isn't there; the previous bundle is kept for
+      # browsers holding the previous index.
       - name: Upload
+        env:
+          BUNDLE: ${{ github.run_id }}.bin
         run: |
+          dest="s3://hikes-public/routes/$NAMESPACE"
+          jq -c --arg b "$BUNDLE" '.bundle = $b' /mnt/routes/out/index.json > index.json
+          prev=$(curl -sf "https://public.hikeratlas.com/routes/$NAMESPACE/index.json" | jq -r '.bundle // empty' || true)
+          echo "PREV=$prev" >> "$GITHUB_ENV"
           for i in 1 2 3; do
             aws s3 cp --no-progress slices/routes.pmtiles "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" \
-              && aws s3 sync --no-progress --delete --content-type application/json /mnt/routes/out/parks/ "s3://hikes-public/routes/$NAMESPACE/" \
-              && exit 0
+              && aws s3 cp --no-progress --content-type application/octet-stream /mnt/routes/out/routes.bin "$dest/$BUNDLE" \
+              && aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json" \
+              && break
             echo "Upload failed (attempt $i)"
-            [ "$i" -lt 3 ] && sleep $((i * 30))
+            [ "$i" -lt 3 ] && sleep $((i * 30)) || exit 1
           done
-          exit 1
+          echo "Routes: $(jq '.parks | length' index.json) parks in $dest/$BUNDLE ($(stat -c %s /mnt/routes/out/routes.bin) bytes)" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Deletes are free on R2: the per-park files from before the bundle,
+      # and bundles older than this one and the previous.
+      - name: Remove old route files
+        continue-on-error: true
+        env:
+          BUNDLE: ${{ github.run_id }}.bin
+        run: |
+          dest="s3://hikes-public/routes/$NAMESPACE"
+          aws s3 ls "$dest/" | awk '{print $4}' | while read -r f; do
+            case "$f" in
+              index.json|"$BUNDLE"|"$PREV") ;;
+              *.json|*.bin) aws s3 rm --only-show-errors "$dest/$f" ;;
+            esac
+          done

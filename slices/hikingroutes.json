@@ -1,0 +1,33 @@
+{
+    "layers": {
+        "hiking_route": {
+            "minzoom": 14,
+            "maxzoom": 14,
+            "source": "../hiking-routes.geojsonl",
+            "source_columns": [
+                "osm_id",
+                "name",
+                "network"
+            ]
+        }
+    },
+    "settings": {
+        "minzoom": 0,
+        "maxzoom": 14,
+        "basezoom": 14,
+        "include_ids": false,
+        "name": "Shortbread",
+        "version": "1.0",
+        "description": "OSM hiking route relations (export/hiking-routes.lua), for hikeratlas/routes only: not joined into the map",
+        "compress": "zstd",
+        "filemetadata": {
+            "tilejson": "2.0.0",
+            "scheme": "xyz",
+            "type": "baselayer",
+            "format": "pbf",
+            "tiles": [
+                "https://example.com/liechtenstein/{z}/{x}/{y}.pbf"
+            ]
+        }
+    }
+}

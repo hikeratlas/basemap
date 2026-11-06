@@ -16,14 +16,15 @@
 #     urban_lots: remote trailheads have a handful nearby, cities dozens).
 #
 # Trails graded for mountain bikes or that are ski pistes (bike=yes, ski=yes
-# in the export) are left out before forming networks, whatever their foot
-# tags: mountain-bike parks and Nordic ski networks aren't hiking networks,
-# though hikers may use them. Dropping whole networks that were mostly these
-# also dropped hiking trails joined to them (Whistler's Skywalk North, part
-# of a network 59% bike-graded); leaving out the ways keeps those.
-#
-# Distances are approximate: each network is measured with longitude scaled
-# by the cosine of its latitude.
+# in the export) are left out before forming networks, unless mappers have
+# also marked them for walking (walk=yes: foot=yes/designated or a hiking
+# sac_scale). In the trail-area review, the networks marked wrong (bike
+# parks: Into The Mystic, Saga) had bike grades alone, and those marked
+# right had both on the same ways (the Bonneville Shoreline Trail, 80%
+# bike-graded; Ski Hill Climb). No share of bike-graded length told them
+# apart (wrong 56-91%, right 17-90%); leaving out every bike or ski way lost
+# the good ones, broken into pieces too short to keep.
+
 import json, math, sys
 from collections import Counter, defaultdict
 import numpy as np
@@ -87,12 +88,12 @@ for f in read(trails_path):
     if kind == 'trail' and g.geom_type in ('LineString', 'MultiLineString'):
         for part in (g.geoms if g.geom_type == 'MultiLineString' else [g]):
             lines.append(part); names.append(p.get('name', '')); ids.append(int(p.get('osm_id', 0)))
-            bikeski.append(p.get('bike') == 'yes' or p.get('ski') == 'yes')
+            bikeski.append((p.get('bike') == 'yes' or p.get('ski') == 'yes') and p.get('walk') != 'yes')
     elif kind in ('viewpoint', 'waterfall', 'peak'):
         dests.append(g.centroid)
     elif kind in ('parking', 'trailhead'):
         lots.append(g.centroid)
-print(f'{len(lines)} named trail ways ({sum(bikeski)} for bikes or skis), {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
+print(f'{len(lines)} named trail ways ({sum(bikeski)} only for bikes or skis), {len(dests)} destinations, {len(lots)} parking lots/trailheads, {len(parks)} parks', file=sys.stderr)
 
 # Drop trails inside parks (by midpoint), and bike and ski trails.
 if lines:

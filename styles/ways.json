@@ -264,6 +264,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!=", "closed", true],
         ["!in", "kind", "ferry", "cable_car"],
         ["==", "in_park", true],
         ["!=", "canoe", "portage"],
@@ -308,6 +309,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!=", "closed", true],
         ["!in", "kind", "ferry", "cable_car"],
         [
           "==",
@@ -414,6 +416,29 @@
         "line-cap": "round",
         "line-join": "round"
       },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
+      // Closed trails (closed, from slices/ways.lua: access=no, or a mapper's
+      // "Trail Closed" name): a thin grey dotted line, so the map shows the
+      // trail exists but doesn't invite you onto it. Routes skip them.
+      "id": "paths-closed",
+      "type": "line",
+      "minzoom": 11,
+      "filter": [
+        "all",
+        ["==", "closed", true],
+        ["!in", "kind", "ferry", "cable_car"],
+        ["any", ["==", "in_park", true], ["==", "in_city_park", true], ["has", "name"]]
+      ],
+      "paint": {
+        "line-color": "zinc-500",
+        "line-opacity": 0.8,
+        "line-width": ["interpolate", ["linear"], ["zoom"], 11, 1, 14, 1.5, 16, 2],
+        "line-dasharray": [0.5, 2.5]
+      },
+      "layout": {"line-cap": "round", "line-join": "round"},
       "source-layer": "path",
       "source": "tiles"
     },
@@ -536,6 +561,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!=", "closed", true],
         ["!in", "kind", "ferry", "cable_car"],
         ["==", "in_park", false],
         [
@@ -565,6 +591,7 @@
       "minzoom": 13,
       "filter": [
         "all",
+        ["!=", "closed", true],
         ["!in", "kind", "ferry", "cable_car"],
         ["==", "in_park", false],
         ["==", "in_city_park", true],
@@ -588,6 +615,7 @@
       "type": "line",
       "filter": [
         "all",
+        ["!=", "closed", true],
         ["!in", "kind", "ferry", "cable_car"],
         [
           "==",

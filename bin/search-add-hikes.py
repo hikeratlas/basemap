@@ -24,12 +24,22 @@
 #     counts as a full-length hike: it's there for its sight, not its walk.
 # Each park item gets hikes: how many curated hikes it has (not stops).
 #
-# Hike items from an earlier run (a reused DB) are removed first.
+# An OSM trail with the same name as a curated hike in the same park, with
+# overlapping boxes, is hidden from search (basemap#184): the hike is the
+# same thing, with a page, elevation profile and URL. Only if the hike is at
+# least COVER of the trail's length, though: a 7 km day hike named for the
+# 152 km Lone Star Hiking Trail shouldn't hide the whole trail. Its items row stays,
+# marked hidden = 1, and only its fts rows go; the hike takes the trail's
+# qrank if higher, so it ranks where the trail did.
+#
+# Hike items from an earlier run (a reused DB) are removed first, and hidden
+# trails restored, so a trail comes back if its hike goes.
 import json, os, sqlite3, sys
 
 PARK_SHARE = 0.01   # as in create-autosuggest-db.ts
 FULL_KM = 5         # a hike's share scales with its length up to this
 NAMED_X = 2         # and doubles for one named after an OSM hiking route
+COVER = 0.75        # a hike hides a same-named OSM trail it's this long
 
 
 def sanitize_park(x):
@@ -64,13 +74,19 @@ def routes(doc):
 def main(db_path, parks_dir):
     db = sqlite3.connect(db_path)
     cols = {r[1] for r in db.execute('pragma table_info(items)')}
-    for col, typ in (('km', 'NUMERIC'), ('gain', 'INTEGER'), ('hike', 'TEXT'), ('hikes', 'INTEGER')):
+    for col, typ in (('km', 'NUMERIC'), ('gain', 'INTEGER'), ('hike', 'TEXT'), ('hikes', 'INTEGER'),
+                     ('hidden', 'INTEGER')):
         if col not in cols:
             db.execute(f'alter table items add column {col} {typ}')
     old = [r[0] for r in db.execute("select rowid from items where kind = 'hike'")]
     for t in ('fts', 'fts_popular', 'items'):
         db.executemany(f'delete from {t} where rowid = ?', [(r,) for r in old])
     db.execute('update items set hikes = null where hikes is not null')
+    # fts rows are just items' name and qrank (create-autosuggest-db.ts).
+    db.execute('insert into fts(rowid, name, qrank) select rowid, name, qrank from items where hidden = 1')
+    db.execute('insert into fts_popular(rowid, name, qrank) select rowid, name, qrank from items'
+               ' where hidden = 1 and qrank > 1')
+    db.execute('update items set hidden = null where hidden is not null')
 
     parks = {}
     for osm_id, name, state, country, qrank in db.execute(
@@ -111,10 +127,42 @@ def main(db_path, parks_dir):
             n_hikes += 1
     db.executemany("update items set hikes = ? where kind = 'park' and osm_id = ?",
                    [(n, p) for p, n in counts.items()])
+    n_hidden = hide_trails(db)
     db.commit()
     db.execute('vacuum')
     db.close()
-    print(f'{n_hikes} hikes from {n_parks} parks added to {db_path} (replacing {len(old)})')
+    print(f'{n_hikes} hikes from {n_parks} parks added to {db_path} (replacing {len(old)});'
+          f' {n_hidden} OSM trails hidden behind them')
+
+
+def hide_trails(db):
+    """Hide OSM trails that a curated hike stands in for; returns how many."""
+    trails = {}
+    for row in db.execute("select rowid, name, park, min_lon, min_lat, max_lon, max_lat, qrank, km"
+                          " from items where kind = 'trail' and park is not null and km > 0"):
+        trails.setdefault((row[1].casefold(), row[2]), []).append(row)
+    hidden = set()
+    for rowid, name, park, w, s, e, n, qrank, km in db.execute(
+            "select rowid, name, park, min_lon, min_lat, max_lon, max_lat, qrank, km"
+            " from items where kind = 'hike' and hike != 'stop' and park is not null").fetchall():
+        best = qrank or 0
+        for t in trails.get((name.casefold(), park), []):
+            if t[3] <= e and w <= t[5] and t[4] <= n and s <= t[6] and (km or 0) >= COVER * t[8]:
+                hidden.add(t[0])
+                best = max(best, t[7] or 0)
+        if best > (qrank or 0):
+            # Re-index with the new qrank, keeping the searched text.
+            text = db.execute('select name from fts where rowid = ?', (rowid,)).fetchone()[0]
+            db.execute('update items set qrank = ? where rowid = ?', (best, rowid))
+            for f in ('fts', 'fts_popular'):
+                db.execute(f'delete from {f} where rowid = ?', (rowid,))
+            db.execute('insert into fts(rowid, name, qrank) values (?, ?, ?)', (rowid, text, best))
+            if best > 1:
+                db.execute('insert into fts_popular(rowid, name, qrank) values (?, ?, ?)', (rowid, text, best))
+    for f in ('fts', 'fts_popular'):
+        db.executemany(f'delete from {f} where rowid = ?', [(r,) for r in hidden])
+    db.executemany('update items set hidden = 1 where rowid = ?', [(r,) for r in hidden])
+    return len(hidden)
 
 
 if __name__ == '__main__':

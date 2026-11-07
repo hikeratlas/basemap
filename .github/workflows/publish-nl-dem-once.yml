@@ -10,7 +10,7 @@ on:
 
 jobs:
   publish:
-    uses: hikeratlas/nl-dem/.github/workflows/publish.yml@4733e5b144a87b1a69789f53b25047b48c0123cf
+    uses: hikeratlas/nl-dem/.github/workflows/publish.yml@de0e154a31c986d8274f5842c6958be7b231ed7f
     with:
-      ref: 4733e5b144a87b1a69789f53b25047b48c0123cf
+      ref: de0e154a31c986d8274f5842c6958be7b231ed7f
     secrets: inherit

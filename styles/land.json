@@ -14,6 +14,29 @@
   },
   "layers": [
     {
+      // Golf courses (#152): the course, lighter than its fairways and
+      // greens (mapped as grass, drawn on top), so the rough isn't blank.
+      "id": "golf-course",
+      "type": "fill",
+      "paint": {
+        "fill-color": "#e6f6eb"
+      },
+      "source-layer": "land",
+      "source": "tiles",
+      "filter": ["==", "leisure", "golf_course"]
+    },
+    {
+      // Airports (#153): the aerodrome, a pale grey under its grass.
+      "id": "aerodrome",
+      "type": "fill",
+      "paint": {
+        "fill-color": "#ecedea"
+      },
+      "source-layer": "land",
+      "source": "tiles",
+      "filter": ["==", "aeroway", "aerodrome"]
+    },
+    {
       "id": "grass-or-meadow",
       "type": "fill",
       "paint": {
@@ -231,6 +254,69 @@
         "any",
         ["==", "landuse", "cemetery"]
       ]
+    },
+    {
+      "id": "apron",
+      "type": "fill",
+      "paint": {
+        "fill-color": "#dcddd8"
+      },
+      "source-layer": "land",
+      "source": "tiles",
+      "filter": ["==", "aeroway", "apron"]
+    },
+    {
+      // Runways and taxiways are mapped as centre lines; widths roughly
+      // their real ones (runways ~45 m, taxiways ~20 m) from z12.
+      "id": "taxiway",
+      "type": "line",
+      "minzoom": 12,
+      "paint": {
+        "line-color": "#d3d4cf",
+        "line-width": ["interpolate", ["exponential", 2], ["zoom"], 12, 1.5, 14, 5, 16, 20]
+      },
+      "layout": {"line-join": "round"},
+      "source-layer": "land_line",
+      "source": "tiles",
+      "filter": ["==", "aeroway", "taxiway"]
+    },
+    {
+      "id": "runway",
+      "type": "line",
+      "paint": {
+        "line-color": "#c6c8c2",
+        "line-width": ["interpolate", ["exponential", 2], ["zoom"], 10, 1, 12, 3.5, 14, 13, 16, 50]
+      },
+      "source-layer": "land_line",
+      "source": "tiles",
+      "filter": ["==", "aeroway", "runway"]
+    },
+    {
+      // Airport and golf course names, with their icons: airports from z11,
+      // golf courses from z13 (land_label in slices/land.lua).
+      "id": "land-labels",
+      "type": "symbol",
+      "layout": {
+        "icon-image": ["match", ["get", "kind"], "aerodrome", "airport", "golf_course", "golf", ""],
+        "icon-size": 0.9,
+        "icon-optional": true,
+        "text-field": "{name}",
+        "text-font": ["Hubot Sans-Regular"],
+        "text-size": 11,
+        "text-offset": [0, 0.9],
+        "text-anchor": "top",
+        "text-max-width": 8,
+        "text-optional": true
+      },
+      "paint": {
+        "icon-color": "#4b5563",
+        "text-color": "#4b5563",
+        "text-halo-color": "#f8faf9",
+        "text-halo-width": 1.5
+      },
+      "minzoom": 11,
+      "source-layer": "land_label",
+      "source": "tiles"
     },
     {
       // Canyon, gorge and valley names, along the valley floor or the rim.

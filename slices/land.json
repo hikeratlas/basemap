@@ -15,6 +15,11 @@
             "simplify_below": 12,
             "simplify_level": 0.0002
         },
+        "land_label": {
+            "zindex": 93,
+            "minzoom": 11,
+            "maxzoom": 14
+        },
         "landform_name": {
             "zindex": 92,
             "minzoom": 11,

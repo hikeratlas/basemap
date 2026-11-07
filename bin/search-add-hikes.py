@@ -6,19 +6,23 @@
 # just places (hikeratlas/website#44). Run by routes.yml after the routes are
 # built: the search DB is built earlier, with the exports.
 #
-# Each day hike, base camp walk-in, hike from a base camp and multi-day route
+# Each day hike, base camp walk-in, hike from a base camp, multi-day route and
+# stop (a short walk to a sight from where the car is, hikeratlas/routes#70)
 # becomes an item of kind 'hike':
 #   - name: as the website titles it (a route's name, else "<dest> from
-#     <start>", "<camp>", "<dest> from <camp>" or "<start> to <end>");
+#     <start>", "<camp>", "<dest> from <camp>", "<start> to <end>", or for a
+#     stop, its sight);
 #   - osm_id: the website's route id (<park>/day/i, <park>/base/i,
-#     <park>/base/i/j, <park>/multi/i), which it opens when picked;
+#     <park>/base/i/j, <park>/multi/i, <park>/stop/i), which it opens when
+#     picked;
 #   - park, state and country from the park's own item (a trail area, which
 #     has none, gives its name only);
 #   - lat/lon at the start, and a box around the route;
-#   - km and gain, and hike: day, base or multi;
+#   - km and gain, and hike: day, base, multi or stop;
 #   - qrank: a share of the park's, as create-autosuggest-db.ts gives unranked
-#     items (PARK_SHARE there), so hikes in famous parks come first.
-# Each park item gets hikes: how many curated hikes it has.
+#     items (PARK_SHARE there), so hikes in famous parks come first. A stop
+#     counts as a full-length hike: it's there for its sight, not its walk.
+# Each park item gets hikes: how many curated hikes it has (not stops).
 #
 # Hike items from an earlier run (a reused DB) are removed first.
 import json, os, sqlite3, sys
@@ -53,6 +57,8 @@ def routes(doc):
     for i, t in enumerate(doc.get('point_to_points', [])):
         both = f"{t['from']} to {t['to']}"
         yield f'multi/{i}', title(t, both), t.get('name') or both, bool(t.get('name')), 'multi', t['route']
+    for i, h in enumerate(doc.get('stops', [])):
+        yield f'stop/{i}', h['dest'], h['dest'], False, 'stop', h['route']
 
 
 def main(db_path, parks_dir):
@@ -88,7 +94,7 @@ def main(db_path, parks_dir):
             lons, lats = [p[0] for p in line], [p[1] for p in line]
             km = r.get('km') or 0
             # Named for the OSM hiking route it follows: the trail itself.
-            w = min(1.0, max(0.2, km / FULL_KM)) * (NAMED_X if named else 1)
+            w = 1.0 if hike == 'stop' else min(1.0, max(0.2, km / FULL_KM)) * (NAMED_X if named else 1)
             qrank = max(1, round((pq or 1) * PARK_SHARE * w))
             cur = db.execute(
                 'insert into items (qrank, osm_id, kind, park, country, state, name, lon, lat,'
@@ -100,7 +106,8 @@ def main(db_path, parks_dir):
             db.execute('insert into fts(rowid, name, qrank) values (?, ?, ?)', (cur.lastrowid, searched, qrank))
             if qrank > 1:
                 db.execute('insert into fts_popular(rowid, name, qrank) values (?, ?, ?)', (cur.lastrowid, searched, qrank))
-            counts[park_id] = counts.get(park_id, 0) + 1
+            if hike != 'stop':
+                counts[park_id] = counts.get(park_id, 0) + 1
             n_hikes += 1
     db.executemany("update items set hikes = ? where kind = 'park' and osm_id = ?",
                    [(n, p) for p, n in counts.items()])

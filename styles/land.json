@@ -81,6 +81,19 @@
       "source": "tiles"
     },
     {
+      // Scattered shrubs, so scrub (hard going off-trail) reads apart from
+      // heath and meadow (openstreetmap-carto's CC0 pattern; #6).
+      "id": "scrub-texture",
+      "type": "fill",
+      "filter": ["==", "natural", "scrub"],
+      "paint": {
+        "fill-pattern": "patterns:scrub"
+      },
+      "minzoom": 12,
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
       "id": "moist-things",
       "type": "fill",
       "filter": [
@@ -139,6 +152,22 @@
       "paint": {
         "fill-color": "#f5e3b0"
       },
+      "source-layer": "land",
+      "source": "tiles"
+    },
+    {
+      // Grains of sand (openstreetmap-carto's CC0 beach pattern; #6).
+      "id": "sand-texture",
+      "type": "fill",
+      "filter": [
+        "any",
+        ["==", "natural", "beach"],
+        ["==", "natural", "sand"]
+      ],
+      "paint": {
+        "fill-pattern": "patterns:sand"
+      },
+      "minzoom": 13,
       "source-layer": "land",
       "source": "tiles"
     },

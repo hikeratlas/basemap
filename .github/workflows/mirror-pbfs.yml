@@ -70,6 +70,27 @@ jobs:
       - name: Install osmium
         run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
 
+      # An area with "clip" keeps only what's inside those Geofabrik extracts'
+      # outlines: north-america is Canada and the US, without Mexico, Greenland
+      # or Saint-Pierre-et-Miquelon (basemap#158). The land still shows (it's
+      # drawn from the coastline's water polygons), with nothing on it. "smart"
+      # keeps whole any way or multipolygon partly inside, e.g. the boundary.
+      - name: Clip to the area's countries
+        if: ${{ steps.area.outputs.clip != '' }}
+        env:
+          CLIP: ${{ steps.area.outputs.clip }}
+        run: |
+          polys=()
+          for c in $CLIP; do
+            wget -q "https://download.geofabrik.de/$c.poly" -O "$(basename "$c").poly"
+            polys+=("$(basename "$c").poly")
+          done
+          python3 bin/combine-polys.py "$AREA" "${polys[@]}" > clip.poly
+          grep -c '^END' clip.poly
+          osmium extract -p clip.poly -s smart "$AREA".pbf -o clipped.pbf --overwrite
+          ls -l "$AREA".pbf clipped.pbf
+          mv clipped.pbf "$AREA".pbf
+
       # The builds read <area>.zstd.pbf: the same data, minus the version and
       # timestamp metadata that tilemaker never reads, with zstd blocks instead
       # of zlib ones (cldellow/tilemaker reads both). osmium can't write zstd
@@ -80,7 +101,8 @@ jobs:
             | bun bin/pbf-zstd.ts - "$AREA".zstd.pbf
           ls -l "$AREA".pbf "$AREA".zstd.pbf
 
-      # The original is kept too, so builds can switch back to it.
+      # The original (clipped, if the area is) is kept too, so builds can
+      # switch back to it.
       - name: Upload PBFs
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com

@@ -19,6 +19,7 @@ node_keys = {
 	'boundary=protected_area',
 	'leisure=nature_reserve',
 	'natural=peak',
+	'natural=volcano',
 	'tourism=camp_site',
 	'waterway=waterfall',
 }
@@ -163,7 +164,8 @@ function node_function()
 	if waterway == 'waterfall' then
 		return emit({kind='waterfall'})
 	end
-	if natural == 'peak' then
+	-- Volcanoes are peaks too (#150): Mount Price is natural=volcano.
+	if natural == 'peak' or natural == 'volcano' then
 		-- Elevation for the search result's second line (website#44):
 		-- "2830", "2830 m" or "9285 ft" are all mapped.
 		local ele = elevation(Find('ele'))

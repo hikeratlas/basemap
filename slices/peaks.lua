@@ -1,6 +1,6 @@
 local debug = false
 
-node_keys = {'natural=peak'}
+node_keys = {'natural=peak', 'natural=volcano'}
 way_keys = {}
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
@@ -14,7 +14,9 @@ end
 function node_function()
 	local natural = Find('natural')
 
-	if natural ~= 'peak' then return end
+	-- Volcanoes are peaks too (#150): Mount Price and Clinker Peak in
+	-- Garibaldi, and the Cascades' big ones, are tagged natural=volcano.
+	if natural ~= 'peak' and natural ~= 'volcano' then return end
 
 	local name = Find('name')
 

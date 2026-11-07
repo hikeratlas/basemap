@@ -335,6 +335,13 @@ jobs:
             echo
             echo "Preview: https://www.hikeratlas.com/map?build=$NAMESPACE"
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          # The site's default style, as tile-join.yml publishes it: only for
+          # north-america itself, whose tiles the root style points at.
+          if [ "$NAMESPACE" = north-america ] && [ "$REUSE" = north-america ]; then
+            aws s3 cp --no-progress --content-type application/json --cache-control no-cache \
+              "$RUNNER_TEMP/style.json" s3://hikes-public/style.json
+            echo "Published https://public.hikeratlas.com/style.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
   # Post (or update) a PR comment linking to the website preview of this build.
   comment:

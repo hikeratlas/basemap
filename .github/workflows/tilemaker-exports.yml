@@ -116,10 +116,13 @@ jobs:
       - name: Export
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
-          # A preview build only exports its box
+          # A preview build only exports its box; otherwise the area's, from
+          # areas.json, as the layers use. tilemaker reads shapefiles (zindex)
+          # only with a box, and a PBF made by osmium merge (north-america,
+          # #158) has none in its header, unlike Geofabrik's.
           BBOX: ${{ inputs.bbox }}
           EXPORT: ${{ matrix.export }}
-        run: ./export/export $AREA.pbf "$EXPORT"
+        run: BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf "$EXPORT"
 
       - uses: actions/upload-artifact@v7
         with:
@@ -267,9 +270,12 @@ jobs:
       - name: Export
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
-          # A preview build only exports its box
+          # A preview build only exports its box; otherwise the area's, from
+          # areas.json, as the layers use. tilemaker reads shapefiles (zindex)
+          # only with a box, and a PBF made by osmium merge (north-america,
+          # #158) has none in its header, unlike Geofabrik's.
           BBOX: ${{ inputs.bbox }}
-        run: ls -l *.geojsonl && ./export/export $AREA.pbf zindex
+        run: ls -l *.geojsonl && BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf zindex
 
       # A pinned version lets setup-bun use its cache; "latest" downloads from
       # bun.sh every time, which once took 2.5 minutes of retries after a 522.

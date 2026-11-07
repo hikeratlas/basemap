@@ -14,12 +14,13 @@
   },
   "layers": [
     {
-      // Golf courses (#152): the course, lighter than its fairways and
-      // greens (mapped as grass, drawn on top), so the rough isn't blank.
+      // Golf courses (#152): the course, a little darker than its fairways
+      // and greens (mapped as grass, drawn on top) and lighter than its
+      // woods, so the rough reads as one area with the fairways through it.
       "id": "golf-course",
       "type": "fill",
       "paint": {
-        "fill-color": "#e6f6eb"
+        "fill-color": "#c3e8cf"
       },
       "source-layer": "land",
       "source": "tiles",

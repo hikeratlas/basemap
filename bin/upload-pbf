@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Uploads a PBF to R2's pbfs/ as the given name, retrying the whole upload:
+# some failures aren't retried by the CLI, e.g. "InvalidPart" when completing
+# a multipart upload. Needs the AWS_* settings from mirror-pbfs.yml.
+#
+#   bin/upload-pbf <file> [<name>]    (name defaults to the file's)
+set -euo pipefail
+src=$1
+name=${2:-$(basename "$src")}
+for i in 1 2 3; do
+  aws s3 cp --no-progress "$src" "s3://hikes-public/pbfs/$name" && exit 0
+  echo "Uploading $src as $name failed (attempt $i)"
+  [ "$i" -lt 3 ] && sleep $((i * 30))
+done
+exit 1

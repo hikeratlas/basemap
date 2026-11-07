@@ -1,7 +1,6 @@
 {
   "north-america": {
-    "geofabrik": "north-america",
-    "clip": "north-america/canada north-america/us",
+    "geofabrik": "north-america/canada north-america/us",
     "bbox": "-170,20,-48,75"
   },
   "nova-scotia": {

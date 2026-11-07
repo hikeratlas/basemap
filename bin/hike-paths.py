@@ -25,6 +25,9 @@
 import json, math, os, re, sqlite3, sys, unicodedata
 from collections import defaultdict
 
+# The countries with hike pages, as the search DB names them (#158).
+COUNTRIES = {'Canada', 'United States'}
+
 
 def slugify(s):
     s = unicodedata.normalize('NFKD', s)
@@ -100,6 +103,7 @@ def main(db_path, parks_dir, index_path, regions_path):
 
     areas = defaultdict(list)  # (country, state) -> areas
     skipped = 0
+    elsewhere = 0
     for ids in by_slice.values():
         ids.sort(key=lambda i: (not i.isdigit(), int(i) if i.isdigit() else 0, i))
         doc = None
@@ -125,6 +129,14 @@ def main(db_path, parks_dir, index_path, regions_path):
             state, country = nearest(start[1], start[0])
         if not (state and country and name):
             skipped += 1
+            continue
+        # Hike pages are for Canada and the US only (#158). The PBF is cut to
+        # them, but Geofabrik's outlines run past the borders, so a few areas
+        # across them still get hikes: Cañón de Santa Elena and Maderas del
+        # Carmen (Mexico, across the Rio Grande from Big Bend), and a trail on
+        # Saint-Pierre-et-Miquelon (France).
+        if country not in COUNTRIES:
+            elsewhere += 1
             continue
         areas[(country, state)].append({
             'name': name, 'ids': ids, 'hikes': len(rs),
@@ -168,7 +180,8 @@ def main(db_path, parks_dir, index_path, regions_path):
     json.dump(index, open(index_path, 'w'), separators=(',', ':'))
     n_areas = sum(len(x) for x in areas.values())
     print(f'{n_areas} parks and trail areas in {sum(len(s) for s in countries.values())} states of '
-          f'{len(out)} countries; {len(paths)} park ids with paths; {skipped} skipped (no document or place)')
+          f'{len(out)} countries; {len(paths)} park ids with paths; {skipped} skipped (no document or place); '
+          f'{elsewhere} outside {" and ".join(sorted(COUNTRIES))}')
 
 
 if __name__ == '__main__':

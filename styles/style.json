@@ -16,17 +16,21 @@
   ],
   "sources": {
     "terrain": {
+      // Mapterhorn (https://mapterhorn.com/): Terrarium-encoded 512 px tiles
+      // from national lidar where it exists (US 1 m, Canada's HRDEM 2 m; z16
+      // and z15), USGS 10 m across the US, and Copernicus 30 m elsewhere,
+      // e.g. Banff, Yoho and Kananaskis (z12). Below a region's coverage tiles
+      // 404, and the hillshade overzooms the parent. See #171.
       "tiles": [
-        "https://elevation-tiles-prod.s3.amazonaws.com/terrarium/{z}/{x}/{y}.png"
+        "https://tiles.mapterhorn.com/{z}/{x}/{y}.webp"
       ],
       "type": "raster-dem",
-      "attribution": "<a href='https://github.com/tilezen/joerd/blob/master/docs/attribution.md'>Tilezen Joerd: Attribution</a>",
+      "attribution": "<a href='https://mapterhorn.com/attribution'>© Mapterhorn</a>",
       "encoding": "terrarium",
-      // Terrarium serves z15 (z16 404s), but its z15 tiles show seams at tile
-      // edges in hillshade. Overzooming z14 is seamless and looks as detailed.
-      "maxzoom": 14
+      "tileSize": 512,
+      "maxzoom": 16
     },
-    // Contour lines, generated in the browser from the terrarium DEM by
+    // Contour lines, generated in the browser from the Mapterhorn DEM by
     // maplibre-contour; the website registers the dem-contour:// protocol
     // (hikeratlas/website app/components/Map.tsx). Without it, this source
     // just fails to load and the rest of the map is unaffected.

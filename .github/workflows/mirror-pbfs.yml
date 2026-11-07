@@ -13,6 +13,15 @@ jobs:
     runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
+      # For bin/upload-pbf.
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      # R2 sometimes fails a request (e.g. a 500 InternalError); let the
+      # CLI retry those, as tile-join's upload does.
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
 
     steps:
       - name: Runner diagnostics
@@ -78,10 +87,27 @@ jobs:
       - name: Install osmium
         run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
 
+      # An area of several extracts publishes each of them too, as the area
+      # named for its last part (north-america/canada as canada, and
+      # north-america/us as us; see areas.json), for builds and previews of
+      # just that country. One at a time, so the disk holds at most one zstd
+      # copy beside the downloads.
+      - name: Publish each extract
+        run: |
+          set -- part-*.pbf
+          [ $# -gt 1 ] || exit 0
+          for f in "$@"; do
+            name=${f#part-}; name=${name%.pbf}
+            bin/zstd-pbf "$f" "$name".zstd.pbf
+            bin/upload-pbf "$f" "$name".pbf
+            bin/upload-pbf "$name".zstd.pbf
+            rm "$name".zstd.pbf
+          done
+
       # Several extracts are merged into one: a single pass over the sorted
       # files, keeping one copy of what's in both (the border). Much faster
       # than cutting north-america to the two countries with osmium extract
-      # (#158's first try, 15+ minutes and counting).
+      # (#158's first try took 15.6 minutes).
       - name: Merge PBFs
         run: |
           set -- part-*.pbf
@@ -93,39 +119,13 @@ jobs:
           fi
           ls -l "$AREA".pbf
 
-      # The builds read <area>.zstd.pbf: the same data, minus the version and
-      # timestamp metadata that tilemaker never reads, with zstd blocks instead
-      # of zlib ones (cldellow/tilemaker reads both). osmium can't write zstd
-      # blocks, so it writes uncompressed ones to bin/pbf-zstd.ts.
+      # The builds read <area>.zstd.pbf (see bin/zstd-pbf).
       - name: Make zstd PBF
-        run: |
-          osmium cat "$AREA".pbf -f pbf,add_metadata=false,pbf_compression=none -o - \
-            | bun bin/pbf-zstd.ts - "$AREA".zstd.pbf
-          ls -l "$AREA".pbf "$AREA".zstd.pbf
+        run: bin/zstd-pbf "$AREA".pbf "$AREA".zstd.pbf
 
       # The original (merged, if the area is several) is kept too, so builds
       # can switch back to it.
       - name: Upload PBFs
-        env:
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          # R2 sometimes fails a request (e.g. a 500 InternalError); let the
-          # CLI retry those, as tile-join's upload does.
-          AWS_RETRY_MODE: adaptive
-          AWS_MAX_ATTEMPTS: 10
-        # Some failures aren't retried by the CLI, e.g. "InvalidPart" when
-        # completing a multipart upload, so also retry each whole upload.
         run: |
-          upload() {
-            for i in 1 2 3; do
-              aws s3 cp --no-progress "$1" s3://hikes-public/pbfs/ && return 0
-              echo "Uploading $1 failed (attempt $i)"
-              [ "$i" -lt 3 ] && sleep $((i * 30))
-            done
-            return 1
-          }
-          upload "$AREA".pbf
-          upload "$AREA".zstd.pbf
-
+          bin/upload-pbf "$AREA".pbf
+          bin/upload-pbf "$AREA".zstd.pbf

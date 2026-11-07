@@ -3,6 +3,14 @@
     "geofabrik": "north-america/canada north-america/us",
     "bbox": "-170,20,-48,75"
   },
+  "canada": {
+    "geofabrik": "north-america/canada",
+    "bbox": "-141.8,41.6,-52.3,83.3"
+  },
+  "us": {
+    "geofabrik": "north-america/us",
+    "bbox": "-180,18,-66,72"
+  },
   "nova-scotia": {
     "geofabrik": "north-america/canada/nova-scotia",
     "bbox": "-67.5129699,42.01893,-58.22593,47.42182"

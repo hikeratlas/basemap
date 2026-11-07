@@ -81,7 +81,8 @@ function widen(b: Box, radiusKm: number): Box {
 // Geofabrik's .poly boundary of an extract: outer rings, and holes (sections
 // whose names start with "!").
 type Ring = [number, number][];
-async function boundary(geofabrik: string): Promise<{ outer: Ring[]; holes: Ring[] }> {
+type Boundary = { outer: Ring[]; holes: Ring[] };
+async function boundary(geofabrik: string): Promise<Boundary> {
   const text = await (await fetchOk(`https://download.geofabrik.de/${geofabrik}.poly`)).text();
   const outer: Ring[] = [], holes: Ring[] = [];
   let ring: Ring | null = null, hole = false;
@@ -110,14 +111,17 @@ function inRing(x: number, y: number, ring: Ring): boolean {
   return inside;
 }
 
-// Whether the box's corners, edge midpoints and centre are all inside the extract.
+// Whether the box's corners, edge midpoints and centre are all inside the
+// area: its extract, or one of its extracts (north-america is Canada's and
+// the US's, merged; #158).
 async function contains(area: Area, b: Box): Promise<boolean> {
   const a = parseBox(area.bbox);
   if (b.minLon < a.minLon || b.minLat < a.minLat || b.maxLon > a.maxLon || b.maxLat > a.maxLat) return false;
-  const { outer, holes } = await boundary(area.geofabrik);
+  const parts = await Promise.all(area.geofabrik.split(/\s+/).map(boundary));
+  const inside = (x: number, y: number, p: Boundary) => p.outer.some((r) => inRing(x, y, r)) && !p.holes.some((r) => inRing(x, y, r));
   const midLon = (b.minLon + b.maxLon) / 2, midLat = (b.minLat + b.maxLat) / 2;
   const points = [b.minLon, midLon, b.maxLon].flatMap((x) => [b.minLat, midLat, b.maxLat].map((y) => [x, y]));
-  return points.every(([x, y]) => outer.some((r) => inRing(x, y, r)) && !holes.some((r) => inRing(x, y, r)));
+  return points.every(([x, y]) => parts.some((p) => inside(x, y, p)));
 }
 
 const boxArea = (s: string) => {

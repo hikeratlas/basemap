@@ -67,24 +67,6 @@
       "source": "tiles"
     },
     {
-      // Tree symbols for a forest whose leaf_type is tagged: conifers,
-      // broadleaved or mixed (openstreetmap-carto's CC0 patterns, via
-      // hikeratlas/sprites; #6). Untagged forests stay plain.
-      "id": "forest-texture",
-      "type": "fill",
-      "filter": [
-        "all",
-        ["any", ["==", "natural", "wood"], ["==", "landuse", "forest"]],
-        ["has", "leaf_type"]
-      ],
-      "paint": {
-        "fill-pattern": ["concat", "patterns:forest-", ["get", "leaf_type"]]
-      },
-      "minzoom": 13,
-      "source-layer": "land",
-      "source": "tiles"
-    },
-    {
       "id": "scrub-or-heath",
       "type": "fill",
       "filter": [

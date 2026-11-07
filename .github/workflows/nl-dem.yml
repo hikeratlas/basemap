@@ -1,0 +1,63 @@
+name: Prepare NL elevation
+
+# Newfoundland's 5 m DEM as Terrarium tiles (issue #181). Over the island,
+# Mapterhorn only has 30 m Copernicus data, and its z14+ tiles there are
+# blurrier than its z13. This builds tiles from the province's 5 m DEM with
+# hikeratlas/nl-dem and publishes them to R2 as nl-dem/nl-dem.pmtiles:
+# 512 px Terrarium WebP, z10-z13, on Mapterhorn's tile grid, for the island
+# only, so a map can use them instead of Mapterhorn's wherever they exist.
+#
+# Run by hand: the province rarely updates the DEM. Takes ~25 minutes; the
+# archive is ~3.4 GB.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+      AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Pinned, so a change there shows up here as a reviewed bump.
+      - uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/nl-dem
+          ref: 74d87378a78389eb191c9b7adf4bc0d2978c25bb
+          path: nl-dem
+
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      - name: Install Python packages
+        run: python3 -m venv venv && venv/bin/pip install -q -r nl-dem/requirements.txt
+
+      # Streams the 3.6 GB GeoTIFF and its 0.9 GB overviews out of the
+      # province's 4 GB zip, without storing the zip.
+      - name: Fetch the DEM
+        run: venv/bin/python nl-dem/nl_dem.py fetch DEM_5m.tif
+
+      - name: Build the tiles
+        run: venv/bin/python nl-dem/nl_dem.py build DEM_5m.tif nl-dem.pmtiles --jobs "$(nproc)"
+
+      # Some R2 failures aren't retried by the CLI (e.g. "InvalidPart"), so
+      # retry the whole upload too; see mirror-pbfs.yml.
+      - name: Upload
+        run: |
+          aws configure set default.s3.multipart_chunksize 128MB
+          for i in 1 2 3; do
+            aws s3 cp --no-progress nl-dem.pmtiles s3://hikes-public/nl-dem/nl-dem.pmtiles && break
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30)) || exit 1
+          done
+          echo "Published https://public.hikeratlas.com/nl-dem/nl-dem.pmtiles ($(( $(stat -c %s nl-dem.pmtiles) / 1048576 )) MiB)" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -62,6 +62,16 @@ function emit(key, value)
 
 end
 
+-- A forest's leaf_type, for the style's tree symbols (#6), when it's one
+-- of those with a symbol. Many forests aren't tagged with one; they get
+-- none, rather than a generic symbol.
+local leaf_types = { needleleaved = true, broadleaved = true, mixed = true }
+
+function leaf_type()
+	local t = Find('leaf_type')
+	if leaf_types[t] then Attribute('leaf_type', t) end
+end
+
 -- Canyons, gorges and valleys get their name along the line. They're
 -- usually mapped as a line down the valley floor (natural=valley, sometimes
 -- gorge or canyon), but some, like Barron Canyon in Algonquin
@@ -127,12 +137,20 @@ function way_function()
 
 	local natural = Find('natural')
 	emit_landform_name(natural)
-	if natural_filter[natural] == true then emit('natural', natural); return end
+	if natural_filter[natural] == true then
+		emit('natural', natural)
+		if natural == 'wood' then leaf_type() end
+		return
+	end
 
 	if natural == 'wetland' then emit('wetland', 'natural=wetland'); return end
 
 	local landuse = Find('landuse')
-	if landuse_filter[landuse] == true then emit('landuse', landuse); return end
+	if landuse_filter[landuse] == true then
+		emit('landuse', landuse)
+		if landuse == 'forest' then leaf_type() end
+		return
+	end
 
 	local wetland = Find('wetland')
 	if wetland_filter[wetland] == true then emit('wetland', wetland); return end

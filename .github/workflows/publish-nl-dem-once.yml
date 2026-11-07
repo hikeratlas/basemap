@@ -1,0 +1,16 @@
+name: Publish nl-dem (one-off)
+
+# A one-off: hikeratlas/nl-dem owns its publish workflow, but doesn't have
+# the R2 secrets yet. This throwaway branch (never merged) calls nl-dem's
+# workflow with basemap's secrets; all the work happens in nl-dem's code.
+
+on:
+  push:
+    branches: [claude/publish-nl-dem-once]
+
+jobs:
+  publish:
+    uses: hikeratlas/nl-dem/.github/workflows/publish.yml@4733e5b144a87b1a69789f53b25047b48c0123cf
+    with:
+      ref: 4733e5b144a87b1a69789f53b25047b48c0123cf
+    secrets: inherit

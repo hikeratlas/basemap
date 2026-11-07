@@ -101,6 +101,16 @@ end
 -- Fire Road (motor_vehicle=private: Parks Canada's bus only). The most
 -- specific tag that's set wins, so motor_vehicle=yes on an access=no road
 -- leaves it open.
+-- The SAC hiking scale (https://wiki.openstreetmap.org/wiki/Key:sac_scale).
+local sac_grades = {
+	hiking = 1,
+	mountain_hiking = 2,
+	demanding_mountain_hiking = 3,
+	alpine_hiking = 4,
+	demanding_alpine_hiking = 5,
+	difficult_alpine_hiking = 6,
+}
+
 local function closed_to_cars()
 	for _, k in ipairs({ 'motorcar', 'motor_vehicle', 'vehicle', 'access' }) do
 		local v = Find(k)
@@ -219,6 +229,13 @@ function way_function_highway(highway)
 		if Find('mtb:scale') ~= '' or Find('mtb:scale:imba') ~= '' or Find('mtb') == 'designated' then
 			AttributeBoolean('mtb', true)
 		end
+		-- Hiking difficulty, the SAC scale's T1-T6 as 1-6 (sac_scale=hiking is
+		-- 1, difficult_alpine_hiking 6). hikeratlas/routes never uses T5-T6
+		-- (climbing, glaciers: routes#45), e.g. Jasper's Mount Edith Cavell
+		-- Route (way/264994422), which took the Tonquin Valley hike over the
+		-- mountain (routes#54); T4 is a scramble.
+		local sac = sac_grades[Find('sac_scale')]
+		if sac ~= nil then AttributeNumeric('sac', sac) end
 		if debug then
 			Attr('osm_id', Id())
 		end

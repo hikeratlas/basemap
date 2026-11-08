@@ -1,0 +1,23 @@
+#!/bin/bash
+# Usage: bin/split-routes-source <style.json> <routes.pmtiles URL>
+#
+# Points the style's curated-route layers (source-layer "route", from
+# styles/routes.json) at a source of their own, the routes job's
+# <namespace>.routes.pmtiles, rather than the merged <namespace>.pmtiles.
+# tile-join then needn't wait for the routes job (#197): the two run side by
+# side, and each publishes its own archive.
+set -euo pipefail
+
+style="$1"
+url="$2"
+jq --arg url "pmtiles://$url" '
+  .sources.routes = {type: "vector", url: $url}
+  | .layers |= map(if .["source-layer"] == "route" then .source = "routes" else . end)
+' "$style" > "$style.tmp"
+mv "$style.tmp" "$style"
+
+# Some layer should now use it.
+jq -e '[.layers[] | select(.source == "routes")] | length > 0' "$style" > /dev/null || {
+	echo "split-routes-source: no layer has source-layer \"route\"" >&2
+	exit 1
+}

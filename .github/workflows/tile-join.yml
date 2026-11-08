@@ -104,6 +104,9 @@ jobs:
           bun mapt style "https://public.hikeratlas.com/$NAMESPACE.pmtiles" > "$RUNNER_TEMP/style.json"
           jq -e '.layers | length > 0' "$RUNNER_TEMP/style.json" > /dev/null
           bin/pin-sprites "$RUNNER_TEMP/style.json"
+          # The curated routes are an archive of their own, which the routes
+          # job publishes alongside this one (#197).
+          bin/split-routes-source "$RUNNER_TEMP/style.json" "https://public.hikeratlas.com/$NAMESPACE.routes.pmtiles"
 
       # No "Maximize build space" step: arm64 runners start with ~107G free on
       # /. north-america peaks around 43G here: the layers (21G) and the
@@ -131,9 +134,11 @@ jobs:
           set -o pipefail
           start=$(date +%s)
           # trailareas.pmtiles and hikingroutes.pmtiles are for
-          # hikeratlas/routes only (see tilemaker-layers.yml): leave them out
+          # hikeratlas/routes only (see tilemaker-layers.yml), and
+          # routes.pmtiles is published on its own by the routes job (#197):
+          # leave them out
           # of the map.
-          aws s3 ls "s3://hikes-public/layers/$NAMESPACE/" | awk '$4 ~ /\.pmtiles$/ && $4 != "trailareas.pmtiles" && $4 != "hikingroutes.pmtiles" {print $4}' > layers.txt
+          aws s3 ls "s3://hikes-public/layers/$NAMESPACE/" | awk '$4 ~ /\.pmtiles$/ && $4 != "trailareas.pmtiles" && $4 != "hikingroutes.pmtiles" && $4 != "routes.pmtiles" {print $4}' > layers.txt
           [ -s layers.txt ] || { echo "::error::No layers in layers/$NAMESPACE/"; exit 1; }
           xargs -P 16 -I{} aws s3 cp --no-progress --only-show-errors "s3://hikes-public/layers/$NAMESPACE/{}" {} < layers.txt
           rm layers.txt
@@ -180,6 +185,15 @@ jobs:
           aws s3 cp --no-progress --cache-control no-cache /mnt/out/tiles.pmtiles s3://hikes-public/"$NAMESPACE".pmtiles
           echo "Uploaded in $(( $(date +%s) - start ))s"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.pmtiles" | tee -a "$GITHUB_STEP_SUMMARY"
+          # A namespace whose routes job hasn't published its own archive yet
+          # (from before #197): the style needs one, so start it from the last
+          # route layer. The routes job overwrites it.
+          if ! aws s3 ls "s3://hikes-public/$NAMESPACE.routes.pmtiles" > /dev/null \
+            && aws s3 ls "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" > /dev/null; then
+            aws s3 cp --no-progress "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" routes.pmtiles
+            aws s3 cp --no-progress --cache-control no-cache routes.pmtiles "s3://hikes-public/$NAMESPACE.routes.pmtiles"
+            echo "Seeded https://public.hikeratlas.com/$NAMESPACE.routes.pmtiles from the last route layer" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
 
       # Cache-Control: no-cache lets browsers keep the style but makes them
       # revalidate it (a cheap 304 via ETag) on every load. Without a header,
@@ -206,18 +220,3 @@ jobs:
               "$RUNNER_TEMP/style.json" s3://hikes-public/style.json
             echo "Published https://public.hikeratlas.com/style.json" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
-
-  # The main site's search uses the north-america build, so redeploy it with
-  # this build's autosuggest DB once the tiles are live, and with
-  # hikeratlas/website main's search code, so the two don't drift apart.
-  deploy-search:
-    needs: build
-    if: (inputs.namespace || inputs.area) == 'north-america'
-    permissions:
-      contents: read
-      id-token: write  # deploy-search logs in to AWS with OIDC
-    uses: ./.github/workflows/deploy-search.yml
-    with:
-      namespace: north-america
-      website_ref: main
-    secrets: inherit

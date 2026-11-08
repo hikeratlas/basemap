@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: a4a7b3adeb18aead728d5d9daed08600959d1a5a
+  ROUTES_REF: 3afb5d2c0db42dcbcb87302483957ca6b66cb5db
 
 jobs:
   curate:
@@ -116,6 +116,21 @@ jobs:
           fetch trailareas || echo "::warning::No trailareas.pmtiles in layers/$NAMESPACE/; curating parks only"
           # OSM hiking routes, to check the routes against (known.jsonl): optional too.
           fetch hikingroutes || echo "::warning::No hikingroutes.pmtiles in layers/$NAMESPACE/; no check against known hikes"
+          # The last build's curate seconds per park (routes --merge's
+          # timings.json), to balance the shards by (routes#81). Optional, but
+          # every shard must deal from the same file: one that's there and
+          # won't download fails the shard, rather than missing parks.
+          # `aws s3 ls` exits 1 for no such key, and otherwise on an error.
+          ls_rc=0; aws s3 ls "s3://hikes-public/layers/$NAMESPACE/routes-timings.json" > /dev/null || ls_rc=$?
+          if [ "$ls_rc" = 0 ]; then
+            for i in 1 2 3 4; do
+              aws s3 cp --no-progress "s3://hikes-public/layers/$NAMESPACE/routes-timings.json" /mnt/routes/timings.json && break
+              rm -f /mnt/routes/timings.json; sleep $((i * 15))
+            done
+            [ -s /mnt/routes/timings.json ] || failed=1
+          elif [ "$ls_rc" != 1 ]; then
+            echo "Listing routes-timings.json failed ($ls_rc)"; failed=1
+          fi
           ls -l /mnt/routes
           [ "$failed" = 0 ] || { echo "::error::A layer or QRank download failed"; exit 1; }
 
@@ -126,6 +141,7 @@ jobs:
           for layer in ways land water parks peaks pois trailareas hikingroutes; do
             [ -f "/mnt/routes/$layer.pmtiles" ] && args+=(--tiles "/mnt/routes/$layer.pmtiles")
           done
+          [ -s /mnt/routes/timings.json ] && args+=(--shard-costs /mnt/routes/timings.json)
           routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
             --dem-cache /mnt/routes/dem --shard "${{ matrix.shard }}/$SHARDS" --out /mnt/routes/out \
             --park-timeout "$PARK_TIMEOUT" 2> >(tee /mnt/routes/log.txt >&2)
@@ -290,6 +306,12 @@ jobs:
             [ "$i" -lt 3 ] && sleep $((i * 30)) || exit 1
           done
           echo "Routes: $(jq '.parks | length' index.json) parks in $dest/$BUNDLE ($(stat -c %s /mnt/routes/out/routes.bin) bytes)" | tee -a "$GITHUB_STEP_SUMMARY"
+          # For the next build's shards (routes#81); a failure here only
+          # leaves them the previous timings.
+          if [ -s /mnt/routes/out/timings.json ]; then
+            aws s3 cp --no-progress --content-type application/json /mnt/routes/out/timings.json "s3://hikes-public/layers/$NAMESPACE/routes-timings.json" \
+              || echo "::warning::Couldn't upload routes-timings.json"
+          fi
 
       # Curated hikes in search (hikeratlas/website#44): the search DB is
       # built with the exports, before the routes, so they're added to it here

@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: b80d098f536c53e585d1a2a04b34c35c8e219429
+  ROUTES_REF: b3074bdb02289fe5449d078f00cbf506298acc1a
 
 jobs:
   curate:
@@ -113,18 +113,20 @@ jobs:
             done
             return 1
           }
+          # The small layers whole. The big ones (below) only where this
+          # shard's parks are (#205).
           pids=()
-          for layer in ways land water parks peaks pois; do
+          for layer in parks peaks; do
             fetch "$layer" & pids+=($!)
           done
           wget -q --tries=4 -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db & pids+=($!)
           failed=0
-          for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
           # Trail areas (trail networks outside parks, curated like parks): a
           # build from before they existed has none, so they're optional.
           fetch trailareas || echo "::warning::No trailareas.pmtiles in layers/$NAMESPACE/; curating parks only"
           # OSM hiking routes, to check the routes against (known.jsonl): optional too.
           fetch hikingroutes || echo "::warning::No hikingroutes.pmtiles in layers/$NAMESPACE/; no check against known hikes"
+          for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
           # The last build's curate seconds per park (routes --merge's
           # timings.json), to balance the shards by (routes#81). Optional, but
           # every shard must deal from the same file: one that's there and
@@ -140,8 +142,25 @@ jobs:
           elif [ "$ls_rc" != 1 ]; then
             echo "Listing routes-timings.json failed ($ls_rc)"; failed=1
           fi
-          ls -l /mnt/routes
           [ "$failed" = 0 ] || { echo "::error::A layer or QRank download failed"; exit 1; }
+
+          # The z14 tiles this shard's parks need (the same parks Curate
+          # picks: same parks layers, shard and costs), and just those of the
+          # big layers: ~5% of each, in about as many requests as whole
+          # downloads took (bin/fetch-region.py).
+          region=(--tiles /mnt/routes/parks.pmtiles)
+          [ -f /mnt/routes/trailareas.pmtiles ] && region+=(--tiles /mnt/routes/trailareas.pmtiles)
+          [ -s /mnt/routes/timings.json ] && region+=(--shard-costs /mnt/routes/timings.json)
+          routes-src/target/release/routes "${region[@]}" --shard "${{ matrix.shard }}/$SHARDS" \
+            --out /mnt/routes/out --write-region /mnt/routes/region.json
+          pids=()
+          for layer in ways land water pois; do
+            python3 bin/fetch-region.py "https://public.hikeratlas.com/layers/$NAMESPACE/$layer.pmtiles" \
+              /mnt/routes/region.json "/mnt/routes/$layer.pmtiles" & pids+=($!)
+          done
+          for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+          ls -ls /mnt/routes
+          [ "$failed" = 0 ] || { echo "::error::Fetching a layer's tiles failed"; exit 1; }
 
       - name: Curate
         run: |

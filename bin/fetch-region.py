@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Usage: bin/fetch-region.py URL REGION.json OUT.pmtiles [--zoom 14] [--gap BYTES] [--threads N]
+"""Usage: bin/fetch-region.py URL|FILE REGION.json OUT.pmtiles [--zoom 14] [--gap BYTES] [--threads N]
 
 Fetches the part of a remote PMTiles archive that a region needs (#205):
 its header, metadata and directories, and the tiles at --zoom inside the
@@ -10,22 +10,40 @@ disk space.
 
 tilemaker's archives aren't clustered (tiles aren't stored in tile-id
 order), so `pmtiles extract` refuses them. Instead, the tiles' byte ranges
-are sorted and merged when less than --gap apart (default 64 KiB), which
-on north-america's water layer turns ~600k tiles into ~4k requests.
+are sorted and merged when less than --gap apart. The default, 16 MiB,
+keeps the requests below a whole download's (`aws s3 cp` in 64 MB parts):
+for north-america's biggest shard, ~90 requests and 13 GB instead of ~290
+and 19 GB. Smaller gaps fetch less, in more requests.
 """
 import argparse, bisect, gzip, json, math, os, struct, sys, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 
+ETAG = None
+
+
 def get(url, start, length, tries=5):
+    if not url.startswith(('http://', 'https://')):  # a local file, for tests
+        with open(url, 'rb') as f:
+            f.seek(start)
+            return f.read(length)
     for i in range(tries):
         try:
             req = urllib.request.Request(url, headers={
                 'Range': f'bytes={start}-{start + length - 1}', 'User-Agent': 'hikeratlas-fetch-region'})
             with urllib.request.urlopen(req, timeout=120) as r:
                 data = r.read()
+                etag = r.headers.get('ETag')
             if len(data) != length:
                 raise IOError(f'got {len(data)} of {length} bytes')
+            # Every range must come from the same version of the archive (it's
+            # replaced at the same URL each build): not mixed with an older
+            # copy from a cache, or one replaced while this runs.
+            global ETAG
+            if etag:
+                ETAG = ETAG or etag
+                if etag != ETAG:
+                    sys.exit(f'{url} changed while fetching it (ETag {etag}, not {ETAG})')
             return data
         except Exception as e:
             if i == tries - 1:
@@ -114,8 +132,8 @@ def main():
     ap.add_argument('region')
     ap.add_argument('out')
     ap.add_argument('--zoom', type=int, default=14)
-    ap.add_argument('--gap', type=int, default=64 << 10)
-    ap.add_argument('--threads', type=int, default=32)
+    ap.add_argument('--gap', type=int, default=16 << 20)
+    ap.add_argument('--threads', type=int, default=16)
     a = ap.parse_args()
     t0 = time.time()
 

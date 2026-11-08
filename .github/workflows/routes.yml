@@ -143,6 +143,22 @@ jobs:
           ls -l /mnt/routes
           [ "$failed" = 0 ] || { echo "::error::A layer or QRank download failed"; exit 1; }
 
+      # Elevation tiles barely change, but routes fetched them while curating,
+      # one at a time per thread: the CPUs sat ~40% idle (routes#86). So each
+      # shard keeps its DEM tiles from build to build in the Actions cache,
+      # refreshed weekly. Only main's builds save it (a PR's would only be
+      # visible to that PR); PR builds restore main's.
+      - name: DEM cache key
+        id: dem-key
+        run: echo "week=$(date -u +%G-W%V)" | tee -a "$GITHUB_OUTPUT"
+      - name: Restore the DEM cache
+        id: dem-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem
+          key: dem-${{ inputs.area }}-${{ matrix.shard }}-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-${{ inputs.area }}-${{ matrix.shard }}-
+
       - name: Curate
         run: |
           start=$(date +%s)
@@ -160,6 +176,14 @@ jobs:
           grep -a '^searching ' /mnt/routes/log.txt >> "$GITHUB_STEP_SUMMARY" || true
           echo "Shard ${{ matrix.shard }}/$SHARDS curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "$(ls /mnt/routes/out/raw | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Save the DEM cache
+        if: ${{ steps.dem-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: /mnt/routes/dem
+          key: dem-${{ inputs.area }}-${{ matrix.shard }}-${{ steps.dem-key.outputs.week }}
 
       - name: Upload the log
         if: always()

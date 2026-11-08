@@ -65,6 +65,14 @@ class NoAuthOnRedirect(urllib.request.HTTPRedirectHandler):
 OPENER = urllib.request.build_opener(NoAuthOnRedirect)
 
 
+# The job token's API budget left this hour, from the last response. It's
+# 1,000 an hour for the whole repository, shared by every job of every run.
+REMAINING = None
+# The live loops skip their updates below this, leaving the rest for the
+# jobs that need the API.
+LIVE_RESERVE = 400
+
+
 def request(method, path, body=None, raw=False):
     url = path if path.startswith('http') else API + path
     data = json.dumps(body).encode() if body is not None else None
@@ -74,6 +82,9 @@ def request(method, path, body=None, raw=False):
             'Content-Type': 'application/json'})
         try:
             with OPENER.open(req, timeout=60) as r:
+                global REMAINING
+                if r.headers.get('x-ratelimit-remaining', '').isdigit():
+                    REMAINING = int(r.headers['x-ratelimit-remaining'])
                 payload = r.read()
                 return payload if raw else (json.loads(payload) if payload else None)
         except (urllib.error.URLError, TimeoutError) as e:
@@ -531,7 +542,8 @@ def live(name, kind, log):
     """Runs in the background of a long job (.github/actions/build-progress
     with live:), putting where the job's run is into the check every 5-8
     minutes until the job ends. Jobs' loops are spread out at random, which
-    keeps the API calls to 3 per job every 6.5 minutes or so."""
+    keeps the API calls to 3 per job every 6.5 minutes or so, and they skip
+    updates while the repository's API budget is low (LIVE_RESERVE)."""
     random.seed(f'{RUN}/{name}')
     time.sleep(random.uniform(30, 150))
     check_id = None
@@ -542,6 +554,9 @@ def live(name, kind, log):
                 check = request('GET', f'/repos/{REPO}/check-runs/{check_id}') if check_id else find_check()
                 if check and check['status'] == 'completed':
                     return
+                if REMAINING is not None and REMAINING < LIVE_RESERVE:
+                    print(f'{REMAINING} API calls left this hour; skipping this update', flush=True)
+                    check = None
                 data = unpack(check['output']['summary']) if check else None
                 if data:
                     check_id = check['id']

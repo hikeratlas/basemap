@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: e05acdc7e74ba8ea4dbaf3982ecf2f7aec208a00
+  ROUTES_REF: cb8d1320f29f69ff9c7df7ad7993f9abbccc4864
 
 jobs:
   curate:
@@ -164,9 +164,14 @@ jobs:
 
       # Elevation tiles barely change, but routes fetched them while curating,
       # one at a time per thread: the CPUs sat ~40% idle (routes#86). So each
-      # shard keeps its DEM tiles from build to build in the Actions cache,
-      # refreshed weekly. Only main's builds save it (a PR's would only be
-      # visible to that PR); PR builds restore main's.
+      # shard keeps the DEM tiles it read from build to build in the Actions
+      # cache, refreshed weekly. Parks move between shards from build to
+      # build (they're balanced by the last build's timings), so each shard
+      # restores every shard's tiles (~1.2 GB each on north-america): a
+      # park's are there wherever it lands. Each saves only what it read.
+      # Only main's builds save (a PR's cache would only be visible to that
+      # PR); PR builds restore main's. The other shards' steps below must
+      # match the matrix's shards.
       - name: DEM cache key
         id: dem-key
         run: echo "week=$(date -u +%G-W%V)" | tee -a "$GITHUB_OUTPUT"
@@ -177,6 +182,34 @@ jobs:
           path: /mnt/routes/dem
           key: dem-${{ inputs.area }}-${{ matrix.shard }}-${{ steps.dem-key.outputs.week }}
           restore-keys: dem-${{ inputs.area }}-${{ matrix.shard }}-
+      - name: Restore shard 0's DEM cache
+        if: ${{ matrix.shard != 0 }}
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem
+          key: dem-${{ inputs.area }}-0-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-${{ inputs.area }}-0-
+      - name: Restore shard 1's DEM cache
+        if: ${{ matrix.shard != 1 }}
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem
+          key: dem-${{ inputs.area }}-1-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-${{ inputs.area }}-1-
+      - name: Restore shard 2's DEM cache
+        if: ${{ matrix.shard != 2 }}
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem
+          key: dem-${{ inputs.area }}-2-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-${{ inputs.area }}-2-
+      - name: Restore shard 3's DEM cache
+        if: ${{ matrix.shard != 3 }}
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem
+          key: dem-${{ inputs.area }}-3-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-${{ inputs.area }}-3-
 
       - name: Curate
         run: |

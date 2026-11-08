@@ -18,8 +18,20 @@ const DB_FILE = 'autosuggest.db';
 //
 // Trails too: a trail is many ways (and maybe a hiking route relation over
 // them), each with the trail's name.
-const MERGED_KINDS = new Set(['cliff', 'park', 'trail']);
-const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1 };
+//
+// Ranges too (#194): CanVec imported range names as natural=peak nodes with
+// no ele, one every few km along the range, so "La Cloche Mountains" was four
+// peaks and the Long Range Mountains 31. A peak with no ele and a range's
+// name is a range label; its pieces merge across parks (some labels fall
+// just outside the park) and keep the best piece's park and point (a box
+// centre may be off the range). Twin Peaks and Twin Buttes have an ele each
+// and stay separate.
+const MERGED_KINDS = new Set(['cliff', 'park', 'trail', 'range']);
+const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1, range: 50 };
+const RANGE_NAME = /\b(mountains|range|hills|ridges|highlands)\b/i;
+
+const mergeKind = (row: any): string =>
+	row.kind === 'peak' && !Number.isFinite(row.ele) && RANGE_NAME.test(String(row.name)) ? 'range' : row.kind;
 
 type Box = { min_lon: number; min_lat: number; max_lon: number; max_lat: number };
 
@@ -50,9 +62,10 @@ export function mergePieces(rows: any[]): any[] {
 	const out: any[] = [];
 	const groups = new Map<string, any[]>();
 	for (const row of rows) {
-		if (!MERGED_KINDS.has(row.kind)) { out.push(row); continue; }
+		const kind = mergeKind(row);
+		if (!MERGED_KINDS.has(kind)) { out.push(row); continue; }
 		// Case aside: "Acadian Trail" and "Acadian trail" are one trail.
-		const key = JSON.stringify([row.kind, String(row.name).toLowerCase(), row.park, row.state, row.country]);
+		const key = JSON.stringify([kind, String(row.name).toLowerCase(), kind === 'range' ? null : row.park, row.state, row.country]);
 		if (!groups.has(key)) groups.set(key, []);
 		groups.get(key)!.push(row);
 	}
@@ -65,7 +78,7 @@ export function mergePieces(rows: any[]): any[] {
 			for (let grew = true; grew; ) {
 				grew = false;
 				for (let i = remaining.length - 1; i >= 0; i--) {
-					if (near(box, boxOf(remaining[i]), MERGE_DISTANCE_KM[cluster[0].kind])) {
+					if (near(box, boxOf(remaining[i]), MERGE_DISTANCE_KM[mergeKind(cluster[0])])) {
 						const r = remaining.splice(i, 1)[0];
 						const b = boxOf(r);
 						box = {
@@ -78,11 +91,15 @@ export function mergePieces(rows: any[]): any[] {
 				}
 			}
 			if (cluster.length === 1) { out.push(cluster[0]); continue; }
-			// The best piece: highest qrank, then an area over a point, then
-			// the biggest area.
+			// The best piece: highest qrank, then (for a range) one in a park,
+			// then an area over a point, then the biggest area.
 			const area = (r: any) => r.box ? (r.box.max_lon - r.box.min_lon) * (r.box.max_lat - r.box.min_lat) : -1;
 			const best = cluster.reduce((a, b) =>
-				((b.qrank ?? 0) - (a.qrank ?? 0) || area(b) - area(a)) > 0 ? b : a);
+				((b.qrank ?? 0) - (a.qrank ?? 0) || (b.park ? 1 : 0) - (a.park ? 1 : 0) || area(b) - area(a)) > 0 ? b : a);
+			if (mergeKind(best) === 'range') {
+				out.push({ ...best, wikidata: best.wikidata ?? cluster.find((r) => r.wikidata)?.wikidata, box });
+				continue;
+			}
 			if (best.kind === 'park' || best.kind === 'trail') {
 				out.push({
 					...best,

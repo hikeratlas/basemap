@@ -359,7 +359,8 @@ class History:
             return
         mark = f'<!-- run:{RUN} -->'
         url = f'https://github.com/{REPO}/actions/runs/{RUN}'
-        new = f"- [{meta['date']} {MODE} build]({url}): {status} · [details]({meta['comment_url']}) {mark}"
+        progress = f" · [progress]({meta['check_url']})" if meta.get('check_url') else ''
+        new = f"- [{meta['date']} {MODE} build]({url}): {status} · [details]({meta['comment_url']}){progress} {mark}"
         body = request('GET', f'/repos/{REPO}/issues/{issue}')['body'] or ''
         m = History.LIST.search(body)
         old = [l for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
@@ -462,8 +463,9 @@ def publish(check, data, final=False, history=True):
     if history and HISTORY and data['meta'].get('comment'):
         try:
             url = f'https://github.com/{REPO}/actions/runs/{RUN}'
+            progress = f" · [progress]({data['meta']['check_url']})" if data['meta'].get('check_url') else ''
             request('PATCH', f"/repos/{REPO}/issues/comments/{data['meta']['comment']}", {
-                'body': f"### [{data['meta']['date']} {MODE} build]({url}): {title}\n\n{summary}"})
+                'body': f"### [{data['meta']['date']} {MODE} build]({url}): {title}{progress}\n\n{summary}"})
         except Exception as e:
             print(f'history comment: {e}', file=sys.stderr)
     return title, summary, text
@@ -501,7 +503,7 @@ def start():
     print(f"::notice title={check_name()}::{check['html_url']}", flush=True)
     if HISTORY:
         try:
-            data['meta'].update(History().create(check['html_url']))
+            data['meta'].update(History().create(check['html_url']), check_url=check['html_url'])
             History.line(data['meta'], 'running')
         except Exception as e:
             print(f'history: {e}', file=sys.stderr)

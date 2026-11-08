@@ -89,8 +89,13 @@ def main(db_path, parks_dir):
     db.execute('update items set hidden = null where hidden is not null')
 
     parks = {}
-    for osm_id, name, state, country, qrank in db.execute(
-            "select osm_id, name, state, country, qrank from items where kind = 'park'"):
+    # Each park's rows, to set their hike counts by rowid: items has no index
+    # on osm_id, so an update by osm_id per park scanned the whole table each
+    # time (172 s of 178 on north-america, basemap#206).
+    park_rows = {}
+    for rowid, osm_id, name, state, country, qrank in db.execute(
+            "select rowid, osm_id, name, state, country, qrank from items where kind = 'park'"):
+        park_rows.setdefault(osm_id, []).append(rowid)
         if osm_id not in parks or (qrank or 0) > (parks[osm_id][3] or 0):
             parks[osm_id] = (name, state, country, qrank)
 
@@ -125,8 +130,8 @@ def main(db_path, parks_dir):
             if hike != 'stop':
                 counts[park_id] = counts.get(park_id, 0) + 1
             n_hikes += 1
-    db.executemany("update items set hikes = ? where kind = 'park' and osm_id = ?",
-                   [(n, p) for p, n in counts.items()])
+    db.executemany('update items set hikes = ? where rowid = ?',
+                   [(n, r) for p, n in counts.items() for r in park_rows.get(p, [])])
     n_hidden = hide_trails(db)
     db.commit()
     db.execute('vacuum')

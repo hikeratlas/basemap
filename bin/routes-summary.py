@@ -35,6 +35,19 @@ def summarize(lines, top=10):
     }
 
 
+def live(lines):
+    """How far a shard is, from its log so far: parks curated of the shard's."""
+    total = done = None
+    for line in lines:
+        if (m := re.match(r'shard \d+/\d+: (\d+) parks', line)):
+            total, done = int(m[1]), 0
+        elif total is not None and PARK.match(line.rstrip('\n')):
+            done += 1
+    if total is None:
+        return None
+    return {'phase': 'curate', 'done': done, 'total': total, 'unit': 'parks'}
+
+
 if __name__ == '__main__':
     json.dump(summarize(open(sys.argv[1], errors='replace')), sys.stdout, indent=1)
     print()

@@ -17,6 +17,9 @@ No job polls: that held a runner for the whole build. Instead:
           ($RUNNER_TEMP/phases-*.json, routes-summary-*.json) into that data
           and any other job's results it's missing (from their
           artifacts), and re-renders: a few API calls.
+  live    (in the background of the long jobs) puts where the job's
+          tilemaker or routes run is now (phase, progress, when the phase
+          should end) into the check every few minutes.
   finish  (a job after all the others, even if they failed or were
           cancelled) re-reads every artifact, in case two updates raced,
           and completes the check.
@@ -26,7 +29,7 @@ start, NAMESPACE, MODE, PR, HISTORY. The token needs checks: write and
 actions: read; start and finish also pull-requests: write (PR) and
 issues: write (HISTORY).
 """
-import base64, io, json, os, re, sys, time, traceback, urllib.error, urllib.request, zipfile, zlib
+import base64, importlib.util, io, json, os, random, re, sys, time, traceback, urllib.error, urllib.request, zipfile, zlib
 from datetime import datetime, timedelta, timezone
 
 API = 'https://api.github.com'
@@ -263,10 +266,43 @@ def routes_tables(cur, prev, summaries, prev_summaries):
     return text
 
 
-def render(cur, prev, phases, prev_phases, summaries, prev_summaries):
+def live_table(cur, live, phases, summaries, now):
+    """Where each long run is now (#210), from the live entries the jobs'
+    background loops (build-progress.py live) keep in the check's data."""
+    rows = []
+    now_ms = now.timestamp() * 1000
+    steps = {j['name']: j.get('steps', []) for j in cur}
+    for name, e in sorted(live.items()):
+        shard = name[len('routes-'):] if name.startswith('routes-') else None
+        finished = shard in summaries if shard is not None else name in phases
+        if finished or now_ms - e.get('updated', 0) > 15 * 60 * 1000:
+            continue
+        eta = e.get('eta')
+        if shard is not None and e.get('done'):
+            # Routes' log has no times: time the shard from its Curate step.
+            step = next((st for st in steps.get(f'routes / curate ({shard})', []) if st['name'] == 'Curate'), None)
+            if step and step.get('started_at'):
+                begun = t(step['started_at']).timestamp() * 1000
+                eta = begun + (e['updated'] - begun) * e['total'] / e['done']
+        progress = ''
+        if e.get('total'):
+            unit = '' if e['unit'] == '%' else f" {e['unit']}"
+            progress = (f"{e['done']}%" if e['unit'] == '%' else
+                        f"{e['done']:,} of {e['total']:,}{unit} ({100 * e['done'] // e['total']}%)")
+        ends = ''
+        if eta:
+            ends = f"~{minutes(max(0, (eta - now_ms) / 1000))} min ({datetime.fromtimestamp(eta / 1000, timezone.utc):%H:%M} UTC)"
+        rows.append(f"| {name} | {e['phase']} | {progress} | {ends} | {minutes((now_ms - e['updated']) / 1000)} min ago |")
+    if not rows:
+        return []
+    return ['#### Running now', '', '| Run | Phase | Progress | Phase ends | Updated |', '|---|---|---|---|---|', *rows, '']
+
+
+def render(cur, prev, phases, prev_phases, summaries, prev_summaries, live=None):
     now = datetime.now(timezone.utc)
     title, summary = job_table(cur, prev, now)
-    text = phase_tables(phases, prev_phases) + routes_tables(cur, prev, summaries, prev_summaries)
+    text = (live_table(cur, live or {}, phases, summaries, now) + phase_tables(phases, prev_phases)
+            + routes_tables(cur, prev, summaries, prev_summaries))
     return title, summary[:60000], '\n'.join(text)[:60000]
 
 
@@ -374,11 +410,13 @@ def configure(meta):
     NAMESPACE, MODE, PR, HISTORY = meta['namespace'], meta['mode'], meta.get('pr', ''), meta.get('history', False)
 
 
-def publish(check, data, final=False):
+def publish(check, data, final=False, history=True):
     """Renders DATA with the run's current jobs into the check."""
     cur = jobs(RUN)
+    if final:
+        data.pop('live', None)
     title, summary, text = render(cur, data['prev_jobs'], data['phases'], data['prev_phases'],
-                                  data['summaries'], data['prev_summaries'])
+                                  data['summaries'], data['prev_summaries'], data.get('live'))
     if final and data.get('error'):
         title += ' (progress reporting hit an error; see the progress jobs\' logs)'
     blob = f'\n\n<!-- build-progress-data:{pack(data)} -->'
@@ -387,7 +425,7 @@ def publish(check, data, final=False):
     if final:
         body.update(status='completed', conclusion='neutral')
     request('PATCH', f"/repos/{REPO}/check-runs/{check['id']}", body)
-    if HISTORY and data['meta'].get('comment'):
+    if history and HISTORY and data['meta'].get('comment'):
         try:
             url = f'https://github.com/{REPO}/actions/runs/{RUN}'
             request('PATCH', f"/repos/{REPO}/issues/comments/{data['meta']['comment']}", {
@@ -475,8 +513,52 @@ def finish():
     write_step_summary(title, summary, text)
 
 
+def live_status(kind, log):
+    """Where this job's run is now, from its log so far."""
+    if not os.path.exists(log):
+        return None
+    here = os.path.dirname(os.path.abspath(__file__))
+    script = {'tilemaker': 'tilemaker-phases.py', 'routes': 'routes-summary.py'}[kind]
+    spec = importlib.util.spec_from_file_location(kind, os.path.join(here, script))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if kind == 'tilemaker':
+        return mod.live(mod.read_log(log), int(time.time() * 1000))
+    return mod.live(open(log, errors='replace'))
+
+
+def live(name, kind, log):
+    """Runs in the background of a long job (.github/actions/build-progress
+    with live:), putting where the job's run is into the check every 5-8
+    minutes until the job ends. Jobs' loops are spread out at random, which
+    keeps the API calls to 3 per job every 6.5 minutes or so."""
+    random.seed(f'{RUN}/{name}')
+    time.sleep(random.uniform(30, 150))
+    check_id = None
+    while True:
+        try:
+            status = live_status(kind, log)
+            if status:
+                check = request('GET', f'/repos/{REPO}/check-runs/{check_id}') if check_id else find_check()
+                if check and check['status'] == 'completed':
+                    return
+                data = unpack(check['output']['summary']) if check else None
+                if data:
+                    check_id = check['id']
+                    configure(data['meta'])
+                    status['updated'] = int(time.time() * 1000)
+                    data.setdefault('live', {})[name] = status
+                    publish(check, data, history=False)
+        except Exception:
+            print(traceback.format_exc(), file=sys.stderr, flush=True)
+        time.sleep(random.uniform(300, 480))
+
+
 def main():
     step = sys.argv[1] if len(sys.argv) > 1 else ''
+    if step == 'live':
+        live(*sys.argv[2:5])
+        return
     try:
         {'start': start, 'update': update, 'finish': finish}[step]()
     except Exception:

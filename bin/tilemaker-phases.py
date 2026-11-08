@@ -52,6 +52,54 @@ def phases(lines):
     return out
 
 
+def live(lines, now):
+    """Where a tilemaker run is now, from its log so far: the phase, how far
+    through it (e.g. block 12,000 of 26,609), and when the phase should end
+    at its rate so far. None before tilemaker has said anything useful."""
+    passes = 0
+    current = None  # (name, done, total, unit, phase start)
+    for t, text in lines:
+        if (m := re.search(r'Block (\d+)/(\d+) \((\d+) ms\)', text)):
+            passes += 1
+            current = None
+        elif (m := re.search(r'Block (\d+)/(\d+)', text)):
+            name = PASS_NAMES[passes] if passes < len(PASS_NAMES) else f'PBF pass {passes + 1}'
+            start = current[4] if current and current[0] == name else t
+            current = (name, int(m[1]), int(m[2]), 'blocks', start)
+        elif (m := re.search(r'\(Scanning for (ways used in relations|nodes used in ways): (\d+)%\)(?!\s*\()', text)):
+            name = 'scan relations' if m[1].startswith('ways') else 'scan ways'
+            start = current[4] if current and current[0] == name else t
+            current = (name, int(m[2]), 100, '%', start)
+        elif (m := re.search(r'writing tile (\d+) of (\d+)', text)):
+            start = current[4] if current and current[0] == 'write tiles' else t
+            current = ('write tiles', int(m[1]), int(m[2]), 'tiles', start)
+        elif text.startswith(('Reading GeoJSON', 'Reading shapefile')):
+            current = ('read GeoJSON/shapefiles', 0, 0, '', t)
+        elif text.startswith('collecting tiles'):
+            current = ('collect tiles', 0, 0, '', t)
+        elif text.startswith(('Closing pmtiles file', 'Filled the tileset')):
+            current = ('finishing', 0, 0, '', t)
+    if not current:
+        return None
+    name, done, total, unit, start = current
+    out = {'phase': name, 'since': start}
+    if total:
+        out.update(done=done, total=total, unit=unit)
+        elapsed = now - start
+        if done and elapsed > 0 and done < total:
+            out['eta'] = int(now + elapsed * (total - done) / done)
+    return out
+
+
+def read_log(path):
+    lines = []
+    for row in open(path, errors='replace'):
+        t, _, text = row.rstrip('\n').partition('\t')
+        if t.isdigit():
+            lines.append((int(t), text))
+    return lines
+
+
 def resources(samples, start, end):
     """CPU busy (user + system) and iowait shares, in %, and peak memory in
     use, in GiB, between two times."""
@@ -72,12 +120,7 @@ def resources(samples, start, end):
 
 
 def main(log, *telemetry):
-    lines = []
-    for row in open(log, errors='replace'):
-        t, _, text = row.rstrip('\n').partition('\t')
-        if t.isdigit():
-            lines.append((int(t), text))
-    result = phases(lines)
+    result = phases(read_log(log))
     samples = []
     for path in telemetry:
         for row in open(path):

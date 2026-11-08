@@ -27,11 +27,13 @@ SHA = os.environ['SHA']
 NAMESPACE = os.environ['NAMESPACE']
 MODE = os.environ['MODE']
 SELF = os.environ.get('SELF_JOB', 'progress')
-CHECK = 'Build progress'
+# A commit can have several builds (a push's and a manual one), and GitHub
+# shows each check under whichever of the commit's runs it likes, so a
+# non-PR build names its check after its namespace.
+PR = os.environ.get('PR', '')
+CHECK = 'Build progress' if PR else f'Build progress ({NAMESPACE})'
 # Whether to keep a comment on the "Build history" issue (manual north-america builds).
 HISTORY = os.environ.get('HISTORY') == 'true'
-# The PR being built, if any: its description gets a link to the check.
-PR = os.environ.get('PR', '')
 TOKEN = os.environ['GH_TOKEN']
 # Where the check run's id is kept, so the workflow's cleanup step (--close)
 # can complete the check if this process is killed.
@@ -74,9 +76,9 @@ def jobs(run):
     out, page = [], 1
     while True:
         r = request('GET', f'/repos/{REPO}/actions/runs/{run}/jobs?per_page=100&page={page}')
-        # Skip this job, and the check run it creates: the jobs API lists
-        # that too, and it can't finish before this script does.
-        out += [j for j in r['jobs'] if j['name'] not in (SELF, CHECK)]
+        # Skip this job, and the check runs builds create: the jobs API lists
+        # those too, and this one can't finish before this script does.
+        out += [j for j in r['jobs'] if j['name'] != SELF and not j['name'].startswith('Build progress')]
         if len(r['jobs']) < 100:
             return out
         page += 1
@@ -319,6 +321,14 @@ def link_from_pr(check_id, status, start=False):
         print(f'PR link: {e}', file=sys.stderr)
 
 
+def write_step_summary(title, summary, text):
+    """The final report on this run's summary page too."""
+    path = os.environ.get('GITHUB_STEP_SUMMARY')
+    if path:
+        with open(path, 'a') as f:
+            f.write(f'## {CHECK}: {title}\n\n{summary}\n\n{text}\n')
+
+
 def watch(check_id):
     prev = previous_run()
     prev_jobs = jobs(prev) if prev else []
@@ -343,6 +353,7 @@ def watch(check_id):
                 print(f'history comment: {e}', file=sys.stderr)
         if finished:
             link_from_pr(check_id, title)
+            write_step_summary(title, summary, text)
             return
         time.sleep(60)
 
@@ -374,6 +385,9 @@ def main():
     with open(CHECK_ID_FILE, 'w') as f:
         f.write(str(check['id']))
     link_from_pr(check['id'], 'running', start=True)
+    # The check may show up under another run of the commit, so link it
+    # from this run's summary page.
+    print(f"::notice title={CHECK}::{check['html_url']}", flush=True)
 
     # Turn a cancel or timeout's SIGTERM into an exception, so the check is closed.
     def on_term(signum, frame):

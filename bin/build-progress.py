@@ -15,7 +15,8 @@ No job polls: that held a runner for the whole build. Instead:
           history" issue.
   update  (the last step of the main jobs) merges the job's own results
           ($RUNNER_TEMP/phases-*.json, routes-summary-*.json) into that data
-          and re-renders: about four API calls.
+          and any other job's results it's missing (from their
+          artifacts), and re-renders: a few API calls.
   finish  (a job after all the others, even if they failed or were
           cancelled) re-reads every artifact, in case two updates raced,
           and completes the check.
@@ -417,7 +418,7 @@ def start():
         'prev_jobs': slim(jobs(prev)) if prev else [],
         'prev_phases': load(prev, 'phases-', {}) if prev else {},
         'prev_summaries': load(prev, 'routes-summary-', {}) if prev else {},
-        'phases': {}, 'summaries': {},
+        'phases': load(RUN, 'phases-', {}), 'summaries': load(RUN, 'routes-summary-', {}),
     }
     check = request('POST', f'/repos/{REPO}/check-runs', {
         'name': check_name(), 'head_sha': SHA, 'status': 'in_progress', 'external_id': str(RUN),
@@ -449,6 +450,11 @@ def update():
     mine = local_results()
     data['phases'].update(mine['phases'])
     data['summaries'].update(mine['summaries'])
+    # And any other job's results the check is missing: jobs that finished
+    # before start created the check, or whose update raced with another.
+    # Only the missing artifacts are downloaded.
+    load(RUN, 'phases-', data['phases'])
+    load(RUN, 'routes-summary-', data['summaries'])
     publish(check, data)
 
 

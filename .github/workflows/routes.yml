@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: b80d098f536c53e585d1a2a04b34c35c8e219429
+  ROUTES_REF: 691189f2fd9168bc4e8a73a5ec3a43940f3e2d22
 
 jobs:
   curate:
@@ -161,6 +161,10 @@ jobs:
 
       - name: Curate
         run: |
+          # Tiles read from here on are kept in the DEM cache (routes marks
+          # each tile it reads); the rest are pruned before it's saved.
+          touch "$RUNNER_TEMP/dem-stamp"
+          echo "DEM cache: $(find /mnt/routes/dem -type f 2>/dev/null | wc -l) tiles restored ($(du -sh /mnt/routes/dem 2>/dev/null | cut -f1))"
           start=$(date +%s)
           args=()
           for layer in ways land water parks peaks pois trailareas hikingroutes; do
@@ -173,10 +177,18 @@ jobs:
           grep -a '^TIMEOUT: ' /mnt/routes/log.txt | while read -r line; do
             echo "::warning::$line"; echo "$line" >> "$GITHUB_STEP_SUMMARY"
           done
-          grep -a '^searching ' /mnt/routes/log.txt >> "$GITHUB_STEP_SUMMARY" || true
+          grep -a -e '^searching ' -e '^DEM: ' /mnt/routes/log.txt >> "$GITHUB_STEP_SUMMARY" || true
           echo "Shard ${{ matrix.shard }}/$SHARDS curated in $(( $(date +%s) - start ))s" | tee -a "$GITHUB_STEP_SUMMARY"
           echo "$(ls /mnt/routes/out/raw | wc -l) parks" | tee -a "$GITHUB_STEP_SUMMARY"
 
+      # Only the tiles this run read (routes marks each one it reads), so a shard's
+      # cache doesn't grow as parks move between shards.
+      - name: Prune the DEM cache
+        if: ${{ steps.dem-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' }}
+        run: |
+          before=$(find /mnt/routes/dem -type f | wc -l)
+          find /mnt/routes/dem -type f ! -newer "$RUNNER_TEMP/dem-stamp" -delete
+          echo "DEM cache: kept $(find /mnt/routes/dem -type f | wc -l) of $before tiles ($(du -sh /mnt/routes/dem | cut -f1))" | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Save the DEM cache
         if: ${{ steps.dem-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/main' }}
         continue-on-error: true

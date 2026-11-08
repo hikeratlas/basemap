@@ -20,6 +20,7 @@ SHA = os.environ['SHA']
 NAMESPACE = os.environ['NAMESPACE']
 MODE = os.environ['MODE']
 SELF = os.environ.get('SELF_JOB', 'progress')
+CHECK = 'Build progress'
 TOKEN = os.environ['GH_TOKEN']
 # Where the check run's id is kept, so the workflow's cleanup step (--close)
 # can complete the check if this process is killed.
@@ -62,7 +63,9 @@ def jobs(run):
     out, page = [], 1
     while True:
         r = request('GET', f'/repos/{REPO}/actions/runs/{run}/jobs?per_page=100&page={page}')
-        out += r['jobs']
+        # Skip this job, and the check run it creates: the jobs API lists
+        # that too, and it can't finish before this script does.
+        out += [j for j in r['jobs'] if j['name'] not in (SELF, CHECK)]
         if len(r['jobs']) < 100:
             return out
         page += 1
@@ -115,7 +118,7 @@ def render(cur, prev, phases, prev_phases):
     by_name = {j['name']: j for j in prev}
     rows, gantt, done = [], [], 0
     for j in sorted(cur, key=lambda j: j['started_at'] or 'z'):
-        if j['name'] == SELF or j['conclusion'] == 'skipped':
+        if j['conclusion'] == 'skipped':
             continue
         start, end = t(j['started_at']), t(j['completed_at'])
         dur = ((end or now) - start).total_seconds() if start else 0
@@ -131,8 +134,8 @@ def render(cur, prev, phases, prev_phases):
         if start:
             gantt.append(f"    {j['name'].replace(':', ' ')} :{'done' if end else 'active'}, "
                          f"{int((start - t0).total_seconds())}, {max(1, int(dur))}s")
-    ends = [t(j['completed_at']) for j in cur if j['name'] != SELF and j['completed_at']]
-    running = any(j['status'] != 'completed' for j in cur if j['name'] != SELF)
+    ends = [t(j['completed_at']) for j in cur if j['completed_at']]
+    running = any(j['status'] != 'completed' for j in cur)
     elapsed = ((now if running or not ends else max(ends)) - t0).total_seconds()
     pt = None
     if prev:
@@ -140,7 +143,7 @@ def render(cur, prev, phases, prev_phases):
         pe = [t(j['completed_at']) for j in prev if j['completed_at']]
         if ps and pe:
             pt = (max(pe) - min(ps)).total_seconds()
-    total = sum(1 for j in cur if j['name'] != SELF and j['conclusion'] != 'skipped')
+    total = sum(1 for j in cur if j['conclusion'] != 'skipped')
     title = f'{done} of {total} jobs done, {minutes(elapsed)} min' + (f' (previous build: {minutes(pt)} min)' if pt else '')
     summary = '\n'.join([
         '| Job | Status | Start (min) | Time (min) | Previous (min) |', '|---|---|---|---|---|', *rows, '',
@@ -178,7 +181,7 @@ def watch(check_id):
                 if p:
                     phases[key] = p
         title, summary, text = render(cur, prev_jobs, phases, prev_phases)
-        finished = all(j['status'] == 'completed' for j in cur if j['name'] != SELF)
+        finished = all(j['status'] == 'completed' for j in cur)
         body = {'output': {'title': title, 'summary': summary, 'text': text or 'No phase timings yet.'}}
         if finished:
             body.update(status='completed', conclusion='neutral')
@@ -209,7 +212,7 @@ def main():
         return
 
     check = request('POST', f'/repos/{REPO}/check-runs', {
-        'name': 'Build progress', 'head_sha': SHA, 'status': 'in_progress',
+        'name': CHECK, 'head_sha': SHA, 'status': 'in_progress',
         'output': {'title': 'Starting', 'summary': 'Waiting for the first jobs.'}})
     with open(CHECK_ID_FILE, 'w') as f:
         f.write(str(check['id']))

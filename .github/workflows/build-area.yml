@@ -204,12 +204,23 @@ jobs:
           path: build-meta.json
           retention-days: 90
       - name: Report progress
+        # Shorter than the job's timeout, so the step below still runs.
+        timeout-minutes: 230
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           NAMESPACE: ${{ needs.config.outputs.namespace }}
           MODE: ${{ needs.config.outputs.mode }}
         run: python3 bin/build-progress.py
+      # Never leave the check in progress if the step above was killed.
+      - name: Close the progress check
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          NAMESPACE: ${{ needs.config.outputs.namespace }}
+          MODE: ${{ needs.config.outputs.mode }}
+        run: python3 bin/build-progress.py --close
 
   exports:
     needs: config

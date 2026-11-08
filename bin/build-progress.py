@@ -10,7 +10,7 @@ on the build's commit.
 Environment: GH_TOKEN (checks: write, actions: read), GITHUB_REPOSITORY,
 GITHUB_RUN_ID, SHA, NAMESPACE, MODE.
 """
-import io, json, os, sys, time, urllib.error, urllib.request, zipfile
+import io, json, os, signal, sys, time, traceback, urllib.error, urllib.request, zipfile
 from datetime import datetime, timezone
 
 API = 'https://api.github.com'
@@ -21,6 +21,22 @@ NAMESPACE = os.environ['NAMESPACE']
 MODE = os.environ['MODE']
 SELF = os.environ.get('SELF_JOB', 'progress')
 TOKEN = os.environ['GH_TOKEN']
+# Where the check run's id is kept, so the workflow's cleanup step (--close)
+# can complete the check if this process is killed.
+CHECK_ID_FILE = os.path.join(os.environ.get('RUNNER_TEMP', '/tmp'), 'build-progress-check-id')
+
+
+class NoAuthOnRedirect(urllib.request.HTTPRedirectHandler):
+    """Artifact downloads redirect to blob storage, which rejects (401) the
+    GitHub token urllib would otherwise forward."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None:
+            new.remove_header('Authorization')
+        return new
+
+
+OPENER = urllib.request.build_opener(NoAuthOnRedirect)
 
 
 def request(method, path, body=None, raw=False):
@@ -28,13 +44,15 @@ def request(method, path, body=None, raw=False):
     data = json.dumps(body).encode() if body is not None else None
     for attempt in range(4):
         req = urllib.request.Request(url, data=data, method=method, headers={
-            'Authorization': f'Bearer {TOKEN}', 'Accept': 'application/vnd.github+json'})
+            'Authorization': f'Bearer {TOKEN}', 'Accept': 'application/vnd.github+json',
+            'Content-Type': 'application/json'})
         try:
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with OPENER.open(req, timeout=60) as r:
                 payload = r.read()
                 return payload if raw else (json.loads(payload) if payload else None)
         except (urllib.error.URLError, TimeoutError) as e:
-            if attempt == 3:
+            client_error = isinstance(e, urllib.error.HTTPError) and 400 <= e.code < 500 and e.code != 429
+            if attempt == 3 or client_error:
                 raise
             print(f'{method} {url}: {e}; retrying', file=sys.stderr)
             time.sleep(5 * (attempt + 1))
@@ -56,10 +74,14 @@ def artifacts(run):
 
 
 def artifact_json(artifact):
-    """The single JSON file in an artifact."""
-    blob = request('GET', artifact['archive_download_url'], raw=True)
-    with zipfile.ZipFile(io.BytesIO(blob)) as z:
-        return json.loads(z.read(z.namelist()[0]))
+    """The single JSON file in an artifact, or None if it can't be read."""
+    try:
+        blob = request('GET', artifact['archive_download_url'], raw=True)
+        with zipfile.ZipFile(io.BytesIO(blob)) as z:
+            return json.loads(z.read(z.namelist()[0]))
+    except Exception as e:
+        print(f"artifact {artifact['name']}: {e}", file=sys.stderr)
+        return None
 
 
 def previous_run():
@@ -73,7 +95,7 @@ def previous_run():
         meta = artifacts(candidate['id']).get('build-meta')
         if not meta or meta['expired']:
             continue
-        m = artifact_json(meta)
+        m = artifact_json(meta) or {}
         if m.get('namespace') == NAMESPACE and m.get('mode') == MODE:
             return candidate['id']
     return None
@@ -136,33 +158,74 @@ def render(cur, prev, phases, prev_phases):
     return title, summary[:60000], '\n'.join(text)[:60000]
 
 
-def main():
-    check = request('POST', f'/repos/{REPO}/check-runs', {
-        'name': 'Build progress', 'head_sha': SHA, 'status': 'in_progress',
-        'output': {'title': 'Starting', 'summary': 'Waiting for the first jobs.'}})
+def watch(check_id):
     prev = previous_run()
     prev_jobs = jobs(prev) if prev else []
     prev_phases = {}
     if prev:
         for name, a in artifacts(prev).items():
             if name.startswith('phases-') and not a['expired']:
-                prev_phases[name[len('phases-'):]] = artifact_json(a)
+                p = artifact_json(a)
+                if p:
+                    prev_phases[name[len('phases-'):]] = p
     phases = {}
     while True:
         cur = jobs(RUN)
         for name, a in artifacts(RUN).items():
             key = name[len('phases-'):]
             if name.startswith('phases-') and key not in phases:
-                phases[key] = artifact_json(a)
+                p = artifact_json(a)
+                if p:
+                    phases[key] = p
         title, summary, text = render(cur, prev_jobs, phases, prev_phases)
         finished = all(j['status'] == 'completed' for j in cur if j['name'] != SELF)
         body = {'output': {'title': title, 'summary': summary, 'text': text or 'No phase timings yet.'}}
         if finished:
             body.update(status='completed', conclusion='neutral')
-        request('PATCH', f"/repos/{REPO}/check-runs/{check['id']}", body)
+        request('PATCH', f'/repos/{REPO}/check-runs/{check_id}', body)
         if finished:
             return
         time.sleep(60)
+
+
+def close(check_id, why):
+    """Completes the check run, so it never stays in progress."""
+    request('PATCH', f'/repos/{REPO}/check-runs/{check_id}', {
+        'status': 'completed', 'conclusion': 'neutral',
+        'output': {'title': 'Progress reporting stopped', 'summary': why[-60000:]}})
+
+
+def main():
+    if sys.argv[1:] == ['--close']:
+        # Cleanup step: the watcher was killed (timeout, cancel) or crashed
+        # before it could complete the check.
+        try:
+            check_id = open(CHECK_ID_FILE).read().strip()
+        except FileNotFoundError:
+            return
+        check = request('GET', f'/repos/{REPO}/check-runs/{check_id}')
+        if check['status'] != 'completed':
+            close(check_id, 'The progress job stopped before the build finished; see its log.')
+        return
+
+    check = request('POST', f'/repos/{REPO}/check-runs', {
+        'name': 'Build progress', 'head_sha': SHA, 'status': 'in_progress',
+        'output': {'title': 'Starting', 'summary': 'Waiting for the first jobs.'}})
+    with open(CHECK_ID_FILE, 'w') as f:
+        f.write(str(check['id']))
+
+    # Turn a cancel or timeout's SIGTERM into an exception, so the check is closed.
+    def on_term(signum, frame):
+        raise SystemExit(f'Stopped by signal {signum}.')
+    signal.signal(signal.SIGTERM, on_term)
+
+    try:
+        watch(check['id'])
+    except BaseException as e:
+        why = traceback.format_exc() if not isinstance(e, SystemExit) else str(e)
+        print(why, file=sys.stderr)
+        close(check['id'], f'Progress reporting failed; the build itself is unaffected.\n\n```\n{why}\n```')
+        # Reporting is best effort: don't fail the job over it.
 
 
 if __name__ == '__main__':

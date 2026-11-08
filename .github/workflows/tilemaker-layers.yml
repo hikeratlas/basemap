@@ -342,3 +342,9 @@ jobs:
             sleep $((i*30))
           done
           exit 1
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress

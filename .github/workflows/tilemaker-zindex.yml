@@ -36,6 +36,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     permissions:
       actions: read
+      checks: write    # the progress check (#210)
       contents: read
     env:
       AREA: ${{ inputs.area }}
@@ -214,3 +215,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         # Only zindex's own: tilemaker-exports.yml's publish job uploads the rest.
         run: zstd -9 zindex.geojsonl && aws s3 cp --no-progress zindex.geojsonl.zst s3://hikes-public/geojsonl/"$NAMESPACE"/zindex.geojsonl.zst
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress

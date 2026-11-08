@@ -174,15 +174,18 @@ jobs:
             echo "Mode **$MODE**: reusing \`$REUSE\`'s outputs" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  # A "Build progress" check on the commit, updated every minute until the
-  # other jobs finish: their status and times next to the previous build's
-  # (same namespace and mode), and the tilemaker jobs' phase timings (#210).
-  # It's informational: a failure here doesn't fail the build.
-  progress:
+  # A "Build progress" check on the commit (#210): the jobs' status and times
+  # next to the previous build's (same namespace and mode), the tilemaker
+  # runs' phase timings and the routes shards' summaries. This short job
+  # creates it; the main jobs' last step (.github/actions/build-progress)
+  # re-renders it, and the progress job at the end completes it. Nothing
+  # polls, so no runner is held for the build. Informational only: these
+  # steps never fail the build.
+  progress-start:
     needs: config
     runs-on: ubuntu-24.04-arm
     continue-on-error: true
-    timeout-minutes: 240
+    timeout-minutes: 10
     permissions:
       actions: read
       checks: write
@@ -193,21 +196,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           sparse-checkout: bin
-      # How later builds find this one to compare with (bin/build-progress.py)
-      - name: Record the build's namespace and mode
-        env:
-          NAMESPACE: ${{ needs.config.outputs.namespace }}
-          MODE: ${{ needs.config.outputs.mode }}
-        run: |
-          jq -n --arg n "$NAMESPACE" --arg m "$MODE" '{namespace: $n, mode: $m}' > build-meta.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: build-meta
-          path: build-meta.json
-          retention-days: 90
-      - name: Report progress
-        # Shorter than the job's timeout, so the step below still runs.
-        timeout-minutes: 230
+      - name: Create the progress check
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -217,21 +206,22 @@ jobs:
           HISTORY: ${{ github.event_name == 'workflow_dispatch' && needs.config.outputs.namespace == 'north-america' }}
           # A link to the check at the top of the PR's description
           PR: ${{ github.event.pull_request.number }}
-        run: python3 bin/build-progress.py
-      # Never leave the check in progress if the step above was killed.
-      - name: Close the progress check
-        if: always()
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-          NAMESPACE: ${{ needs.config.outputs.namespace }}
-          MODE: ${{ needs.config.outputs.mode }}
-          PR: ${{ github.event.pull_request.number }}
-        run: python3 bin/build-progress.py --close
+        run: python3 bin/build-progress.py start
+      # How later builds find this one to compare with
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-meta
+          path: build-meta.json
+          if-no-files-found: ignore
+          retention-days: 90
 
   exports:
     needs: config
     if: needs.config.outputs.mode == 'full'
+    permissions:
+      actions: read    # the telemetry action reads the job's step times
+      checks: write    # the progress check (#210)
+      contents: read
     uses: ./.github/workflows/tilemaker-exports.yml
     with:
       area: ${{ needs.config.outputs.area }}
@@ -248,6 +238,7 @@ jobs:
     if: needs.config.outputs.mode == 'full'
     permissions:
       actions: read    # it polls this run's jobs for the other exports
+      checks: write    # the progress check (#210)
       contents: read
     uses: ./.github/workflows/tilemaker-zindex.yml
     with:
@@ -263,6 +254,10 @@ jobs:
       !cancelled() && needs.config.result == 'success'
       && needs.config.outputs.mode != 'style-only'
       && (needs.exports.result == 'success' || needs.exports.result == 'skipped')
+    permissions:
+      actions: read    # the telemetry action reads the job's step times
+      checks: write    # the progress check (#210)
+      contents: read
     uses: ./.github/workflows/tilemaker-layers.yml
     with:
       area: ${{ needs.config.outputs.area }}
@@ -280,6 +275,10 @@ jobs:
   routes:
     needs: [config, layers, reuse, zindex]
     if: ${{ !cancelled() && needs.layers.result == 'success' && needs.reuse.result != 'failure' }}
+    permissions:
+      actions: read    # the telemetry action reads the job's step times
+      checks: write    # the progress check (#210)
+      contents: read
     uses: ./.github/workflows/routes.yml
     with:
       area: ${{ needs.config.outputs.area }}
@@ -356,6 +355,7 @@ jobs:
     if: ${{ !cancelled() && needs.layers.result == 'success' }}
     permissions:
       actions: read    # the telemetry action reads the job's step times
+      checks: write    # the progress check (#210)
       contents: read
     uses: ./.github/workflows/tile-join.yml
     with:
@@ -480,6 +480,30 @@ jobs:
           else
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" > /dev/null
           fi
+
+  # Completes the progress check once every other job has finished, failed
+  # or been cancelled. It waits without a runner.
+  progress:
+    needs: [config, progress-start, exports, zindex, layers, routes, fixtures, tile-join, deploy-search, reuse, comment]
+    if: ${{ always() && needs.config.result == 'success' }}
+    runs-on: ubuntu-24.04-arm
+    continue-on-error: true
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      checks: write
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: bin
+      - name: Complete the progress check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: python3 bin/build-progress.py finish
 
   cleanup:
     if: >-

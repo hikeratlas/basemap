@@ -142,6 +142,12 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress
+
   # Uploads the exports' GeoJSON to R2 once every one has succeeded, so R2
   # is only updated with a complete set. The layers read it from there, so
   # this is what they wait for; zindex (tilemaker-zindex.yml), which only

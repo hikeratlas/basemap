@@ -1,0 +1,205 @@
+name: Build the zindex export and search DB
+
+# zindex: every searchable feature, from the PBF and FindIntersecting against
+# the other exports, and from it the search DB (<ns>.autosuggest.db). It was
+# a job of tilemaker-exports.yml, so the layers waited for it (25 min on
+# north-america) though they don't use it; build-area.yml now calls it
+# alongside the exports, and only the routes and deploy-search wait for it
+# (#203). It needs the other exports' artifacts from the same run, so it can
+# only be called from build-area.yml.
+
+on:
+  workflow_call:
+    inputs:
+      area:
+        description: Area to build; must be a key in areas.json
+        type: string
+        required: true
+      namespace:
+        description: R2 output name (defaults to the area), e.g. pr-41/nova-scotia
+        type: string
+        default: ''
+      bbox:
+        description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
+        type: string
+        default: ''
+
+jobs:
+  # Job names are prefixed with the caller's job, e.g. "exports / export
+  # (parks)"; the wait step below accounts for that.
+  #
+  # zindex uses FindIntersecting against the other exports. Rather than
+  # waiting for tilemaker-exports.yml, it starts at the same time so that its
+  # PBF download overlaps with the other exports, then waits for their jobs
+  # in this run before running.
+  zindex:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      actions: read
+      contents: read
+    env:
+      AREA: ${{ inputs.area }}
+      # Where outputs go in R2: geojsonl/<ns>/, layers/<ns>/, <ns>.pmtiles
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
+      # Must match the number of entries in the export job's matrix.
+      EXPECTED_EXPORTS: 7
+
+    steps:
+      - name: Runner diagnostics
+        continue-on-error: true
+        run: |
+          echo "::group::OS / image"
+          uname -a
+          grep -E '^(PRETTY_NAME|VERSION)=' /etc/os-release || true
+          echo "Runner: ${RUNNER_NAME:-?} image=${ImageOS:-?} ${ImageVersion:-?} arch=${RUNNER_ARCH:-?}"
+          echo "::endgroup::"
+          echo "::group::CPU"
+          lscpu
+          nproc
+          echo "::endgroup::"
+          echo "::group::Memory"
+          free -h
+          swapon --show || true
+          echo "::endgroup::"
+          echo "::group::Disk"
+          df -h
+          lsblk -o NAME,SIZE,TYPE,ROTA,MODEL,MOUNTPOINT || true
+          echo "::endgroup::"
+          echo "::group::Azure VM metadata"
+          VMSIZE=$(curl -s --max-time 3 -H Metadata:true "http://169.254.169.254/metadata/instance/compute/vmSize?api-version=2021-02-01&format=text" || true)
+          LOCATION=$(curl -s --max-time 3 -H Metadata:true "http://169.254.169.254/metadata/instance/compute/location?api-version=2021-02-01&format=text" || true)
+          echo "vmSize=${VMSIZE:-unknown} location=${LOCATION:-unknown}"
+          echo "::endgroup::"
+
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v7
+
+      # Runner details, a waterfall of the steps, and CPU, memory, disk and
+      # network charts in the job summary; the numbers go to the log too. Needs
+      # the checkout, so it doesn't sample the steps above.
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      # Pull the tilemaker image in the background so it overlaps with the PBF
+      # download. With no arguments, tilemaker prints its usage and exits.
+      # Background processes keep running across steps until the job ends.
+      - name: Pre-fetch tilemaker image
+        run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
+
+      - name: Read area config
+        id: area
+        run: |
+          if ! jq -e --arg a "$AREA" 'has($a)' areas.json > /dev/null; then
+            echo "::error::Unknown area '$AREA'; add it to areas.json"
+            exit 1
+          fi
+          jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
+
+      - name: Fetch QRank file
+        run: wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+
+      # Fetch from R2 directly with many concurrent ranged GETs; a single wget
+      # stream over the public URL tops out around 70 MB/s.
+      - name: Fetch PBF
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_RETRY_MODE: adaptive
+          AWS_MAX_ATTEMPTS: 10
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          start=$(date +%s)
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.zstd.pbf" "$AREA.pbf"  # see mirror-pbfs.yml
+          secs=$(( $(date +%s) - start ))
+          echo "Downloaded $(( $(stat -c %s "$AREA.pbf") / 1048576 )) MiB in ${secs}s"
+
+      - name: Wait for other exports
+        timeout-minutes: 60
+        env:
+          GH_TOKEN: ${{ github.token }}
+        # Polls with Fibonacci backoff (1, 1, 2, 3, 5, ... capped at 30s): small
+        # areas' exports finish within seconds of this job reaching here, while
+        # north-america's take many minutes.
+        run: |
+          prev=0
+          delay=1
+          backoff() {
+            sleep "$delay"
+            next=$(( prev + delay ))
+            prev=$delay
+            delay=$(( next < 30 ? next : 30 ))
+          }
+          while true; do
+            jobs=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
+              --jq '.jobs[] | select(.name | test("(^|/ )export \\(")) | [.name, .status, (.conclusion // "")] | @tsv') || {
+              echo "GitHub API request failed; retrying"
+              backoff
+              continue
+            }
+            failed=$(awk -F'\t' '$2 == "completed" && $3 != "success"' <<< "$jobs")
+            if [ -n "$failed" ]; then
+              echo "::error::Another export did not succeed:"
+              echo "$failed"
+              exit 1
+            fi
+            done_count=$(awk -F'\t' '$2 == "completed" && $3 == "success"' <<< "$jobs" | wc -l)
+            echo "$(date -u +%H:%M:%S) ${done_count}/${EXPECTED_EXPORTS} exports done"
+            if [ "$done_count" -ge "$EXPECTED_EXPORTS" ]; then
+              break
+            fi
+            backoff
+          done
+
+      - name: Fetch other exports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: geojsonl-*
+          merge-multiple: true
+
+      - name: Export
+        env:
+          TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
+          # A preview build only exports its box; otherwise the area's, from
+          # areas.json, as the layers use. tilemaker reads shapefiles (zindex)
+          # only with a box, and a PBF made by osmium merge (north-america,
+          # #158) has none in its header, unlike Geofabrik's.
+          BBOX: ${{ inputs.bbox }}
+        run: ls -l *.geojsonl && BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf zindex
+
+      # A pinned version lets setup-bun use its cache; "latest" downloads from
+      # bun.sh every time, which once took 2.5 minutes of retries after a 522.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: .bun-version
+
+      # Build the search index from zindex.geojsonl, so the website's search can
+      # query this build with ?build=<namespace>. Uploaded alongside the
+      # GeoJSON below.
+      - name: Build autosuggest DB
+        run: |
+          bun bin/create-autosuggest-db.ts
+          items=$(python3 -c "import sqlite3; print(sqlite3.connect('autosuggest.db').execute('select count(*) from items').fetchone()[0])")
+          echo "$items items, $(stat -c %s autosuggest.db) bytes"
+
+      - name: Upload autosuggest DB
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 cp --no-progress --content-type application/vnd.sqlite3 \
+            autosuggest.db "s3://hikes-public/$NAMESPACE.autosuggest.db"
+          echo "Published https://public.hikeratlas.com/$NAMESPACE.autosuggest.db" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload zindex GeoJSON
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        # Only zindex's own: tilemaker-exports.yml's publish job uploads the rest.
+        run: zstd -9 zindex.geojsonl && aws s3 cp --no-progress zindex.geojsonl.zst s3://hikes-public/geojsonl/"$NAMESPACE"/zindex.geojsonl.zst

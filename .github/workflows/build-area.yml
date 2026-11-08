@@ -1,7 +1,7 @@
 name: Build area
 
 # Runs the whole pipeline (exports -> layers -> tile-join, and alongside it
-# routes) for one area.
+# routes; zindex and the search DB alongside the layers) for one area.
 #
 # - Every push to main rebuilds nova-scotia into the "nova-scotia" namespace.
 # - Every PR builds into its own "pr-<number>/<area>" namespace, so PRs don't
@@ -144,7 +144,7 @@ jobs:
           BBOX: ${{ steps.target.outputs.bbox }}
           # Files the exports (and the search DB) depend on
           EXPORT_INPUTS: >-
-            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts)$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports)\.yml$)
+            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts)$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
         run: |
           if [ -n "$PR" ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
@@ -184,6 +184,23 @@ jobs:
       bbox: ${{ needs.config.outputs.bbox }}
     secrets: inherit
 
+  # The zindex export and the search DB built from it. The layers don't use
+  # them, so they don't wait for them: only the routes (which add their hikes
+  # to the search DB) and deploy-search do (#203). It starts with the exports
+  # and waits for their jobs itself.
+  zindex:
+    needs: config
+    if: needs.config.outputs.mode == 'full'
+    permissions:
+      actions: read    # it polls this run's jobs for the other exports
+      contents: read
+    uses: ./.github/workflows/tilemaker-zindex.yml
+    with:
+      area: ${{ needs.config.outputs.area }}
+      namespace: ${{ needs.config.outputs.namespace }}
+      bbox: ${{ needs.config.outputs.bbox }}
+    secrets: inherit
+
   layers:
     needs: [config, exports]
     # Runs after the exports, or without them (no-exports)
@@ -202,10 +219,11 @@ jobs:
   # Curated hikes, from the layers just built (see routes.yml). They're an
   # archive of their own, published alongside tile-join's; if curation fails,
   # the map is still published, with the namespace's previous routes.
-  # It waits for reuse too: it adds the hikes to the namespace's search DB,
-  # which reuse may copy in from the reused build first.
+  # It waits for reuse and zindex too: it adds the hikes to the namespace's
+  # search DB, which reuse may copy in from the reused build first, or zindex
+  # build. If zindex fails, the routes still run, on the previous search DB.
   routes:
-    needs: [config, layers, reuse]
+    needs: [config, layers, reuse, zindex]
     if: ${{ !cancelled() && needs.layers.result == 'success' && needs.reuse.result != 'failure' }}
     uses: ./.github/workflows/routes.yml
     with:
@@ -294,10 +312,11 @@ jobs:
   # this build's autosuggest DB once the tiles are live and the routes have
   # added their hikes to it, and with hikeratlas/website main's search code,
   # so the two don't drift apart. If the routes fail, the DB has the exports'
-  # rows (or the reused build's), as before.
+  # rows (or the reused build's), as before. Not if zindex failed: the DB
+  # would be the previous build's.
   deploy-search:
-    needs: [config, tile-join, routes]
-    if: ${{ !cancelled() && needs.tile-join.result == 'success' && needs.config.outputs.namespace == 'north-america' }}
+    needs: [config, tile-join, routes, zindex]
+    if: ${{ !cancelled() && needs.tile-join.result == 'success' && needs.zindex.result != 'failure' && needs.config.outputs.namespace == 'north-america' }}
     permissions:
       contents: read
       id-token: write  # deploy-search logs in to AWS with OIDC

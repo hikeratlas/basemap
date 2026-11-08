@@ -182,6 +182,13 @@ function relation_function()
 	if id == '12180623' then return end
 	if id == '6495680' then return end
 	if id == '6535292' then return end -- Tongass National Park
+	-- These cross the antimeridian (the Aleutians), so their bounding box
+	-- spans every longitude: tilemaker then clips them, thousands of islands,
+	-- into every z14 tile from 51 to 69 N across the build, and the layer took
+	-- ~27 min on north-america (#198). The exports split them instead
+	-- (geometry.split_antimeridian, #57); a slice can't, so they're left out.
+	if id == '8907468' then return end -- Alaska Maritime National Wildlife Refuge
+	if id == '16685152' then return end -- Aleutian Islands Wilderness
 
 	maybe_emit()
 end

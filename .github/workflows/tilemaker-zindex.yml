@@ -167,7 +167,18 @@ jobs:
           # only with a box, and a PBF made by osmium merge (north-america,
           # #158) has none in its header, unlike Geofabrik's.
           BBOX: ${{ inputs.bbox }}
-        run: ls -l *.geojsonl && BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf zindex
+        # tilemaker's output, timestamped, for the phase timings below (#210)
+        run: |
+          set -o pipefail
+          ls -l *.geojsonl && BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf zindex 2>&1 \
+            | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
+
+      - name: Phase timings
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/phase-timings
+        with:
+          name: zindex
 
       # A pinned version lets setup-bun use its cache; "latest" downloads from
       # bun.sh every time, which once took 2.5 minutes of retries after a 522.

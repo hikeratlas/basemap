@@ -1,0 +1,30 @@
+name: Phase timings
+description: >
+  Where a tilemaker run spent its time (reading GeoJSON, nodes, ways,
+  relations, writing tiles), with the CPU, iowait and memory of each phase,
+  from its output as bin/timestamp-lines.py logged it and the telemetry
+  action's samples. Uploaded as a phases-NAME artifact for build-area.yml's
+  "Build progress" check (#210). Use it with if: always().
+inputs:
+  name:
+    description: Name of the run, e.g. layer-ways; the artifact is phases-NAME.
+    required: true
+  log:
+    description: The timestamped log.
+    default: ${{ runner.temp }}/tilemaker.log
+runs:
+  using: composite
+  steps:
+    - name: Parse the log
+      shell: bash
+      env:
+        NAME: ${{ inputs.name }}
+        LOG: ${{ inputs.log }}
+      run: |
+        python3 bin/tilemaker-phases.py "$LOG" "$RUNNER_TEMP"/telemetry-*.jsonl > "$RUNNER_TEMP/phases-$NAME.json"
+        cat "$RUNNER_TEMP/phases-$NAME.json"
+    - uses: actions/upload-artifact@v4
+      with:
+        name: phases-${{ inputs.name }}
+        path: ${{ runner.temp }}/phases-${{ inputs.name }}.json
+        retention-days: 90

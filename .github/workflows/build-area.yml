@@ -187,6 +187,7 @@ jobs:
       actions: read
       checks: write
       contents: read
+      issues: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -211,6 +212,8 @@ jobs:
           SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           NAMESPACE: ${{ needs.config.outputs.namespace }}
           MODE: ${{ needs.config.outputs.mode }}
+          # A comment on the "Build history" issue for manual north-america builds
+          HISTORY: ${{ github.event_name == 'workflow_dispatch' && needs.config.outputs.namespace == 'north-america' }}
         run: python3 bin/build-progress.py
       # Never leave the check in progress if the step above was killed.
       - name: Close the progress check

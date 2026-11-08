@@ -174,6 +174,43 @@ jobs:
             echo "Mode **$MODE**: reusing \`$REUSE\`'s outputs" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # A "Build progress" check on the commit, updated every minute until the
+  # other jobs finish: their status and times next to the previous build's
+  # (same namespace and mode), and the tilemaker jobs' phase timings (#210).
+  # It's informational: a failure here doesn't fail the build.
+  progress:
+    needs: config
+    runs-on: ubuntu-24.04-arm
+    continue-on-error: true
+    timeout-minutes: 240
+    permissions:
+      actions: read
+      checks: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: bin
+      # How later builds find this one to compare with (bin/build-progress.py)
+      - name: Record the build's namespace and mode
+        env:
+          NAMESPACE: ${{ needs.config.outputs.namespace }}
+          MODE: ${{ needs.config.outputs.mode }}
+        run: |
+          jq -n --arg n "$NAMESPACE" --arg m "$MODE" '{namespace: $n, mode: $m}' > build-meta.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-meta
+          path: build-meta.json
+          retention-days: 90
+      - name: Report progress
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          NAMESPACE: ${{ needs.config.outputs.namespace }}
+          MODE: ${{ needs.config.outputs.mode }}
+        run: python3 bin/build-progress.py
+
   exports:
     needs: config
     if: needs.config.outputs.mode == 'full'

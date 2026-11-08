@@ -7,13 +7,17 @@ namespace and mode), and the tilemaker jobs' phase timings
 (bin/tilemaker-phases.py, uploaded as phases-* artifacts), into a check run
 on the build's commit.
 
+For a PR build (PR=<number>), it links the check from the top of the PR's
+description, replacing the previous build's link.
+
 With HISTORY=true, it also keeps a comment for the build on the "Build
 history" issue, for a running record of build times.
 
 Environment: GH_TOKEN (checks: write, actions: read, and issues: write for
-HISTORY), GITHUB_REPOSITORY, GITHUB_RUN_ID, SHA, NAMESPACE, MODE, HISTORY.
+HISTORY, pull-requests: write for PR), GITHUB_REPOSITORY, GITHUB_RUN_ID, SHA,
+NAMESPACE, MODE, HISTORY, PR.
 """
-import io, json, os, signal, sys, time, traceback, urllib.error, urllib.request, zipfile
+import io, json, os, re, signal, sys, time, traceback, urllib.error, urllib.request, zipfile
 from datetime import datetime, timedelta, timezone
 
 API = 'https://api.github.com'
@@ -26,6 +30,8 @@ SELF = os.environ.get('SELF_JOB', 'progress')
 CHECK = 'Build progress'
 # Whether to keep a comment on the "Build history" issue (manual north-america builds).
 HISTORY = os.environ.get('HISTORY') == 'true'
+# The PR being built, if any: its description gets a link to the check.
+PR = os.environ.get('PR', '')
 TOKEN = os.environ['GH_TOKEN']
 # Where the check run's id is kept, so the workflow's cleanup step (--close)
 # can complete the check if this process is killed.
@@ -288,6 +294,31 @@ class History:
         self.comment = request('POST', f'/repos/{REPO}/issues/{self.issue}/comments', {'body': body})['id']
 
 
+LINK = re.compile(r'<!-- build-progress -->.*?<!-- /build-progress -->\n*', re.S)
+
+
+def link_from_pr(check_id, status, start=False):
+    """Puts a link to this build's check at the top of the PR's description,
+    replacing the previous build's when it starts. Later updates only touch
+    the link while it's still this build's, so a superseded build's last
+    update doesn't replace a newer build's link. (An edit with the job's
+    token doesn't trigger workflows, so this doesn't rebuild the PR.)"""
+    if not PR:
+        return
+    try:
+        url = f'https://github.com/{REPO}/pull/{PR}/checks?check_run_id={check_id}'
+        block = f'<!-- build-progress -->\n📊 **[Build progress]({url})** for {SHA[:7]}: {status}\n<!-- /build-progress -->\n\n'
+        body = request('GET', f'/repos/{REPO}/pulls/{PR}')['body'] or ''
+        current = LINK.search(body)
+        if not start and not (current and f'check_run_id={check_id})' in current[0]):
+            return
+        new = block + LINK.sub('', body, count=1)
+        if new != body:
+            request('PATCH', f'/repos/{REPO}/pulls/{PR}', {'body': new})
+    except Exception as e:
+        print(f'PR link: {e}', file=sys.stderr)
+
+
 def watch(check_id):
     prev = previous_run()
     prev_jobs = jobs(prev) if prev else []
@@ -311,6 +342,7 @@ def watch(check_id):
             except Exception as e:
                 print(f'history comment: {e}', file=sys.stderr)
         if finished:
+            link_from_pr(check_id, title)
             return
         time.sleep(60)
 
@@ -320,6 +352,7 @@ def close(check_id, why):
     request('PATCH', f'/repos/{REPO}/check-runs/{check_id}', {
         'status': 'completed', 'conclusion': 'neutral',
         'output': {'title': 'Progress reporting stopped', 'summary': why[-60000:]}})
+    link_from_pr(check_id, 'progress reporting stopped')
 
 
 def main():
@@ -340,6 +373,7 @@ def main():
         'output': {'title': 'Starting', 'summary': 'Waiting for the first jobs.'}})
     with open(CHECK_ID_FILE, 'w') as f:
         f.write(str(check['id']))
+    link_from_pr(check['id'], 'running', start=True)
 
     # Turn a cancel or timeout's SIGTERM into an exception, so the check is closed.
     def on_term(signum, frame):

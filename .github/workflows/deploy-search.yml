@@ -13,8 +13,8 @@ name: Deploy search index
 # DB, to deploy only code: run it by hand with namespace empty and
 # website_ref main after merging a search change in hikeratlas/website.
 #
-# tile-join.yml calls this after a north-america build, so search goes live
-# with the tiles. It can also be run by hand.
+# build-area.yml calls this after a north-america build's tile-join and
+# routes, so search goes live with the tiles. It can also be run by hand.
 #
 # AWS access is via GitHub's OIDC integration: the SEARCH_AWS_ROLE_ARN secret
 # names an IAM role allowed lambda:GetFunction, lambda:GetFunctionConfiguration

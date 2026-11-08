@@ -4,7 +4,9 @@ name: Curate routes
 # the build's own layer tiles. The parks are split over SHARDS machines
 # (routes --shard), whose results one more job merges (routes --merge). It
 # writes:
-#   layers/<ns>/routes.pmtiles      the "route" layer, joined into the map
+#   <ns>.routes.pmtiles             the "route" layer, a source of its own
+#                                   in the style (bin/split-routes-source)
+#   layers/<ns>/routes.pmtiles      the same, for fixtures and as the seed
 #   routes/<ns>/<park osm id>.json  each park's routes in full, for the website
 
 on:
@@ -279,6 +281,7 @@ jobs:
           echo "PREV=$prev" >> "$GITHUB_ENV"
           for i in 1 2 3; do
             aws s3 cp --no-progress slices/routes.pmtiles "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" \
+              && aws s3 cp --no-progress --cache-control no-cache slices/routes.pmtiles "s3://hikes-public/$NAMESPACE.routes.pmtiles" \
               && aws s3 cp --no-progress --content-type application/octet-stream /mnt/routes/out/routes.bin "$dest/$BUNDLE" \
               && { [ ! -s /mnt/routes/out/regions.json ] || aws s3 cp --no-progress --content-type application/json --cache-control no-cache /mnt/routes/out/regions.json "$dest/regions.json"; } \
               && aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json" \

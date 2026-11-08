@@ -10,6 +10,7 @@ trap finish EXIT
 
 bun mapt style https://public.hikeratlas.com/north-america.pmtiles > "${fname_style}"
 "$(dirname "$0")"/pin-sprites "${fname_style}"
+"$(dirname "$0")"/split-routes-source "${fname_style}" https://public.hikeratlas.com/north-america.routes.pmtiles
 # NB: the CI workflows also upload with Cache-Control: no-cache, so browsers
 # revalidate the style on every load. Set the same here if r2cmd supports it;
 # otherwise a manual publish leaves style.json without that header.

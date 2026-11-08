@@ -160,12 +160,38 @@ jobs:
           path: /mnt/routes/log.txt
           if-no-files-found: ignore
 
+      # The slowest parks, timeouts and totals, for build-area.yml's "Build
+      # progress" check (#210).
+      - name: Summarize the log
+        if: always()
+        continue-on-error: true
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          python3 bin/routes-summary.py /mnt/routes/log.txt > "$RUNNER_TEMP/routes-summary-$SHARD.json"
+          head -c 2000 "$RUNNER_TEMP/routes-summary-$SHARD.json"
+      - name: Upload the summary
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: routes-summary-${{ matrix.shard }}
+          path: ${{ runner.temp }}/routes-summary-${{ matrix.shard }}.json
+          if-no-files-found: ignore
+          retention-days: 90
+
       - name: Upload the shard's routes
         uses: actions/upload-artifact@v4
         with:
           name: routes-raw-${{ matrix.shard }}
           path: /mnt/routes/out/raw/
           if-no-files-found: warn
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress
 
   merge:
     needs: curate
@@ -344,3 +370,9 @@ jobs:
             jq -R -s -c '{Objects: (split("\n") | map(select(length > 0)) | map({Key: .})), Quiet: true}' "$b" > delete.json
             aws s3api delete-objects --bucket hikes-public --delete file://delete.json > /dev/null
           done
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress

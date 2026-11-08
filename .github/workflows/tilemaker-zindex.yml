@@ -36,6 +36,7 @@ jobs:
     runs-on: ubuntu-24.04-arm
     permissions:
       actions: read
+      checks: write    # the progress check (#210)
       contents: read
     env:
       AREA: ${{ inputs.area }}
@@ -167,7 +168,18 @@ jobs:
           # only with a box, and a PBF made by osmium merge (north-america,
           # #158) has none in its header, unlike Geofabrik's.
           BBOX: ${{ inputs.bbox }}
-        run: ls -l *.geojsonl && BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf zindex
+        # tilemaker's output, timestamped, for the phase timings below (#210)
+        run: |
+          set -o pipefail
+          ls -l *.geojsonl && BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf zindex 2>&1 \
+            | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
+
+      - name: Phase timings
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/phase-timings
+        with:
+          name: zindex
 
       # A pinned version lets setup-bun use its cache; "latest" downloads from
       # bun.sh every time, which once took 2.5 minutes of retries after a 522.
@@ -203,3 +215,9 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         # Only zindex's own: tilemaker-exports.yml's publish job uploads the rest.
         run: zstd -9 zindex.geojsonl && aws s3 cp --no-progress zindex.geojsonl.zst s3://hikes-public/geojsonl/"$NAMESPACE"/zindex.geojsonl.zst
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress

@@ -122,7 +122,18 @@ jobs:
           # #158) has none in its header, unlike Geofabrik's.
           BBOX: ${{ inputs.bbox }}
           EXPORT: ${{ matrix.export }}
-        run: BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf "$EXPORT"
+        # tilemaker's output, timestamped, for the phase timings below (#210)
+        run: |
+          set -o pipefail
+          BBOX=${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)} ./export/export $AREA.pbf "$EXPORT" 2>&1 \
+            | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
+
+      - name: Phase timings
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/phase-timings
+        with:
+          name: export-${{ matrix.export }}
 
       - uses: actions/upload-artifact@v7
         with:
@@ -130,6 +141,12 @@ jobs:
           path: ${{ matrix.export }}.geojsonl
           if-no-files-found: error
           retention-days: 1
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress
 
   # Uploads the exports' GeoJSON to R2 once every one has succeeded, so R2
   # is only updated with a complete set. The layers read it from there, so

@@ -5,8 +5,9 @@ Where a tilemaker run spent its time (#210), from its output as
 bin/timestamp-lines.py logged it: reading GeoJSON and shapefiles, scanning
 the PBF, reading its nodes, ways and relations, collecting tiles and writing
 them. With the telemetry action's samples (.github/actions/telemetry), each
-phase also gets the CPU it used: user + system time over all of the
-runner's cores.
+phase also gets the CPU it used (user + system time over all of the
+runner's cores), the share of time the CPUs waited on I/O, and the peak
+memory in use.
 """
 import json, re, sys
 
@@ -51,15 +52,23 @@ def phases(lines):
     return out
 
 
-def cpu_busy(samples, start, end):
-    """Average CPU busy share (user + system) between two times, in %."""
+def resources(samples, start, end):
+    """CPU busy (user + system) and iowait shares, in %, and peak memory in
+    use, in GiB, between two times."""
     inside = [s for s in samples if start <= s['t'] <= end]
     if len(inside) < 2:
-        return None
+        return {}
     a, b = inside[0]['cpu'], inside[-1]['cpu']
-    busy = (b['user'] - a['user']) + (b['system'] - a['system'])
-    total = busy + (b['idle'] - a['idle']) + (b['iowait'] - a['iowait']) + (b.get('steal', 0) - a.get('steal', 0))
-    return round(100 * busy / total) if total > 0 else None
+    d = {k: b.get(k, 0) - a.get(k, 0) for k in ('user', 'system', 'idle', 'iowait', 'steal')}
+    total = sum(d.values())
+    out = {}
+    if total > 0:
+        out['cpu'] = round(100 * (d['user'] + d['system']) / total)
+        out['iowait'] = round(100 * d['iowait'] / total)
+    mem = [s['mem']['used'] for s in inside if 'mem' in s]
+    if mem:
+        out['mem_gib'] = round(max(mem) / 2**30, 1)
+    return out
 
 
 def main(log, *telemetry):
@@ -78,9 +87,7 @@ def main(log, *telemetry):
                 pass
     samples.sort(key=lambda s: s['t'])
     for p in result:
-        busy = cpu_busy(samples, p['start'], p['end'])
-        if busy is not None:
-            p['cpu'] = busy
+        p.update(resources(samples, p['start'], p['end']))
     json.dump({'phases': result}, sys.stdout, indent=1)
     print()
 

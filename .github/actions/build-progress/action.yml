@@ -1,0 +1,15 @@
+name: Build progress
+description: >
+  Re-renders build-area.yml's "Build progress" check (#210) with this job's
+  phase timings and routes summary ($RUNNER_TEMP/phases-*.json,
+  routes-summary-*.json). Use it as a job's last step, with if: always();
+  the job needs checks: write and actions: read. It never fails the job.
+runs:
+  using: composite
+  steps:
+    - name: Update the progress check
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: python3 bin/build-progress.py update || true

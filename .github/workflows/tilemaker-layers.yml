@@ -304,27 +304,14 @@ jobs:
           bun mapt build "$AREA".pbf $LAYER -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"} 2>&1 \
             | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
 
-      # Where tilemaker spent its time (reading GeoJSON, nodes, ways, relations,
-      # writing tiles) and the CPU each phase used, for build-area.yml's
-      # "Build progress" check (#210).
+      # Where tilemaker spent its time, for build-area.yml's "Build progress"
+      # check (#210).
       - name: Phase timings
         if: always()
         continue-on-error: true
-        env:
-          LAYER: ${{ matrix.layer }}
-        run: |
-          python3 bin/tilemaker-phases.py "$RUNNER_TEMP/tilemaker.log" "$RUNNER_TEMP"/telemetry-*.jsonl > "$RUNNER_TEMP/phases-$LAYER.json"
-          cat "$RUNNER_TEMP/phases-$LAYER.json"
-
-      - name: Upload phase timings
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: ./.github/actions/phase-timings
         with:
-          name: phases-${{ matrix.layer }}
-          path: ${{ runner.temp }}/phases-${{ matrix.layer }}.json
-          if-no-files-found: ignore
-          retention-days: 30
+          name: layer-${{ matrix.layer }}
 
       # The slices ask tilemaker for zstd tiles. Byte 98 of a PMTiles v3
       # header is the tile compression, and 4 means zstd.
@@ -355,3 +342,9 @@ jobs:
             sleep $((i*30))
           done
           exit 1
+
+      # Re-render build-area.yml's progress check with this job's results (#210)
+      - name: Build progress
+        if: always()
+        continue-on-error: true
+        uses: ./.github/actions/build-progress

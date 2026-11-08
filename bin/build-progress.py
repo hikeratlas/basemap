@@ -172,7 +172,7 @@ def eta(cur, prev, t0, now):
 
 
 def job_table(cur, prev, now):
-    t0 = min(t(j['started_at']) for j in cur if j['started_at'])
+    t0 = min((t(j['started_at']) for j in cur if j['started_at']), default=now)
     by_name = {j['name']: j for j in prev}
     rows, gantt, done = [], [], 0
     for j in sorted(cur, key=lambda j: j['started_at'] or 'z'):

@@ -68,36 +68,4 @@ function geometry.line_km(geom)
 	return km
 end
 
--- Splits a MultiPolygon that crosses the antimeridian (e.g. the Aleutian
--- Islands, Alaska, the United States) into its eastern and western parts.
---
--- Otherwise its bounding box spans every longitude. tilemaker indexes each
--- GeoJSON feature by its bounding box, so every FindIntersecting/Intersects
--- query in that latitude band then does an exact test against the whole
--- (often huge) geometry: on north-america, the Alaska Maritime National
--- Wildlife Refuge alone made zindex ~3x slower.
---
--- Returns a list of geometries.
-function geometry.split_antimeridian(geom)
-	if not geom or geom['type'] ~= 'MultiPolygon' then return {geom} end
-
-	local east = {}
-	local west = {}
-	for _, polygon in ipairs(geom['coordinates']) do
-		if polygon[1][1][1] < 0 then
-			table.insert(west, polygon)
-		else
-			table.insert(east, polygon)
-		end
-	end
-
-	local box = geometry.box(geom)
-	if #east == 0 or #west == 0 or box['max_lon'] - box['min_lon'] <= 180 then return {geom} end
-
-	return {
-		{type='MultiPolygon', coordinates=west},
-		{type='MultiPolygon', coordinates=east},
-	}
-end
-
 return geometry

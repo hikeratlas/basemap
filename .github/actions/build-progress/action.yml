@@ -1,9 +1,22 @@
 name: Build progress
 description: >
-  Re-renders build-area.yml's "Build progress" check (#210) with this job's
-  phase timings and routes summary ($RUNNER_TEMP/phases-*.json,
-  routes-summary-*.json). Use it as a job's last step, with if: always();
-  the job needs checks: write and actions: read. It never fails the job.
+  Updates build-area.yml's "Build progress" check (#210). Without inputs,
+  as a job's last step (with if: always()): merges this job's phase timings
+  and routes summary ($RUNNER_TEMP/phases-*.json, routes-summary-*.json)
+  into the check and re-renders it. With live:, early in a long job: starts
+  a background loop that puts where the job's run is now (from its log)
+  into the check every few minutes until the job ends. The job needs
+  checks: write and actions: read. It never fails the job.
+inputs:
+  live:
+    description: Name of the run for the live loop, e.g. layer-ways; empty for an update.
+    default: ''
+  kind:
+    description: For live, the log's format, tilemaker (timestamped by bin/timestamp-lines.py) or routes.
+    default: tilemaker
+  log:
+    description: For live, the log to follow.
+    default: ${{ runner.temp }}/tilemaker.log
 runs:
   using: composite
   steps:
@@ -12,4 +25,13 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
         SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-      run: python3 bin/build-progress.py update || true
+        LIVE: ${{ inputs.live }}
+        KIND: ${{ inputs.kind }}
+        LOG: ${{ inputs.log }}
+      run: |
+        if [ -n "$LIVE" ]; then
+          # Ends with the job: the runner stops leftover processes.
+          nohup python3 bin/build-progress.py live "$LIVE" "$KIND" "$LOG" > "$RUNNER_TEMP/build-progress-live.log" 2>&1 &
+        else
+          python3 bin/build-progress.py update || true
+        fi

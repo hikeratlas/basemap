@@ -103,6 +103,13 @@ jobs:
       - name: Collect resource telemetry
         uses: ./.github/actions/telemetry
 
+      # Where this job's run is, in the progress check every few minutes (#210)
+      - name: Live progress
+        continue-on-error: true
+        uses: ./.github/actions/build-progress
+        with:
+          live: layer-${{ matrix.layer }}
+
       # Pull the tilemaker image in the background so it overlaps with the PBF
       # download. With no arguments, tilemaker prints its usage and exits.
       # Background processes keep running across steps until the job ends.

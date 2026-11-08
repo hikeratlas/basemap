@@ -71,6 +71,15 @@ jobs:
       - name: Collect resource telemetry
         uses: ./.github/actions/telemetry
 
+      # Where this job's run is, in the progress check every few minutes (#210)
+      - name: Live progress
+        continue-on-error: true
+        uses: ./.github/actions/build-progress
+        with:
+          live: routes-${{ matrix.shard }}
+          kind: routes
+          log: /mnt/routes/log.txt
+
       - name: Pre-fetch tilemaker image
         run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
 

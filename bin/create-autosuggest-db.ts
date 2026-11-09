@@ -17,17 +17,12 @@ const DB_FILE = 'autosuggest.db';
 // in the sea); the box is the union, so the map fits all of it.
 //
 // Trails too: a trail is many ways (and maybe a hiking route relation over
-// them), each with the trail's name. Its pieces in one park are one trail at
-// any distance: the West Coast Trail's Beach Option is five beach stretches
-// 5-15 km apart (#140). And pieces within TRAIL_ACROSS_PARKS_KM are one trail
-// whatever park they're in: Oregon's Tonquin Trail runs through Graham Oaks
-// Nature Park, Hedges Creek Greenway and land between (#140). Neither for a
-// generic name: one of only GENERIC_TRAIL_WORDs ("Blue Trail", "Connector"),
-// or in more than GENERIC_TRAIL_PARKS of the state's parks (unless it's a
-// long-distance trail's, a hiking route of LONG_ROUTE_KM or more, like the
-// Pacific Crest Trail). Those would chain through neighbouring parks, or a
-// big park's several blue-blazed trails, into one result; they merge as
-// before: same park, within MERGE_DISTANCE_KM.
+// them), each with the trail's name. In one park, pieces within
+// TRAIL_SAME_PARK_KM of the trail so far are one trail: the West Coast
+// Trail's Beach Option is stretches of beach 5-15 km apart (#140). Outside
+// parks, as other kinds, within MERGE_DISTANCE_KM. And a piece within its
+// same-named hiking route relation's extent is that route, across parks:
+// OSM says the Bay Circuit Trail's 58 pieces are one trail.
 //
 // Ranges too (#194): CanVec imported range names as natural=peak nodes with
 // no ele, one every few km along the range, so "La Cloche Mountains" was four
@@ -38,20 +33,7 @@ const DB_FILE = 'autosuggest.db';
 // and stay separate.
 const MERGED_KINDS = new Set(['cliff', 'park', 'trail', 'range']);
 const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1, range: 50 };
-const TRAIL_ACROSS_PARKS_KM = 5;
-const GENERIC_TRAIL_PARKS = 3;
-const LONG_ROUTE_KM = 50;
-// Words that say what a trail is, not which: a name of only these ("Blue
-// Trail", "Nature Trail", "North Ridge Connector") names many trails.
-const GENERIC_TRAIL_WORD = new Set(('trail trails path track loop connector spur access link cutoff cut-off main '
-	+ 'nature interpretive ridge river creek lake lakeshore shore beach falls hill pond marsh meadow woods forest '
-	+ 'perimeter outer inner upper lower old new short long north south east west '
-	+ 'horse bridle bike ski hiking walking fire road service multi-use overlook view summit scenic boardwalk '
-	+ 'the to and of a '
-	+ 'red orange yellow green blue purple pink white black brown gray grey tan teal')
-	.split(' '));
-const genericTrailName = (name: string) =>
-	String(name).toLowerCase().split(/[^a-z0-9-]+/).filter((w) => w).every((w) => GENERIC_TRAIL_WORD.has(w) || /^\d+$/.test(w));
+const TRAIL_SAME_PARK_KM = 15;
 const RANGE_NAME = /\b(mountains|range|hills|ridges|highlands)\b/i;
 
 const mergeKind = (row: any): string =>
@@ -89,30 +71,30 @@ export function mergePieces(rows: any[]): any[] {
 		const kind = mergeKind(row);
 		if (!MERGED_KINDS.has(kind)) { out.push(row); continue; }
 		// Case aside: "Acadian Trail" and "Acadian trail" are one trail.
-		// Ranges and trails merge across parks (see above).
+		// Ranges and trails can merge across parks (see above).
 		const key = JSON.stringify([kind, String(row.name).toLowerCase(), kind === 'range' || kind === 'trail' ? null : row.park, row.state, row.country]);
 		if (!groups.has(key)) groups.set(key, []);
 		groups.get(key)!.push(row);
 	}
 	for (const members of groups.values()) {
-		// Whether a trail's name is distinct (see above): its pieces join
-		// across parks, and anywhere in a park.
-		const distinct = !genericTrailName(members[0].name)
-			&& (members.some((r) => r.relation && (r.km ?? 0) >= LONG_ROUTE_KM)
-				|| new Set(members.map((r) => r.park).filter((p) => p)).size <= GENERIC_TRAIL_PARKS);
 		// Single-linkage clusters: keep absorbing rows near the cluster's box.
-		const remaining = [...members];
+		// Route relations first, so their pieces gather around them.
+		const remaining = [...members].sort((x, y) => (y.relation ? 1 : 0) - (x.relation ? 1 : 0));
 		while (remaining.length) {
 			const cluster = [remaining.shift()!];
 			let box = { ...boxOf(cluster[0]) };
-			const parks = new Set<string>(cluster[0].park ? [cluster[0].park] : []);
 			const kind = mergeKind(cluster[0]);
-			// A trail's piece joins if it's in a park the cluster is in (any
-			// distance), or near it (whatever park), as in the note above.
-			const joins = (r: any) => kind !== 'trail' ? near(box, boxOf(r), MERGE_DISTANCE_KM[kind])
-				: distinct ? (r.park && parks.has(r.park)) || near(box, boxOf(r), TRAIL_ACROSS_PARKS_KM)
-				// A generic name merges as before: same park, within 1 km.
-				: (r.park ?? null) === (cluster[0].park ?? null) && near(box, boxOf(r), MERGE_DISTANCE_KM.trail);
+			// A trail's pieces: in the cluster's parks (or outside parks, if
+			// it is), or within one of its route relations' extent.
+			const parks = new Set<string | null>([cluster[0].park ?? null]);
+			const routes: Box[] = cluster[0].relation ? [boxOf(cluster[0])] : [];
+			const joins = (r: any) => {
+				if (kind !== 'trail') return near(box, boxOf(r), MERGE_DISTANCE_KM[kind]);
+				if (routes.some((rb) => near(rb, boxOf(r), 0))) return true;
+				const park = r.park ?? null;
+				if (!parks.has(park)) return false;
+				return near(box, boxOf(r), park === null ? MERGE_DISTANCE_KM.trail : TRAIL_SAME_PARK_KM);
+			};
 			for (let grew = true; grew; ) {
 				grew = false;
 				for (let i = remaining.length - 1; i >= 0; i--) {
@@ -124,7 +106,8 @@ export function mergePieces(rows: any[]): any[] {
 							max_lon: Math.max(box.max_lon, b.max_lon), max_lat: Math.max(box.max_lat, b.max_lat),
 						};
 						cluster.push(r);
-						if (r.park) parks.add(r.park);
+						parks.add(r.park ?? null);
+						if (r.relation) routes.push(b);
 						grew = true;
 					}
 				}

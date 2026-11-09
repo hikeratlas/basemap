@@ -35,19 +35,28 @@ jobs:
       - name: Collect resource telemetry
         uses: ./.github/actions/telemetry
 
-      - name: Install osmium and Python packages
+      - name: Install osmium, pbf-filter and Python packages
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
           python3 -m venv venv && venv/bin/pip install -q -r lake-centrelines/requirements.txt
+          # The release named in .pbf-filter-version, as mirror-pbfs.yml uses.
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL --retry 4 -o "$RUNNER_TEMP/bin/pbf-filter" \
+            "https://github.com/hikeratlas/pbf-filter/releases/download/$(cat .pbf-filter-version)/pbf-filter-aarch64-linux"
+          chmod +x "$RUNNER_TEMP/bin/pbf-filter"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      # The original PBF: osmium can't read the zstd copy.
+      # The mirrored PBF has zstd blocks, which osmium can't read: convert
+      # them to zlib.
       - name: Fetch the north-america PBF
         run: |
           start=$(date +%s)
           aws configure set default.s3.max_concurrent_requests 32
           aws configure set default.s3.multipart_chunksize 64MB
-          aws s3 cp --no-progress s3://hikes-public/pbfs/north-america.pbf north-america.pbf
-          echo "Fetched $(( $(stat -c %s north-america.pbf) / 1048576 )) MiB in $(( $(date +%s) - start ))s"
+          aws s3 cp --no-progress s3://hikes-public/pbfs/north-america.zstd.pbf north-america.zstd.pbf
+          echo "Fetched $(( $(stat -c %s north-america.zstd.pbf) / 1048576 )) MiB in $(( $(date +%s) - start ))s"
+          time pbf-filter recompress --zlib north-america.zstd.pbf north-america.pbf
+          rm north-america.zstd.pbf
 
       - name: Build the centerlines
         run: |

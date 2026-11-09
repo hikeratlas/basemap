@@ -5,10 +5,10 @@ run-name: Mirror ${{ inputs.area }}${{ !inputs.fetch && ' (from R2)' || '' }}
 # Two stages:
 # - fetch: the area's Geofabrik extract, uploaded unchanged to R2 as
 #   pbfs/raw/<area>.osm.pbf (only the latest is kept);
-# - derive, from that: the PBFs the builds read, pbfs/<area>.zstd.pbf
-#   (zstd blocks, no metadata) and pbfs/<area>.pbf (the same with zlib
-#   blocks, for tools that can't read zstd, e.g. osmium in
-#   lake-centerlines.yml).
+# - derive, from that: the PBF the builds read, pbfs/<area>.zstd.pbf
+#   (zstd blocks, no metadata). A tool that can't read zstd converts it
+#   back itself (`pbf-filter recompress --zlib`, as lake-centerlines.yml
+#   does).
 # An area made of other areas (e.g. north-america: canada and us) has no
 # fetch: derive merges what the parts' runs published, so run those first.
 # Derive also writes, for builds to read instead (bin/fetch-pbf), each
@@ -157,7 +157,7 @@ jobs:
       # several times faster than zlib. Parts are merged in a single pass
       # over the sorted files, keeping one copy of what's in both (the
       # border).
-      - name: Make the area's PBFs
+      - name: Make the area's PBF
         run: |
           if [ -f source.pbf ]; then
             time pbf-filter recompress source.pbf "$AREA".zstd.pbf
@@ -166,14 +166,10 @@ jobs:
             time pbf-filter merge "$AREA".zstd.pbf part-*.pbf
             rm part-*.pbf
           fi
-          # The same, in zlib blocks, for tools that don't read zstd.
-          time pbf-filter recompress --zlib "$AREA".zstd.pbf "$AREA".pbf
-          ls -l "$AREA".pbf "$AREA".zstd.pbf
+          ls -l "$AREA".zstd.pbf
 
-      - name: Upload the area's PBFs
-        run: |
-          bin/upload-pbf "$AREA".pbf
-          bin/upload-pbf "$AREA".zstd.pbf
+      - name: Upload the area's PBF
+        run: bin/upload-pbf "$AREA".zstd.pbf
 
       # Each group's filtered PBF, from the area's: one read of it per group.
       - name: Make the filtered PBFs

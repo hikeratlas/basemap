@@ -217,7 +217,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          opts=(--name "$LAYER" --area "$AREA" --bbox "$BBOX" --profile "slices/$LAYER.lua" --mapt
+          opts=(--name "$LAYER" --area "$AREA" --bbox="$BBOX" --profile "slices/$LAYER.lua" --mapt
                 --file .github/workflows/tilemaker-layers.yml --file bin/docker-tilemaker)
           case $LAYER in
             water) opts+=(--file lake-centerlines.geojsonl) ;;

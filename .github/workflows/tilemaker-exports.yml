@@ -123,7 +123,7 @@ jobs:
         run: |
           base="geojsonl/$NAMESPACE/$EXPORT"
           bin/skip-if-unchanged "$base" "$base.geojsonl.zst" -- \
-            --name "$EXPORT" --area "$AREA" --bbox "${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)}" \
+            --name "$EXPORT" --area "$AREA" --bbox="${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)}" \
             --profile "export/$EXPORT.lua" --file .github/workflows/tilemaker-exports.yml
           [ ! -f "$RUNNER_TEMP/inputs.txt" ] || cp "$RUNNER_TEMP/inputs.txt" "$EXPORT.inputs"
 

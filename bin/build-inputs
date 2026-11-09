@@ -15,7 +15,7 @@ and skip the build when the new one is the same: what's in R2 is what they
 would build. When it differs, `diff` of the two says what changed. Needs the
 AWS_* settings for R2.
 
-  bin/build-inputs --name NAME --area AREA --bbox BBOX --profile PROFILE.lua
+  bin/build-inputs --name NAME --area AREA --bbox=BBOX --profile PROFILE.lua
       [--geojsonl-from NAMESPACE] [--file PATH ...] [--mapt]
 """
 import argparse

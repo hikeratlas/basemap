@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+# For an area made of parts (areas.json's "parts", e.g. north-america:
+# canada and us), makes what it can of its filtered PBFs and relations
+# sidecar by merging the parts' own (`pbf-filter merge`, which gives what
+# filtering the merged PBF would), instead of filtering the area's PBF.
+#
+# A group is merged if, for every part, its filtered PBF is newer than the
+# part's PBF (so made from it) and `pbf-filter check` says it serves the
+# group's profiles as they are now; the sidecar, if every part's is newer
+# than its PBF. The rest is left for `pbf-filter groups` and `relations` on
+# the area's PBF. Merges run a few at a time: one keeps about 1.5 cores busy.
+#
+# Writes filtered/<group>.zstd.pbf and $AREA.relations.pbf, and to
+# $GITHUB_OUTPUT `groups`, the pbf-groups.json entries still to filter
+# (compact JSON; {} if none), and `sidecar` (merged or make). Needs
+# pbf-filter on PATH and the AWS_* settings for R2.
+#
+#   bin/merge-parts AREA
+set -euo pipefail
+area=$1
+here=$(cd "$(dirname "$0")/.." && pwd)
+mapfile -t parts < <(jq -r --arg a "$area" '.[$a].parts[]' "$here/areas.json")
+mapfile -t groups < <(jq -r 'keys[]' "$here/pbf-groups.json")
+work=parts-filtered
+mkdir -p "$work" filtered
+
+modified() {  # epoch seconds of pbfs/$1's last change; fails if missing
+  local m
+  m=$(aws s3api head-object --bucket hikes-public --key "pbfs/$1" --query LastModified --output text 2>/dev/null) \
+    && date -d "$m" +%s
+}
+
+# Whether pbfs/$2 was made from part $1's current PBF: it's newer.
+made_from() {
+  local part file
+  part=$(modified "$1.zstd.pbf") || return 1
+  file=$(modified "$2") || return 1
+  (( file >= part ))
+}
+
+# The sidecar.
+sidecar=merged
+for p in "${parts[@]}"; do
+  if made_from "$p" "$p.relations.pbf"; then
+    aws s3 cp --no-progress "s3://hikes-public/pbfs/$p.relations.pbf" "$work/$p.relations.pbf"
+  else
+    echo "$p's relations sidecar is missing or older than its PBF: the sidecar is made from $area's PBF"
+    sidecar=make
+  fi
+done
+if [ "$sidecar" = merged ]; then
+  sides=()
+  for p in "${parts[@]}"; do sides+=("$work/$p.relations.pbf"); done
+  pbf-filter merge "$area.relations.pbf" "${sides[@]}" || sidecar=make
+fi
+
+# Each group: usable if every part's filtered PBF was made from its PBF and
+# still serves the group's profiles (checked with the part's sidecar).
+merge=() remaining=()
+for g in "${groups[@]}"; do
+  mapfile -t profiles < <(jq -r --arg g "$g" --arg h "$here" '.[$g][] | "\($h)/\(.)"' "$here/pbf-groups.json")
+  ok=true
+  for p in "${parts[@]}"; do
+    if ! made_from "$p" "filtered/$p/$g.zstd.pbf"; then
+      echo "$g: $p's filtered PBF is missing or older than its PBF"
+      ok=false; break
+    fi
+    if [ ! -f "$work/$p.relations.pbf" ]; then
+      echo "$g: no usable relations sidecar for $p to check its filtered PBF with"
+      ok=false; break
+    fi
+    aws s3 cp --no-progress "s3://hikes-public/pbfs/filtered/$p/$g.zstd.pbf" "$work/$p.$g.zstd.pbf"
+    if ! why=$(pbf-filter check "$work/$p.$g.zstd.pbf" "$work/$p.relations.pbf" "${profiles[@]}" 2>&1); then
+      echo "$g: $p's filtered PBF doesn't serve the profiles: ${why##*: }"
+      ok=false; break
+    fi
+  done
+  if $ok; then merge+=("$g"); else remaining+=("$g"); fi
+  $ok || rm -f "$work"/*."$g".zstd.pbf
+done
+
+# The merges, three at a time; a failed one (e.g. the parts were filtered
+# with different rules) is left for filtering.
+merge_one() {
+  local g=$1 inputs=()
+  for p in "${parts[@]}"; do inputs+=("$work/$p.$g.zstd.pbf"); done
+  if pbf-filter merge "filtered/$g.zstd.pbf" "${inputs[@]}" > "$work/$g.log" 2>&1; then
+    rm -f "${inputs[@]}"
+  else
+    rm -f "filtered/$g.zstd.pbf"
+    touch "$work/$g.failed"
+  fi
+}
+export -f merge_one
+export work
+export PARTS="${parts[*]}"
+if [ ${#merge[@]} -gt 0 ]; then
+  start=$(date +%s)
+  printf '%s\n' "${merge[@]}" | xargs -P 3 -I{} bash -c 'parts=($PARTS); merge_one "$1"' _ {}
+  for g in "${merge[@]}"; do
+    cat "$work/$g.log"
+    if [ -f "$work/$g.failed" ]; then
+      echo "$g: merging failed: it's filtered from $area's PBF instead"
+      remaining+=("$g")
+    fi
+  done
+  echo "Merged ${#merge[@]} groups in $(( $(date +%s) - start ))s"
+fi
+rm -rf "$work"
+
+left=$(jq -c 'with_entries(select(.key as $k | $ARGS.positional | any(.[]; . == $k)))' "$here/pbf-groups.json" --args "${remaining[@]}")
+echo "Still to filter: ${remaining[*]:-none}; sidecar: $sidecar"
+{
+  echo "groups=$left"
+  echo "sidecar=$sidecar"
+} >> "${GITHUB_OUTPUT:-/dev/stdout}"

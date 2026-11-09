@@ -1,15 +1,24 @@
 name: Mirror PBFs from Geofabrik
+# The area in the run's title, e.g. "Mirror canada (from R2)".
+run-name: Mirror ${{ inputs.area }}${{ !inputs.fetch && ' (from R2)' || '' }}
 
 # Two stages:
-# - fetch: Geofabrik's extracts for the area, uploaded unchanged to R2 as
-#   pbfs/raw/<extract>.osm.pbf (only the latest is kept);
-# - derive, from those: the PBFs the builds read, pbfs/<area>.zstd.pbf
-#   (zstd blocks, no metadata) and pbfs/<area>.pbf (the same with zlib
-#   blocks, for tools that can't read zstd, e.g. osmium in
-#   lake-centerlines.yml), and for an area of several extracts, each
-#   extract's too.
-# With fetch off, derive reuses the extracts already in R2, skipping the
-# slow download from Geofabrik. hikeratlas/pbf-filter does the PBF work.
+# - fetch: the area's Geofabrik extract, uploaded unchanged to R2 as
+#   pbfs/raw/<area>.osm.pbf (only the latest is kept);
+# - derive, from that: the PBF the builds read, pbfs/<area>.zstd.pbf
+#   (zstd blocks, no metadata). A tool that can't read zstd converts it
+#   back itself (`pbf-filter recompress --zlib`, as lake-centerlines.yml
+#   does).
+# An area made of other areas (e.g. north-america: canada and us) has no
+# fetch: derive merges what the parts' runs published, so run those first.
+# Derive also writes, for builds to read instead (bin/fetch-pbf), each
+# group's filtered PBF, pbfs/filtered/<area>/<group>.zstd.pbf: just what
+# the group's profiles (pbf-groups.json) read; and the relations sidecar,
+# pbfs/<area>.relations.pbf, that `pbf-filter check` needs to tell whether
+# a filtered PBF still serves changed profiles.
+# With fetch off, derive reuses the extract already in R2, skipping the
+# slow download from Geofabrik: what a build on main starts when it finds a
+# filtered PBF stale. hikeratlas/pbf-filter does the PBF work.
 
 on:
   workflow_dispatch:
@@ -19,17 +28,22 @@ on:
         type: string
         default: north-america
       fetch:
-        description: Download the extracts from Geofabrik first (off reuses R2's pbfs/raw/)
+        description: Download the extract from Geofabrik first (off reuses R2's pbfs/raw/; ignored for areas made of parts)
         type: boolean
         default: true
 
+# One run per area at a time; more queue (a stale filtered PBF may start
+# several from one build).
+concurrency:
+  group: mirror-pbfs-${{ inputs.area }}
+  cancel-in-progress: false
+
 jobs:
   mirror:
+    name: mirror ${{ inputs.area }}
     runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
-      # hikeratlas/pbf-filter's release to use.
-      PBF_FILTER_VERSION: v0.1.0
       # For bin/upload-pbf.
       AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
       AWS_EC2_METADATA_DISABLED: true
@@ -85,79 +99,129 @@ jobs:
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
       - name: Install pbf-filter
+        # The release named in .pbf-filter-version.
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
           curl -sSfL --retry 4 -o "$RUNNER_TEMP/bin/pbf-filter" \
-            "https://github.com/hikeratlas/pbf-filter/releases/download/$PBF_FILTER_VERSION/pbf-filter-aarch64-linux"
+            "https://github.com/hikeratlas/pbf-filter/releases/download/$(cat .pbf-filter-version)/pbf-filter-aarch64-linux"
           chmod +x "$RUNNER_TEMP/bin/pbf-filter"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
-      # "geofabrik" is one Geofabrik extract, or several separated by spaces,
-      # merged below: north-america is Canada's and the US's, without Mexico,
-      # Greenland or Saint-Pierre-et-Miquelon (#158). Their land still shows
-      # (it's drawn from the coastline's water polygons), with nothing on it.
-      # Each is kept in R2 as it came, so derive can rerun without
-      # Geofabrik.
-      - name: Fetch the extracts from Geofabrik
-        if: ${{ inputs.fetch }}
+      # An area is one Geofabrik extract ("geofabrik" in areas.json), kept in
+      # R2 as it came (pbfs/raw/<area>.osm.pbf) so derive can rerun without
+      # Geofabrik; or several other areas merged ("parts"), read from what
+      # their own runs published. north-america is canada's and us's,
+      # without Mexico, Greenland or Saint-Pierre-et-Miquelon (#158); their
+      # land still shows (it's drawn from the coastline's water polygons),
+      # with nothing on it. Mirror the parts first.
+      - name: Fetch the extract from Geofabrik
+        if: ${{ steps.area.outputs.geofabrik && inputs.fetch }}
         env:
           GEOFABRIK: ${{ steps.area.outputs.geofabrik }}
         run: |
-          for g in $GEOFABRIK; do
-            name=$(basename "$g")
-            wget --progress=dot:giga "https://download.geofabrik.de/${g}-latest.osm.pbf" -O "part-$name.pbf"
-            bin/upload-pbf "part-$name.pbf" "raw/$name.osm.pbf"
-          done
-          ls -l part-*.pbf
+          wget --progress=dot:giga "https://download.geofabrik.de/${GEOFABRIK}-latest.osm.pbf" -O source.pbf
+          bin/upload-pbf source.pbf "raw/$AREA.osm.pbf"
 
-      - name: Fetch the extracts from R2
-        if: ${{ !inputs.fetch }}
+      # The area's PBF is remade only when it's missing or older than what
+      # it's made from (the raw extract, or any part's PBF); otherwise, e.g.
+      # when a changed profile leaves a filtered PBF stale, the published
+      # one is reused and only the filtered PBFs are made again.
+      - name: Decide whether to make the area's PBF
+        id: plan
         env:
-          GEOFABRIK: ${{ steps.area.outputs.geofabrik }}
+          PARTS: ${{ steps.area.outputs.parts }}
+        run: |
+          modified() {  # epoch seconds of pbfs/$1's last change, or nothing
+            local m
+            m=$(aws s3api head-object --bucket hikes-public --key "pbfs/$1" --query LastModified --output text 2>/dev/null) \
+              && date -d "$m" +%s
+          }
+          if [ -n "$PARTS" ]; then
+            mapfile -t sources < <(jq -r --arg a "$AREA" '.[$a].parts[] | "\(.).zstd.pbf"' areas.json)
+          else
+            sources=("raw/$AREA.osm.pbf")
+          fi
+          newest=0 oldest=
+          for s in "${sources[@]}"; do
+            if ! t=$(modified "$s"); then
+              echo "::error::pbfs/$s isn't in R2: run this workflow for $(basename "${s%%.*}") first"
+              exit 1
+            fi
+            echo "pbfs/$s: $(date -ud "@$t")"
+            (( t > newest )) && newest=$t
+            (( ${oldest:-t} >= t )) && oldest=$t
+          done
+          if [ -n "$PARTS" ] && (( newest - oldest > 2 * 86400 )); then
+            echo "::warning::The parts were published more than two days apart; mirror the older ones again for a consistent merge"
+          fi
+          if area=$(modified "$AREA.zstd.pbf") && (( area >= newest )); then
+            echo "pbfs/$AREA.zstd.pbf: $(date -ud "@$area"), up to date: reusing it"
+            echo "make=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "pbfs/$AREA.zstd.pbf is missing or older than its source: making it"
+            echo "make=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch the area's PBF from R2
+        if: ${{ steps.plan.outputs.make != 'true' }}
         run: |
           aws configure set default.s3.max_concurrent_requests 32
-          for g in $GEOFABRIK; do
-            name=$(basename "$g")
-            aws s3 cp --no-progress "s3://hikes-public/pbfs/raw/$name.osm.pbf" "part-$name.pbf"
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.zstd.pbf" "$AREA".zstd.pbf
+
+      - name: Fetch the extract from R2
+        if: ${{ steps.plan.outputs.make == 'true' && steps.area.outputs.geofabrik && !inputs.fetch }}
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/raw/$AREA.osm.pbf" source.pbf
+
+      # The parts' derived PBFs: the same data as their raw extracts, but
+      # smaller to download and quicker to merge.
+      - name: Fetch the parts from R2
+        if: ${{ steps.plan.outputs.make == 'true' && steps.area.outputs.parts }}
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          for p in $(jq -r --arg a "$AREA" '.[$a].parts[]' areas.json); do
+            aws s3 cp --no-progress "s3://hikes-public/pbfs/$p.zstd.pbf" "part-$p.pbf"
           done
           ls -l part-*.pbf
 
-      # An area of several extracts publishes each of them too, as the area
-      # named for its last part (north-america/canada as canada, and
-      # north-america/us as us; see areas.json), for builds and previews of
-      # just that country. One at a time, to bound the disk.
-      - name: Publish each extract
+      # Metadata (versions, timestamps, users), which tilemaker doesn't read,
+      # is dropped, and the blocks are zstd, which cldellow/tilemaker reads
+      # several times faster than zlib. Parts are merged in a single pass
+      # over the sorted files, keeping one copy of what's in both (the
+      # border).
+      - name: Make the area's PBF
+        if: ${{ steps.plan.outputs.make == 'true' }}
         run: |
-          set -- part-*.pbf
-          [ $# -gt 1 ] || exit 0
-          for f in "$@"; do
-            name=${f#part-}; name=${name%.pbf}
-            pbf-filter recompress "$f" "$name".zstd.pbf
-            pbf-filter recompress --zlib "$f" "$name".pbf
-            bin/upload-pbf "$name".zstd.pbf
-            bin/upload-pbf "$name".pbf
-            rm "$name".zstd.pbf "$name".pbf
-          done
-
-      # Several extracts are merged into one: a single pass over the sorted
-      # files, keeping one copy of what's in both (the border). Metadata
-      # (versions, timestamps, users), which tilemaker doesn't read, is
-      # dropped, and the blocks are zstd, which cldellow/tilemaker reads
-      # several times faster than zlib.
-      - name: Make the area's PBFs
-        run: |
-          set -- part-*.pbf
-          if [ $# -eq 1 ]; then
-            time pbf-filter recompress "$1" "$AREA".zstd.pbf
+          if [ -f source.pbf ]; then
+            time pbf-filter recompress source.pbf "$AREA".zstd.pbf
+            rm source.pbf
           else
-            time pbf-filter merge "$AREA".zstd.pbf "$@"
+            time pbf-filter merge "$AREA".zstd.pbf part-*.pbf
+            rm part-*.pbf
           fi
-          rm part-*.pbf
-          # The same, in zlib blocks, for tools that don't read zstd.
-          time pbf-filter recompress --zlib "$AREA".zstd.pbf "$AREA".pbf
-          ls -l "$AREA".pbf "$AREA".zstd.pbf
+          ls -l "$AREA".zstd.pbf
 
-      - name: Upload the area's PBFs
+      - name: Upload the area's PBF
+        if: ${{ steps.plan.outputs.make == 'true' }}
+        run: bin/upload-pbf "$AREA".zstd.pbf
+
+      # Each group's filtered PBF, from the area's: one read of it per group.
+      - name: Make the filtered PBFs
         run: |
-          bin/upload-pbf "$AREA".pbf
-          bin/upload-pbf "$AREA".zstd.pbf
+          mkdir -p filtered
+          for group in $(jq -r 'keys[]' pbf-groups.json); do
+            mapfile -t profiles < <(jq -r --arg g "$group" '.[$g][]' pbf-groups.json)
+            time pbf-filter filter "$AREA".zstd.pbf "filtered/$group.zstd.pbf" "${profiles[@]}"
+          done
+          ls -l filtered
+
+      - name: Make the relations sidecar
+        run: time pbf-filter relations "$AREA".zstd.pbf "$AREA".relations.pbf
+
+      - name: Upload the filtered PBFs and the relations sidecar
+        run: |
+          for f in filtered/*.zstd.pbf; do
+            bin/upload-pbf "$f" "filtered/$AREA/$(basename "$f")"
+          done
+          bin/upload-pbf "$AREA".relations.pbf

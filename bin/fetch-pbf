@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Downloads the PBF a tilemaker job reads, as OUT: the filtered PBF of the
+# group in pbf-groups.json that has all its PROFILES (made by
+# mirror-pbfs.yml: just what those profiles read), if hikeratlas/pbf-filter's
+# `check` says it still serves the profiles as they are now; otherwise the
+# area's whole PBF. Changed profile logic keeps the filtered PBF; keys that
+# match more, or a relation_scan_function accepting relations it lacks, don't.
+#
+# On main, a stale filtered PBF also starts mirror-pbfs.yml's derive stage
+# (fetch off), so later builds have a fresh one; the job needs
+# `actions: write` for that. Needs the AWS_* settings for R2.
+#
+#   bin/fetch-pbf AREA OUT PROFILE.lua [PROFILE.lua ...]
+set -uo pipefail
+area=$1 out=$2
+shift 2
+here=$(cd "$(dirname "$0")/.." && pwd)
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+summary() { echo "$1" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"; }
+start=$(date +%s)
+
+whole() {
+  aws s3 cp --no-progress "s3://hikes-public/pbfs/$area.zstd.pbf" "$out" || exit 1
+  summary "Read the whole PBF ($(( $(stat -c %s "$out") / 1048576 )) MiB, $(( $(date +%s) - start ))s): $1"
+  exit 0
+}
+
+# The group with every profile.
+group=$(cd "$here" && jq -r '[to_entries[] | select(.value as $v | $ARGS.positional | all(. as $p | $v | any(.[]; . == $p)))][0].key // empty' pbf-groups.json --args "$@")
+[ -n "$group" ] || whole "no group in pbf-groups.json has $*"
+
+version=$(cat "$here/.pbf-filter-version")
+arch=$(uname -m)
+if ! curl -sSfL --retry 3 -o "$tmp/pbf-filter" \
+    "https://github.com/hikeratlas/pbf-filter/releases/download/$version/pbf-filter-$arch-linux"; then
+  whole "couldn't download pbf-filter $version"
+fi
+chmod +x "$tmp/pbf-filter"
+
+aws s3 cp --no-progress "s3://hikes-public/pbfs/filtered/$area/$group.zstd.pbf" "$tmp/filtered.pbf" \
+  || whole "no filtered PBF for $group (run mirror-pbfs.yml)"
+aws s3 cp --no-progress "s3://hikes-public/pbfs/$area.relations.pbf" "$tmp/relations.pbf" \
+  || whole "no relations sidecar (run mirror-pbfs.yml)"
+
+profiles=()
+for p in "$@"; do profiles+=("$here/$p"); done
+why=$("$tmp/pbf-filter" check "$tmp/filtered.pbf" "$tmp/relations.pbf" "${profiles[@]}" 2>&1)
+case $? in
+  0)
+    mv "$tmp/filtered.pbf" "$out"
+    summary "Read the filtered PBF for $group ($(( $(stat -c %s "$out") / 1048576 )) MiB, $(( $(date +%s) - start ))s)"
+    ;;
+  3)
+    echo "::warning::The filtered PBF for $group is stale: ${why##*stale: }"
+    if [ "${GITHUB_REF:-}" = refs/heads/main ] && [ -n "${GH_TOKEN:-}" ]; then
+      gh workflow run mirror-pbfs.yml --repo "$GITHUB_REPOSITORY" --ref main -f area="$area" -f fetch=false \
+        && echo "Started mirror-pbfs.yml for $area (fetch off) to make it again" \
+        || echo "::warning::Couldn't start mirror-pbfs.yml for $area"
+    fi
+    whole "the filtered PBF for $group is stale (${why##*stale: })"
+    ;;
+  *)
+    echo "$why"
+    whole "pbf-filter check failed"
+    ;;
+esac

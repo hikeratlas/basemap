@@ -255,7 +255,7 @@ jobs:
       && needs.config.outputs.mode != 'style-only'
       && (needs.exports.result == 'success' || needs.exports.result == 'skipped')
     permissions:
-      actions: read    # the telemetry action reads the job's step times
+      actions: write   # the telemetry action reads the job's step times; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
       contents: read
     uses: ./.github/workflows/tilemaker-layers.yml

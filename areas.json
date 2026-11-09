@@ -1,6 +1,6 @@
 {
   "north-america": {
-    "geofabrik": "north-america/canada north-america/us",
+    "parts": ["canada", "us"],
     "bbox": "-170,20,-48,75"
   },
   "canada": {

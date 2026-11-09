@@ -10,6 +10,9 @@
 # (fetch off), so later builds have a fresh one; the job needs
 # `actions: write` for that. Needs the AWS_* settings for R2.
 #
+# Also writes OUT.source: the R2 key and ETag of what OUT is a copy of, for
+# bin/layer-inputs (no file if the object changed during the download).
+#
 #   bin/fetch-pbf AREA OUT PROFILE.lua [PROFILE.lua ...]
 set -uo pipefail
 area=$1 out=$2
@@ -20,8 +23,18 @@ trap 'rm -rf "$tmp"' EXIT
 summary() { echo "$1" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"; }
 start=$(date +%s)
 
+rm -f "$out.source"
+etag() { aws s3api head-object --bucket hikes-public --key "$1" --query ETag --output text 2>/dev/null; }
+# Records KEY's ETag in OUT.source if it's the one BEFORE the download.
+source_is() {
+  local now; now=$(etag "$1")
+  if [ -n "$2" ] && [ "$now" = "$2" ]; then echo "$1 $now" > "$out.source"; fi
+}
+
 whole() {
-  aws s3 cp --no-progress "s3://hikes-public/pbfs/$area.zstd.pbf" "$out" || exit 1
+  local key="pbfs/$area.zstd.pbf" before; before=$(etag "$key")
+  aws s3 cp --no-progress "s3://hikes-public/$key" "$out" || exit 1
+  source_is "$key" "$before"
   summary "Read the whole PBF ($(( $(stat -c %s "$out") / 1048576 )) MiB, $(( $(date +%s) - start ))s): $1"
   exit 0
 }
@@ -38,7 +51,9 @@ if ! curl -sSfL --retry 3 -o "$tmp/pbf-filter" \
 fi
 chmod +x "$tmp/pbf-filter"
 
-aws s3 cp --no-progress "s3://hikes-public/pbfs/filtered/$area/$group.zstd.pbf" "$tmp/filtered.pbf" \
+filtered_key="pbfs/filtered/$area/$group.zstd.pbf"
+filtered_etag=$(etag "$filtered_key")
+aws s3 cp --no-progress "s3://hikes-public/$filtered_key" "$tmp/filtered.pbf" \
   || whole "no filtered PBF for $group (run mirror-pbfs.yml)"
 aws s3 cp --no-progress "s3://hikes-public/pbfs/$area.relations.pbf" "$tmp/relations.pbf" \
   || whole "no relations sidecar (run mirror-pbfs.yml)"
@@ -49,6 +64,7 @@ why=$("$tmp/pbf-filter" check "$tmp/filtered.pbf" "$tmp/relations.pbf" "${profil
 case $? in
   0)
     mv "$tmp/filtered.pbf" "$out"
+    source_is "$filtered_key" "$filtered_etag"
     summary "Read the filtered PBF for $group ($(( $(stat -c %s "$out") / 1048576 )) MiB, $(( $(date +%s) - start ))s)"
     ;;
   3)

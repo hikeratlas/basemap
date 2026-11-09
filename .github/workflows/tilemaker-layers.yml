@@ -23,6 +23,10 @@ on:
         description: The layers to build, as a JSON list
         type: string
         default: '["boundaries", "buildings", "land", "parks", "peaks", "places", "pois", "water", "ways"]'
+      rebuild:
+        description: Build every layer, even one whose inputs haven't changed since its last build
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       area:
@@ -45,6 +49,10 @@ on:
         description: The layers to build, as a JSON list
         type: string
         default: '["boundaries", "buildings", "land", "parks", "peaks", "places", "pois", "water", "ways"]'
+      rebuild:
+        description: Build every layer, even one whose inputs haven't changed since its last build
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -187,85 +195,6 @@ jobs:
             touch hiking-routes.geojsonl
           fi
 
-      # Parking and trailheads within 2 km of a park stay in the poi layer
-      # (see slices/pois.lua); this grows the parks by 2 km for that check.
-      # Only parks that reach the build's box (a preview's, or the area's).
-      - name: Grow parks for nearby parking
-        if: ${{ matrix.layer == 'pois' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-        run: |
-          start=$(date +%s)
-          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" install -q shapely
-          "$RUNNER_TEMP/venv/bin/python" bin/parks-near.py parks.geojsonl parks-near.geojsonl 2000 ${BBOX:+--bbox "$BBOX"}
-          echo "Grew parks in $(( $(date +%s) - start ))s"; ls -l parks-near.geojsonl
-
-      # Trail networks outside parks that hikeratlas/routes curates as it does
-      # parks (see bin/trail-areas.py): the pois layer keeps POIs inside them,
-      # and the parks job publishes them for routes as trailareas.pmtiles.
-      - name: Find trail areas
-        if: ${{ matrix.layer == 'pois' || matrix.layer == 'parks' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-        run: |
-          start=$(date +%s)
-          python3 -m venv "$RUNNER_TEMP/venv-trails" && "$RUNNER_TEMP/venv-trails/bin/pip" install -q shapely numpy
-          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"}
-          echo "Found trail areas in $(( $(date +%s) - start ))s"; ls -l trail-areas.geojsonl
-
-      # Where parking lots are urban (see bin/urban-lots.py): slices/pois.lua
-      # marks those lots, and the style hides them.
-      - name: Find urban parking
-        if: ${{ matrix.layer == 'pois' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-        run: |
-          start=$(date +%s)
-          "$RUNNER_TEMP/venv-trails/bin/python" bin/urban-lots.py trails.geojsonl urban-lots.geojsonl ${BBOX:+--bbox "$BBOX"}
-          echo "Found urban parking in $(( $(date +%s) - start ))s"; ls -l urban-lots.geojsonl
-
-      # Only hikeratlas/routes reads trail areas, so they're their own file,
-      # which tile-join leaves out of the map. tilemaker reads only
-      # trail-areas.geojsonl here (see slices/trailareas.json): no PBF needed.
-      - name: Build and upload trail areas
-        if: ${{ matrix.layer == 'parks' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          cd slices
-          ../bin/docker-tilemaker --output trailareas.pmtiles --config trailareas.json --process trailareas.lua --bbox "$BBOX"
-          ls -l trailareas.pmtiles
-          for i in 1 2 3; do
-            aws s3 cp --no-progress trailareas.pmtiles "s3://hikes-public/layers/$NAMESPACE/trailareas.pmtiles" && exit 0
-            echo "Upload failed (attempt $i)"; sleep $((i * 15))
-          done
-          exit 1
-
-      # OSM hiking route relations, which hikeratlas/routes checks its routes
-      # against: like trail areas, their own file, left out of the map.
-      - name: Build and upload hiking routes
-        if: ${{ matrix.layer == 'parks' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          echo "$(wc -l < hiking-routes.geojsonl) hiking route relations"
-          cd slices
-          ../bin/docker-tilemaker --output hikingroutes.pmtiles --config hikingroutes.json --process hikingroutes.lua --bbox "$BBOX"
-          ls -l hikingroutes.pmtiles
-          for i in 1 2 3; do
-            aws s3 cp --no-progress hikingroutes.pmtiles "s3://hikes-public/layers/$NAMESPACE/hikingroutes.pmtiles" && exit 0
-            echo "Upload failed (attempt $i)"; sleep $((i * 15))
-          done
-          exit 1
-
       # Lake labels follow these centerlines; see lake-centerlines.yml.
       - name: Fetch lake centerlines
         if: ${{ startsWith(matrix.layer, 'water') }}
@@ -314,7 +243,123 @@ jobs:
           fi
           unzip "$zip" && mv water-polygons-split-4326 slices/coastline
 
+      # Skip the build if nothing it reads has changed since the layer in R2
+      # was built: the PBF, the box, tilemaker, mapt, the slices, this
+      # workflow, and the GeoJSON, QRank and coastline files (see
+      # bin/layer-inputs). The manifest of those inputs sits next to the
+      # layer as <layer>.inputs; the log shows how it differs from the last.
+      - name: Compare inputs with the last build
+        id: inputs
+        env:
+          LAYER: ${{ matrix.layer }}
+          BBOX: ${{ steps.area.outputs.bbox }}
+          REBUILD: ${{ inputs.rebuild }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          if ! bin/layer-inputs "$LAYER" "$AREA.pbf" "$BBOX" > "$RUNNER_TEMP/inputs.txt"; then
+            echo "::warning::Couldn't list $LAYER's inputs; building it, and not recording them"
+            exit 0
+          fi
+          echo "manifest=true" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/inputs.txt"
+          key="layers/$NAMESPACE/$LAYER"
+          if [ "$REBUILD" = true ]; then
+            echo "Building: rebuild asked for"
+          elif ! aws s3 cp --no-progress "s3://hikes-public/$key.inputs" "$RUNNER_TEMP/previous.txt" 2> /dev/null; then
+            echo "Building: no inputs recorded for the last build"
+          elif ! diff "$RUNNER_TEMP/previous.txt" "$RUNNER_TEMP/inputs.txt"; then
+            echo "Building: the inputs changed (above: < last build, > this one)"
+          elif ! aws s3api head-object --bucket hikes-public --key "$key.pmtiles" > /dev/null; then
+            echo "Building: no $key.pmtiles"
+          else
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Not rebuilt: $LAYER's inputs are the same as when $key.pmtiles was built" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
+
+      # Parking and trailheads within 2 km of a park stay in the poi layer
+      # (see slices/pois.lua); this grows the parks by 2 km for that check.
+      # Only parks that reach the build's box (a preview's, or the area's).
+      - name: Grow parks for nearby parking
+        if: ${{ matrix.layer == 'pois' && steps.inputs.outputs.skip != 'true' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: |
+          start=$(date +%s)
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" install -q shapely
+          "$RUNNER_TEMP/venv/bin/python" bin/parks-near.py parks.geojsonl parks-near.geojsonl 2000 ${BBOX:+--bbox "$BBOX"}
+          echo "Grew parks in $(( $(date +%s) - start ))s"; ls -l parks-near.geojsonl
+
+      # Trail networks outside parks that hikeratlas/routes curates as it does
+      # parks (see bin/trail-areas.py): the pois layer keeps POIs inside them,
+      # and the parks job publishes them for routes as trailareas.pmtiles.
+      - name: Find trail areas
+        if: ${{ (matrix.layer == 'pois' || matrix.layer == 'parks') && steps.inputs.outputs.skip != 'true' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: |
+          start=$(date +%s)
+          python3 -m venv "$RUNNER_TEMP/venv-trails" && "$RUNNER_TEMP/venv-trails/bin/pip" install -q shapely numpy
+          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"}
+          echo "Found trail areas in $(( $(date +%s) - start ))s"; ls -l trail-areas.geojsonl
+
+      # Where parking lots are urban (see bin/urban-lots.py): slices/pois.lua
+      # marks those lots, and the style hides them.
+      - name: Find urban parking
+        if: ${{ matrix.layer == 'pois' && steps.inputs.outputs.skip != 'true' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: |
+          start=$(date +%s)
+          "$RUNNER_TEMP/venv-trails/bin/python" bin/urban-lots.py trails.geojsonl urban-lots.geojsonl ${BBOX:+--bbox "$BBOX"}
+          echo "Found urban parking in $(( $(date +%s) - start ))s"; ls -l urban-lots.geojsonl
+
+      # Only hikeratlas/routes reads trail areas, so they're their own file,
+      # which tile-join leaves out of the map. tilemaker reads only
+      # trail-areas.geojsonl here (see slices/trailareas.json): no PBF needed.
+      - name: Build and upload trail areas
+        if: ${{ matrix.layer == 'parks' && steps.inputs.outputs.skip != 'true' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          cd slices
+          ../bin/docker-tilemaker --output trailareas.pmtiles --config trailareas.json --process trailareas.lua --bbox "$BBOX"
+          ls -l trailareas.pmtiles
+          for i in 1 2 3; do
+            aws s3 cp --no-progress trailareas.pmtiles "s3://hikes-public/layers/$NAMESPACE/trailareas.pmtiles" && exit 0
+            echo "Upload failed (attempt $i)"; sleep $((i * 15))
+          done
+          exit 1
+
+      # OSM hiking route relations, which hikeratlas/routes checks its routes
+      # against: like trail areas, their own file, left out of the map.
+      - name: Build and upload hiking routes
+        if: ${{ matrix.layer == 'parks' && steps.inputs.outputs.skip != 'true' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          echo "$(wc -l < hiking-routes.geojsonl) hiking route relations"
+          cd slices
+          ../bin/docker-tilemaker --output hikingroutes.pmtiles --config hikingroutes.json --process hikingroutes.lua --bbox "$BBOX"
+          ls -l hikingroutes.pmtiles
+          for i in 1 2 3; do
+            aws s3 cp --no-progress hikingroutes.pmtiles "s3://hikes-public/layers/$NAMESPACE/hikingroutes.pmtiles" && exit 0
+            echo "Upload failed (attempt $i)"; sleep $((i * 15))
+          done
+          exit 1
+
       - name: Build layer
+        if: steps.inputs.outputs.skip != 'true'
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           LAYER: ${{ matrix.layer }}
@@ -328,7 +373,7 @@ jobs:
       # Where tilemaker spent its time, for build-area.yml's "Build progress"
       # check (#210).
       - name: Phase timings
-        if: always()
+        if: always() && steps.inputs.outputs.skip != 'true'
         continue-on-error: true
         uses: ./.github/actions/phase-timings
         with:
@@ -337,6 +382,7 @@ jobs:
       # The slices ask tilemaker for zstd tiles. Byte 98 of a PMTiles v3
       # header is the tile compression, and 4 means zstd.
       - name: Check tile compression
+        if: steps.inputs.outputs.skip != 'true'
         env:
           FILE: ${{ matrix.layer }}.pmtiles
         run: |
@@ -345,6 +391,7 @@ jobs:
           [ "$c" = 4 ] || { echo "::error::$FILE does not have zstd tiles"; exit 1; }
 
       - name: Upload layer tiles
+        if: steps.inputs.outputs.skip != 'true'
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
@@ -354,15 +401,23 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           AWS_RETRY_MODE: adaptive
           AWS_MAX_ATTEMPTS: 10
-          FILE: ${{ matrix.layer }}.pmtiles
+          LAYER: ${{ matrix.layer }}
+          MANIFEST: ${{ steps.inputs.outputs.manifest }}
+        # The old manifest goes first and the new one only once the layer is
+        # up, so a manifest never describes a layer it didn't build.
         run: |
           aws configure set default.s3.multipart_chunksize 128MB
-          for i in 1 2 3 4; do
-            aws s3 cp --no-progress "$FILE" "s3://hikes-public/layers/$NAMESPACE/$FILE" && exit 0
+          key="layers/$NAMESPACE/$LAYER"
+          aws s3 rm --only-show-errors "s3://hikes-public/$key.inputs"
+          for i in 1 2 3 4 5; do
+            [ "$i" = 5 ] && exit 1
+            aws s3 cp --no-progress "$LAYER.pmtiles" "s3://hikes-public/$key.pmtiles" && break
             echo "Upload attempt $i failed; retrying in $((i*30))s"
             sleep $((i*30))
           done
-          exit 1
+          if [ "$MANIFEST" = true ]; then
+            aws s3 cp --no-progress --content-type text/plain "$RUNNER_TEMP/inputs.txt" "s3://hikes-public/$key.inputs"
+          fi
 
       # Re-render build-area.yml's progress check with this job's results (#210)
       - name: Build progress

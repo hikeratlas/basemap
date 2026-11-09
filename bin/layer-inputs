@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# Prints a manifest of everything a tilemaker layer job builds LAYER from, one
+# input per line: the PBF (its R2 key and ETag, from bin/fetch-pbf's
+# OUT.source), the box, the tilemaker image, mapt, the slice files, the
+# workflow, and the GeoJSON, QRank and coastline files in the workspace.
+# tilemaker-layers.yml keeps the manifest next to the layer in R2, and skips
+# the build when this one is the same: the layer in R2 is already what
+# it would build. When they differ, `diff` of the two says what changed.
+#
+# GeoJSON files are hashed by their lines in any order: the exports append
+# lines from several threads, so their order changes from run to run.
+#
+# Run from the repo root after the fetch steps.
+#
+#   bin/layer-inputs LAYER PBF BBOX
+set -euo pipefail
+layer=$1 pbf=$2 bbox=$3
+
+# Each profile is a slices/<name>.{lua,json} pair, and other layers'
+# profiles don't change this one; everything else in slices/ (shared modules
+# like qrank.lua and json.lua, and new ones) counts. The parks job also
+# builds trailareas and hikingroutes.
+own=("$layer")
+[ "$layer" = parks ] && own+=(trailareas hikingroutes)
+
+sha() { sha256sum "$1" | cut -d' ' -f1; }
+
+echo "layer $layer"
+echo "bbox $bbox"
+if [ -s "$pbf.source" ]; then
+  echo "pbf $(cat "$pbf.source")"
+else
+  # Unknown, so never the same as last time.
+  echo "pbf unknown $(date +%s%N)"
+fi
+
+image=$(sed -n 's/^\s*\(ghcr\.io\/[^ ]*\).*/\1/p' bin/docker-tilemaker | head -1)
+docker pull -q "$image" > /dev/null
+echo "tilemaker $image $(docker image inspect -f '{{.Id}}' "$image")"
+
+# mapt isn't pinned (package.json follows its main branch)
+if [ -d node_modules/mapt ]; then
+  echo "mapt $(cd node_modules/mapt && find . -path ./node_modules -prune -o -type f -print | LC_ALL=C sort | xargs -d '\n' sha256sum | sha256sum | cut -d' ' -f1)"
+fi
+
+for f in slices/*; do
+  [ -f "$f" ] || continue
+  case $f in *.md) continue ;; esac
+  stem=$(basename "${f%.*}")
+  if [ -f "slices/$stem.lua" ] && [ -f "slices/$stem.json" ] && ! printf '%s\n' "${own[@]}" | grep -qxF "$stem"; then
+    continue
+  fi
+  echo "file $f $(sha "$f")"
+done
+
+files=(.github/workflows/tilemaker-layers.yml bin/docker-tilemaker)
+# The steps that make pois' and parks' extra GeoJSON (parks-near, trail
+# areas, urban lots) run only when the layer is built, so count their scripts.
+case $layer in pois|parks) files+=(bin/parks-near.py bin/trail-areas.py bin/urban-lots.py) ;; esac
+for f in "${files[@]}"; do echo "file $f $(sha "$f")"; done
+
+# QRank changes with its releases; only some layers read it.
+if [ -f qrank.db ] && grep -q qrank "slices/$layer.lua"; then
+  echo "qrank $(sha qrank.db)"
+fi
+
+shopt -s nullglob
+geojsonl=(*.geojsonl)
+if [ ${#geojsonl[@]} -gt 0 ]; then
+  python3 - "${geojsonl[@]}" <<'EOF'
+import hashlib, sys
+# The sum of each line's hash: the same for the same lines in any order.
+for path in sorted(sys.argv[1:]):
+    acc = n = 0
+    with open(path, "rb") as f:
+        for line in f:
+            acc += int.from_bytes(hashlib.blake2b(line.rstrip(b"\r\n"), digest_size=16).digest(), "big")
+            n += 1
+    print(f"geojsonl {path} {n} {acc % (1 << 128):032x}")
+EOF
+fi
+
+if [ -d slices/coastline ]; then
+  echo "coastline $(cd slices/coastline && find . -type f | LC_ALL=C sort | xargs -d '\n' sha256sum | sha256sum | cut -d' ' -f1)"
+fi

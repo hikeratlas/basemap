@@ -202,22 +202,27 @@ jobs:
           fi
           ls -l "$AREA".zstd.pbf
 
-      - name: Upload the area's PBF
-        if: ${{ steps.plan.outputs.make == 'true' }}
-        run: bin/upload-pbf "$AREA".zstd.pbf
-
-      # Each group's filtered PBF, from the area's: one read of it per group.
-      - name: Make the filtered PBFs
+      # Each group's filtered PBF (pbf-groups.json), in as few reads of the
+      # area's PBF as memory allows; and the relations sidecar. A newly made
+      # area PBF uploads meanwhile.
+      - name: Make the filtered PBFs and the relations sidecar
+        env:
+          UPLOAD: ${{ steps.plan.outputs.make }}
         run: |
-          mkdir -p filtered
-          for group in $(jq -r 'keys[]' pbf-groups.json); do
-            mapfile -t profiles < <(jq -r --arg g "$group" '.[$g][]' pbf-groups.json)
-            time pbf-filter filter "$AREA".zstd.pbf "filtered/$group.zstd.pbf" "${profiles[@]}"
-          done
+          if [ "$UPLOAD" = true ]; then
+            bin/upload-pbf "$AREA".zstd.pbf > upload.log 2>&1 &
+            upload=$!
+          fi
+          time pbf-filter groups "$AREA".zstd.pbf pbf-groups.json filtered
+          time pbf-filter relations "$AREA".zstd.pbf "$AREA".relations.pbf
           ls -l filtered
-
-      - name: Make the relations sidecar
-        run: time pbf-filter relations "$AREA".zstd.pbf "$AREA".relations.pbf
+          if [ -n "${upload:-}" ]; then
+            echo "::group::Upload of $AREA.zstd.pbf"
+            wait "$upload" && status=0 || status=$?
+            cat upload.log
+            echo "::endgroup::"
+            exit "$status"
+          fi
 
       - name: Upload the filtered PBFs and the relations sidecar
         run: |

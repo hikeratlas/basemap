@@ -1,4 +1,6 @@
 name: Mirror PBFs from Geofabrik
+# The area in the run's title, e.g. "Mirror canada (from R2)".
+run-name: Mirror ${{ inputs.area }}${{ !inputs.fetch && ' (from R2)' || '' }}
 
 # Two stages:
 # - fetch: the area's Geofabrik extract, uploaded unchanged to R2 as
@@ -38,6 +40,7 @@ concurrency:
 
 jobs:
   mirror:
+    name: mirror ${{ inputs.area }}
     runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}

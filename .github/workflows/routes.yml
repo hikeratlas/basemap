@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: d30880afac13054a74d5cf4aff42621337eb73b8
+  ROUTES_REF: c8cc64d073d83e282766c0fbf73f98e6365f85f5
 
 jobs:
   curate:

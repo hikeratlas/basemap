@@ -445,9 +445,25 @@ def configure(meta):
     NAMESPACE, MODE, PR, HISTORY = meta['namespace'], meta['mode'], meta.get('pr', ''), meta.get('history', False)
 
 
-def publish(check, data, final=False, history=True):
-    """Renders DATA with the run's current jobs into the check."""
+def finishing(cur):
+    """The jobs, with the one this runs in (its last step, the update)
+    shown as finished: the jobs API still has it running, so the last job to
+    finish would otherwise show as running until a later job's update."""
+    me = os.environ.get('RUNNER_NAME')
+    for j in cur:
+        if me and j.get('runner_name') == me and j['status'] != 'completed':
+            failed = any(s.get('conclusion') in ('failure', 'cancelled') for s in j.get('steps', []))
+            j.update(status='completed', conclusion='failure' if failed else 'success',
+                     completed_at=datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))
+    return cur
+
+
+def publish(check, data, final=False, history=True, done=False):
+    """Renders DATA with the run's current jobs into the check; DONE if
+    this is the calling job's last step."""
     cur = jobs(RUN)
+    if done:
+        cur = finishing(cur)
     if final:
         data.pop('live', None)
     title, summary, text = render(cur, data['prev_jobs'], data['phases'], data['prev_phases'],
@@ -530,7 +546,9 @@ def update():
     # Only the missing artifacts are downloaded.
     load(RUN, 'phases-', data['phases'])
     load(RUN, 'routes-summary-', data['summaries'])
-    publish(check, data)
+    # Not the history comment: these jobs can't write issues (a 403); the
+    # first and last progress jobs keep it current.
+    publish(check, data, history=False, done=True)
 
 
 def finish():

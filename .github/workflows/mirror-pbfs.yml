@@ -102,10 +102,7 @@ jobs:
       - name: Install pbf-filter
         # The release named in .pbf-filter-version.
         run: |
-          mkdir -p "$RUNNER_TEMP/bin"
-          curl -sSfL --retry 4 -o "$RUNNER_TEMP/bin/pbf-filter" \
-            "https://github.com/hikeratlas/pbf-filter/releases/download/$(cat .pbf-filter-version)/pbf-filter-aarch64-linux"
-          chmod +x "$RUNNER_TEMP/bin/pbf-filter"
+          bin/install-pbf-filter "$RUNNER_TEMP/bin"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
       # An area is one Geofabrik extract ("geofabrik" in areas.json), kept in

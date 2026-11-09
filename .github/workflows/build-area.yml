@@ -144,7 +144,7 @@ jobs:
           BBOX: ${{ steps.target.outputs.bbox }}
           # Files the exports (and the search DB) depend on
           EXPORT_INPUTS: >-
-            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts|fetch-pbf|fetch-qrank)$|pbf-groups\.json$|\.pbf-filter-version$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
+            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts|fetch-pbf|fetch-qrank|install-pbf-filter)$|pbf-groups\.json$|\.pbf-filter-version$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
         run: |
           if [ -n "$PR" ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"

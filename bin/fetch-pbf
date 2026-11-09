@@ -30,13 +30,7 @@ whole() {
 group=$(cd "$here" && jq -r '[to_entries[] | select(.value as $v | $ARGS.positional | all(. as $p | $v | any(.[]; . == $p)))][0].key // empty' pbf-groups.json --args "$@")
 [ -n "$group" ] || whole "no group in pbf-groups.json has $*"
 
-version=$(cat "$here/.pbf-filter-version")
-arch=$(uname -m)
-if ! curl -sSfL --retry 3 -o "$tmp/pbf-filter" \
-    "https://github.com/hikeratlas/pbf-filter/releases/download/$version/pbf-filter-$arch-linux"; then
-  whole "couldn't download pbf-filter $version"
-fi
-chmod +x "$tmp/pbf-filter"
+"$here/bin/install-pbf-filter" "$tmp" || whole "couldn't install pbf-filter $(cat "$here/.pbf-filter-version")"
 
 aws s3 cp --no-progress "s3://hikes-public/pbfs/filtered/$area/$group.zstd.pbf" "$tmp/filtered.pbf" \
   || whole "no filtered PBF for $group (run mirror-pbfs.yml)"

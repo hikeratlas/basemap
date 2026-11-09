@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Installs hikeratlas/pbf-filter (the release in .pbf-filter-version, for
+# this machine) as DIR/pbf-filter: R2's copy if there is one, else the
+# release on GitHub, whose downloads sometimes answer 504 for minutes (four
+# builds fell back to whole PBFs in a day); a copy from GitHub is then
+# saved to R2 for the jobs after. Needs the AWS_* settings for R2.
+#
+#   bin/install-pbf-filter DIR
+set -uo pipefail
+dir=$1
+here=$(cd "$(dirname "$0")/.." && pwd)
+version=$(cat "$here/.pbf-filter-version")
+name="pbf-filter-$(uname -m)-linux"
+mkdir -p "$dir"
+if ! aws s3 cp --no-progress "s3://hikes-public/bin/$version/$name" "$dir/pbf-filter" 2>/dev/null; then
+  got=
+  for i in 1 2 3 4 5 6; do
+    curl -sSfL -o "$dir/pbf-filter" "https://github.com/hikeratlas/pbf-filter/releases/download/$version/$name" \
+      && { got=1; break; }
+    echo "Downloading pbf-filter $version failed (attempt $i)"
+    [ "$i" -lt 6 ] && sleep $((i * 15))
+  done
+  if [ -z "$got" ]; then
+    echo "::error::Couldn't download pbf-filter $version"
+    exit 1
+  fi
+  aws s3 cp --no-progress "$dir/pbf-filter" "s3://hikes-public/bin/$version/$name" || true
+fi
+chmod +x "$dir/pbf-filter"

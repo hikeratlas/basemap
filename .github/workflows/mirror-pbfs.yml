@@ -1,5 +1,16 @@
 name: Mirror PBFs from Geofabrik
 
+# Two stages:
+# - fetch: Geofabrik's extracts for the area, uploaded unchanged to R2 as
+#   pbfs/raw/<extract>.osm.pbf (only the latest is kept);
+# - derive, from those: the PBFs the builds read, pbfs/<area>.zstd.pbf
+#   (zstd blocks, no metadata) and pbfs/<area>.pbf (the same with zlib
+#   blocks, for tools that can't read zstd, e.g. osmium in
+#   lake-centerlines.yml), and for an area of several extracts, each
+#   extract's too.
+# With fetch off, derive reuses the extracts already in R2, skipping the
+# slow download from Geofabrik. hikeratlas/pbf-filter does the PBF work.
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,12 +18,18 @@ on:
         description: Area to mirror; must be a key in areas.json
         type: string
         default: north-america
+      fetch:
+        description: Download the extracts from Geofabrik first (off reuses R2's pbfs/raw/)
+        type: boolean
+        default: true
 
 jobs:
   mirror:
     runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
+      # hikeratlas/pbf-filter's release to use.
+      PBF_FILTER_VERSION: v0.1.0
       # For bin/upload-pbf.
       AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
       AWS_EC2_METADATA_DISABLED: true
@@ -67,65 +84,80 @@ jobs:
           fi
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
+      - name: Install pbf-filter
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL --retry 4 -o "$RUNNER_TEMP/bin/pbf-filter" \
+            "https://github.com/hikeratlas/pbf-filter/releases/download/$PBF_FILTER_VERSION/pbf-filter-aarch64-linux"
+          chmod +x "$RUNNER_TEMP/bin/pbf-filter"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
       # "geofabrik" is one Geofabrik extract, or several separated by spaces,
       # merged below: north-america is Canada's and the US's, without Mexico,
       # Greenland or Saint-Pierre-et-Miquelon (#158). Their land still shows
       # (it's drawn from the coastline's water polygons), with nothing on it.
-      - name: Fetch PBFs
+      # Each is kept in R2 as it came, so derive can rerun without
+      # Geofabrik.
+      - name: Fetch the extracts from Geofabrik
+        if: ${{ inputs.fetch }}
         env:
           GEOFABRIK: ${{ steps.area.outputs.geofabrik }}
         run: |
           for g in $GEOFABRIK; do
-            wget --progress=dot:giga "https://download.geofabrik.de/${g}-latest.osm.pbf" -O "part-$(basename "$g").pbf"
+            name=$(basename "$g")
+            wget --progress=dot:giga "https://download.geofabrik.de/${g}-latest.osm.pbf" -O "part-$name.pbf"
+            bin/upload-pbf "part-$name.pbf" "raw/$name.osm.pbf"
           done
           ls -l part-*.pbf
 
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version-file: .bun-version
-
-      - name: Install osmium
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq osmium-tool && osmium --version
+      - name: Fetch the extracts from R2
+        if: ${{ !inputs.fetch }}
+        env:
+          GEOFABRIK: ${{ steps.area.outputs.geofabrik }}
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          for g in $GEOFABRIK; do
+            name=$(basename "$g")
+            aws s3 cp --no-progress "s3://hikes-public/pbfs/raw/$name.osm.pbf" "part-$name.pbf"
+          done
+          ls -l part-*.pbf
 
       # An area of several extracts publishes each of them too, as the area
       # named for its last part (north-america/canada as canada, and
       # north-america/us as us; see areas.json), for builds and previews of
-      # just that country. One at a time, so the disk holds at most one zstd
-      # copy beside the downloads.
+      # just that country. One at a time, to bound the disk.
       - name: Publish each extract
         run: |
           set -- part-*.pbf
           [ $# -gt 1 ] || exit 0
           for f in "$@"; do
             name=${f#part-}; name=${name%.pbf}
-            bin/zstd-pbf "$f" "$name".zstd.pbf
-            bin/upload-pbf "$f" "$name".pbf
+            pbf-filter recompress "$f" "$name".zstd.pbf
+            pbf-filter recompress --zlib "$f" "$name".pbf
             bin/upload-pbf "$name".zstd.pbf
-            rm "$name".zstd.pbf
+            bin/upload-pbf "$name".pbf
+            rm "$name".zstd.pbf "$name".pbf
           done
 
       # Several extracts are merged into one: a single pass over the sorted
-      # files, keeping one copy of what's in both (the border). Much faster
-      # than cutting north-america to the two countries with osmium extract
-      # (#158's first try took 15.6 minutes).
-      - name: Merge PBFs
+      # files, keeping one copy of what's in both (the border). Metadata
+      # (versions, timestamps, users), which tilemaker doesn't read, is
+      # dropped, and the blocks are zstd, which cldellow/tilemaker reads
+      # several times faster than zlib.
+      - name: Make the area's PBFs
         run: |
           set -- part-*.pbf
           if [ $# -eq 1 ]; then
-            mv "$1" "$AREA".pbf
+            time pbf-filter recompress "$1" "$AREA".zstd.pbf
           else
-            time osmium merge "$@" -o "$AREA".pbf --overwrite
-            rm part-*.pbf
+            time pbf-filter merge "$AREA".zstd.pbf "$@"
           fi
-          ls -l "$AREA".pbf
+          rm part-*.pbf
+          # The same, in zlib blocks, for tools that don't read zstd.
+          time pbf-filter recompress --zlib "$AREA".zstd.pbf "$AREA".pbf
+          ls -l "$AREA".pbf "$AREA".zstd.pbf
 
-      # The builds read <area>.zstd.pbf (see bin/zstd-pbf).
-      - name: Make zstd PBF
-        run: bin/zstd-pbf "$AREA".pbf "$AREA".zstd.pbf
-
-      # The original (merged, if the area is several) is kept too, so builds
-      # can switch back to it.
-      - name: Upload PBFs
+      - name: Upload the area's PBFs
         run: |
           bin/upload-pbf "$AREA".pbf
           bin/upload-pbf "$AREA".zstd.pbf

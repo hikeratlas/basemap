@@ -1,0 +1,25 @@
+name: Delete the old zlib PBF copies from R2
+
+# One-off: mirror-pbfs.yml no longer makes pbfs/<area>.pbf (#223) and
+# nothing reads them. Runs on a push to this branch only; not for main.
+on:
+  push:
+    branches: [claude/r2-cleanup]
+
+jobs:
+  delete:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - name: Delete pbfs/<area>.pbf for each area
+        run: |
+          for a in british-columbia canada great-britain north-america nova-scotia ontario us \
+                   us-midwest us-northeast us-pacific us-south us-west; do
+            aws s3 rm "s3://hikes-public/pbfs/$a.pbf"
+          done
+          echo "Left in pbfs/:"
+          aws s3 ls s3://hikes-public/pbfs/

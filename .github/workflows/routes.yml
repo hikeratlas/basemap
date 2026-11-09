@@ -119,7 +119,7 @@ jobs:
           for layer in parks peaks; do
             fetch "$layer" & pids+=($!)
           done
-          wget -q --tries=4 -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db & pids+=($!)
+          wget -q --tries=5 --waitretry=15 --retry-on-http-error=500,502,503,504 -O /mnt/routes/qrank.db https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db & pids+=($!)
           failed=0
           # Trail areas (trail networks outside parks, curated like parks): a
           # build from before they existed has none, so they're optional.

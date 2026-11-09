@@ -122,8 +122,54 @@ jobs:
           wget --progress=dot:giga "https://download.geofabrik.de/${GEOFABRIK}-latest.osm.pbf" -O source.pbf
           bin/upload-pbf source.pbf "raw/$AREA.osm.pbf"
 
+      # The area's PBF is remade only when it's missing or older than what
+      # it's made from (the raw extract, or any part's PBF); otherwise, e.g.
+      # when a changed profile leaves a filtered PBF stale, the published
+      # one is reused and only the filtered PBFs are made again.
+      - name: Decide whether to make the area's PBF
+        id: plan
+        env:
+          PARTS: ${{ steps.area.outputs.parts }}
+        run: |
+          modified() {  # epoch seconds of pbfs/$1's last change, or nothing
+            local m
+            m=$(aws s3api head-object --bucket hikes-public --key "pbfs/$1" --query LastModified --output text 2>/dev/null) \
+              && date -d "$m" +%s
+          }
+          if [ -n "$PARTS" ]; then
+            mapfile -t sources < <(jq -r --arg a "$AREA" '.[$a].parts[] | "\(.).zstd.pbf"' areas.json)
+          else
+            sources=("raw/$AREA.osm.pbf")
+          fi
+          newest=0 oldest=
+          for s in "${sources[@]}"; do
+            if ! t=$(modified "$s"); then
+              echo "::error::pbfs/$s isn't in R2: run this workflow for $(basename "${s%%.*}") first"
+              exit 1
+            fi
+            echo "pbfs/$s: $(date -ud "@$t")"
+            (( t > newest )) && newest=$t
+            (( ${oldest:-t} >= t )) && oldest=$t
+          done
+          if [ -n "$PARTS" ] && (( newest - oldest > 2 * 86400 )); then
+            echo "::warning::The parts were published more than two days apart; mirror the older ones again for a consistent merge"
+          fi
+          if area=$(modified "$AREA.zstd.pbf") && (( area >= newest )); then
+            echo "pbfs/$AREA.zstd.pbf: $(date -ud "@$area"), up to date: reusing it"
+            echo "make=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "pbfs/$AREA.zstd.pbf is missing or older than its source: making it"
+            echo "make=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Fetch the area's PBF from R2
+        if: ${{ steps.plan.outputs.make != 'true' }}
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.zstd.pbf" "$AREA".zstd.pbf
+
       - name: Fetch the extract from R2
-        if: ${{ steps.area.outputs.geofabrik && !inputs.fetch }}
+        if: ${{ steps.plan.outputs.make == 'true' && steps.area.outputs.geofabrik && !inputs.fetch }}
         run: |
           aws configure set default.s3.max_concurrent_requests 32
           aws s3 cp --no-progress "s3://hikes-public/pbfs/raw/$AREA.osm.pbf" source.pbf
@@ -131,25 +177,12 @@ jobs:
       # The parts' derived PBFs: the same data as their raw extracts, but
       # smaller to download and quicker to merge.
       - name: Fetch the parts from R2
-        if: ${{ !steps.area.outputs.geofabrik }}
+        if: ${{ steps.plan.outputs.make == 'true' && steps.area.outputs.parts }}
         run: |
           aws configure set default.s3.max_concurrent_requests 32
-          mapfile -t parts < <(jq -r --arg a "$AREA" '.[$a].parts[]' areas.json)
-          newest=0 oldest=
-          for p in "${parts[@]}"; do
-            if ! modified=$(aws s3api head-object --bucket hikes-public --key "pbfs/$p.zstd.pbf" --query LastModified --output text 2>/dev/null); then
-              echo "::error::pbfs/$p.zstd.pbf isn't in R2: run this workflow for $p first"
-              exit 1
-            fi
-            t=$(date -d "$modified" +%s)
-            echo "$p: published $modified"
-            (( t > newest )) && newest=$t
-            (( ${oldest:-t} >= t )) && oldest=$t
+          for p in $(jq -r --arg a "$AREA" '.[$a].parts[]' areas.json); do
             aws s3 cp --no-progress "s3://hikes-public/pbfs/$p.zstd.pbf" "part-$p.pbf"
           done
-          if (( newest - oldest > 2 * 86400 )); then
-            echo "::warning::The parts were published more than two days apart; mirror the older ones again for a consistent merge"
-          fi
           ls -l part-*.pbf
 
       # Metadata (versions, timestamps, users), which tilemaker doesn't read,
@@ -158,6 +191,7 @@ jobs:
       # over the sorted files, keeping one copy of what's in both (the
       # border).
       - name: Make the area's PBF
+        if: ${{ steps.plan.outputs.make == 'true' }}
         run: |
           if [ -f source.pbf ]; then
             time pbf-filter recompress source.pbf "$AREA".zstd.pbf
@@ -169,6 +203,7 @@ jobs:
           ls -l "$AREA".zstd.pbf
 
       - name: Upload the area's PBF
+        if: ${{ steps.plan.outputs.make == 'true' }}
         run: bin/upload-pbf "$AREA".zstd.pbf
 
       # Each group's filtered PBF, from the area's: one read of it per group.

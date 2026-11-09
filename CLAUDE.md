@@ -19,8 +19,6 @@ Traps hit before, across the Hiker Atlas repos (basemap, routes, website, nl-dem
   proxy it (e.g. a Playwright route adding `access-control-allow-origin`).
 - Playwright sends localhost through the proxy (405s): serve test pages with
   `context.route` on a made-up host.
-- routes' ureq doesn't trust the proxy's CA: pre-fill `--dem-cache` with curl,
-  and pass local files for URLs.
 - routes' `fixtures/run.sh` drops option values from `ROUTES_ARGS`; run the
   binary directly for those.
 - While a build rewrites the layers, get tiles from the fixtures snapshot

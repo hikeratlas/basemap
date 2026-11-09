@@ -1,0 +1,54 @@
+name: Time pbf-filter merge on the filtered parts
+
+# One-off experiment: how long merging canada's and us's filtered PBFs
+# takes, against filtering north-america. Runs on a push to this branch
+# only; not for main.
+on:
+  push:
+    branches: [claude/merge-timing]
+
+jobs:
+  time:
+    runs-on: ubuntu-24.04-arm
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      - name: Install pbf-filter
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -sSfL --retry 4 -o "$RUNNER_TEMP/bin/pbf-filter" \
+            "https://github.com/hikeratlas/pbf-filter/releases/download/$(cat .pbf-filter-version)/pbf-filter-aarch64-linux"
+          chmod +x "$RUNNER_TEMP/bin/pbf-filter"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: Fetch the parts' filtered PBFs and sidecars
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          start=$(date +%s)
+          for p in canada us; do
+            aws s3 cp --no-progress --recursive "s3://hikes-public/pbfs/filtered/$p/" "$p/"
+            aws s3 cp --no-progress "s3://hikes-public/pbfs/$p.relations.pbf" "$p/relations.pbf"
+          done
+          echo "Fetched $(du -sm canada us | awk '{s+=$1} END {print s}') MB in $(( $(date +%s) - start ))s"
+
+      - name: Merge each group
+        run: |
+          mkdir -p out
+          TIMEFORMAT='%R real, %U user, %S sys'
+          for f in canada/*.pbf; do
+            g=$(basename "$f" .zstd.pbf); g=${g%.pbf}
+            echo "== $g"
+            time pbf-filter merge "out/$g.pbf" "canada/$(basename "$f")" "us/$(basename "$f")"
+          done
+          ls -l out

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Around the upload of a build's outputs (see bin/skip-if-unchanged):
+#   bin/record-inputs BASE forget   before: deletes BASE.inputs, so it never
+#                                   describes outputs it didn't build;
+#   bin/record-inputs BASE MANIFEST after: puts MANIFEST there, if the
+#                                   inputs were listed (MANIFEST exists).
+set -euo pipefail
+base=$1 what=$2
+if [ "$what" = forget ]; then
+  aws s3 rm --only-show-errors "s3://hikes-public/$base.inputs"
+elif [ -s "$what" ]; then
+  aws s3 cp --no-progress --content-type text/plain "$what" "s3://hikes-public/$base.inputs"
+fi

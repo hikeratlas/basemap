@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Prints a manifest of everything a tilemaker job (a layer, an export or
+zindex) builds from, one input per line, without downloading the PBF:
+
+- the PBF, by the R2 ETags it's chosen from (bin/fetch-pbf --identity);
+- the box, and the tilemaker image's digest;
+- the profile's directory (slices/ or export/), less other jobs' profiles;
+- the exports' GeoJSON a layer reads, by their R2 ETags (--geojsonl-from);
+  an export that hasn't changed isn't uploaded again, so they stay the same;
+- QRank, if the profile reads it, and each --file (workflows, scripts, data
+  files and directories, other manifests).
+
+The jobs keep the manifest in R2 next to what they built, as <name>.inputs,
+and skip the build when the new one is the same: what's in R2 is what they
+would build. When it differs, `diff` of the two says what changed. Needs the
+AWS_* settings for R2.
+
+  bin/build-inputs --name NAME --area AREA --bbox=BBOX --profile PROFILE.lua
+      [--geojsonl-from NAMESPACE] [--file PATH ...] [--mapt]
+"""
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+import sys
+
+ap = argparse.ArgumentParser()
+ap.add_argument('--name', required=True)
+ap.add_argument('--area', required=True)
+ap.add_argument('--bbox', required=True)
+ap.add_argument('--profile', required=True)
+ap.add_argument('--geojsonl-from')
+ap.add_argument('--file', action='append', default=[])
+ap.add_argument('--mapt', action='store_true', help='count node_modules/mapt (the layers build with it)')
+args = ap.parse_args()
+
+
+def run(*cmd):
+    return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
+
+
+def sha(path):
+    """A file's SHA-256, or a directory's: of its files' paths and hashes."""
+    if os.path.isdir(path):
+        h = hashlib.sha256()
+        for root, dirs, files in os.walk(path):
+            dirs[:] = sorted(d for d in dirs if d != 'node_modules')
+            for f in sorted(files):
+                p = os.path.join(root, f)
+                h.update(f'{os.path.relpath(p, path)} {sha(p)}\n'.encode())
+        return h.hexdigest()
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+lines = [f'name {args.name}', f'bbox {args.bbox}']
+lines += run('bin/fetch-pbf', '--identity', args.area, args.profile).splitlines()
+
+image = next(w for w in open('bin/docker-tilemaker').read().split() if w.startswith('ghcr.io/'))
+run('docker', 'pull', '-q', image)
+lines.append(f"tilemaker {image} {run('docker', 'image', 'inspect', '-f', '{{.Id}}', image)}")
+if args.mapt:
+    lines.append(f"mapt {sha('node_modules/mapt')}")
+
+# Other jobs' profiles don't change this one: in export/, those listed in
+# pbf-groups.json; in slices/, each <name>.lua with a <name>.json. The
+# parks layer also builds trailareas and hikingroutes. Everything else in
+# the directory (shared modules like json.lua, and new ones) counts.
+pdir = os.path.dirname(args.profile)
+own = os.path.splitext(os.path.basename(args.profile))[0]
+mine = {own} | ({'trailareas', 'hikingroutes'} if args.profile == 'slices/parks.lua' else set())
+listed = {p for ps in json.load(open('pbf-groups.json')).values() for p in ps}
+for f in sorted(os.listdir(pdir)):
+    path, stem = os.path.join(pdir, f), os.path.splitext(f)[0]
+    if not os.path.isfile(path) or f.endswith('.md'):
+        continue
+    other = stem not in mine and (f'{pdir}/{stem}.lua' in listed or (
+        pdir == 'slices' and os.path.exists(f'slices/{stem}.lua') and os.path.exists(f'slices/{stem}.json')))
+    if not other:
+        lines.append(f'file {path} {sha(path)}')
+
+if 'qrank' in open(args.profile).read():
+    lines.append(f"qrank {sha('qrank.db')}")
+
+for f in args.file:
+    lines.append(f'file {f} {sha(f)}')
+
+if args.geojsonl_from:
+    prefix = f'geojsonl/{args.geojsonl_from}/'
+    listing = json.loads(run('aws', 's3api', 'list-objects-v2', '--bucket', 'hikes-public', '--prefix', prefix,
+                             '--query', 'Contents[].[Key,ETag]', '--output', 'json') or 'null') or []
+    found = [(k, e) for k, e in listing
+             if k.endswith('.geojsonl.zst') and not k.endswith('/zindex.geojsonl.zst')]
+    if not found:
+        sys.exit(f'No exports in {prefix}')
+    lines += [f'geojsonl {k} {e}' for k, e in sorted(found)]
+
+print('\n'.join(lines))

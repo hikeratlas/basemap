@@ -2,6 +2,25 @@ qrank = nil
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
 
+-- The first of a tag's ;-separated values, trimmed.
+local function first(v)
+	return (string.match(v, '^%s*([^;]-)%s*;') or string.match(v, '^%s*(.-)%s*$'))
+end
+
+-- The park's official website (website, contact:website or url), for the
+-- website's park panel (hikeratlas/website#72): an http(s) URL, or a bare
+-- host ("www.ontarioparks.ca") taken as https. Anything else is dropped.
+local function park_website()
+	for _, key in ipairs({'website', 'contact:website', 'url'}) do
+		local v = first(Find(key))
+		if string.match(v, '^[Hh][Tt][Tt][Pp][Ss]?://[^%s]+$') then return v end
+		if string.match(v, '^[%w][%w.-]*%.%a%a+[^%s]*$') and not string.find(v, '@', 1, true) then
+			return 'https://' .. v
+		end
+	end
+	return ''
+end
+
 
 -- Heritage districts aren't parks: e.g. Vancouver's First Shaughnessy Heritage
 -- Conservation Area (relation/12804067) is a residential neighbourhood mapped
@@ -111,6 +130,8 @@ function maybe_emit(is_node)
 		Attr('landuse', landuse)
 		Attr('wikidata', wikidata)
 		Attr('osm_id', Id())
+		Attr('website', park_website())
+		Attr('operator', first(Find('operator')))
 		return
 	end
 
@@ -132,6 +153,9 @@ function maybe_emit(is_node)
 	if string.find(name, 'Land Use Zone', 1, true) ~= nil then
 		mz = 10
 	end
+	-- The label also carries the park's website and operator (not the
+	-- area, which repeats in every tile it crosses): the website's park
+	-- panel reads them from it, and hikeratlas/routes from the z8 labels.
 	LayerAsCentroid('park_name')
 	MinZoom(mz)
 	AttributeNumeric('rank', rank)
@@ -142,6 +166,8 @@ function maybe_emit(is_node)
 	Attr('landuse', landuse)
 	Attr('wikidata', wikidata)
 	Attr('osm_id', Id())
+	Attr('website', park_website())
+	Attr('operator', first(Find('operator')))
 end
 
 function way_function()

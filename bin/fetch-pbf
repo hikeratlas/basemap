@@ -11,7 +11,17 @@
 # `actions: write` for that. Needs the AWS_* settings for R2.
 #
 #   bin/fetch-pbf AREA OUT PROFILE.lua [PROFILE.lua ...]
+#
+# With --identity, downloads nothing and prints what the PBF it would
+# fetch depends on: the R2 ETags of the whole PBF and, if a group has the
+# profiles, of the group's filtered PBF and the relations sidecar, and the
+# pbf-filter version (which, with the profiles, decides between them).
+# bin/build-inputs uses it to skip a build before fetching anything.
+#
+#   bin/fetch-pbf --identity AREA PROFILE.lua [PROFILE.lua ...]
 set -uo pipefail
+identity=
+if [ "${1:-}" = --identity ]; then identity=1; shift; set -- "$1" - "${@:2}"; fi
 area=$1 out=$2
 shift 2
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -28,6 +38,31 @@ whole() {
 
 # The group with every profile.
 group=$(cd "$here" && jq -r '[to_entries[] | select(.value as $v | $ARGS.positional | all(. as $p | $v | any(.[]; . == $p)))][0].key // empty' pbf-groups.json --args "$@")
+
+if [ -n "$identity" ]; then
+  # An object's ETag, "missing" if there's none; fails on any other error.
+  etag() {
+    local out
+    if out=$(aws s3api head-object --bucket hikes-public --key "$1" --query ETag --output text 2>&1); then
+      echo "$out"
+    elif grep -qE '404|Not Found' <<< "$out"; then
+      echo missing
+    else
+      echo "$out" >&2; exit 1
+    fi
+  }
+  e=$(etag "pbfs/$area.zstd.pbf") || exit 1
+  echo "pbf whole $e"
+  if [ -n "$group" ]; then
+    e=$(etag "pbfs/filtered/$area/$group.zstd.pbf") || exit 1
+    echo "pbf filtered $group $e"
+    e=$(etag "pbfs/$area.relations.pbf") || exit 1
+    echo "pbf relations $e"
+    echo "pbf-filter $(cat "$here/.pbf-filter-version")"
+  fi
+  exit 0
+fi
+
 [ -n "$group" ] || whole "no group in pbf-groups.json has $*"
 
 version=$(cat "$here/.pbf-filter-version")

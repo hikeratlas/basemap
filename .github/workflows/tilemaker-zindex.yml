@@ -23,6 +23,10 @@ on:
         description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
         type: string
         default: ''
+      rebuild:
+        description: Export again even if the inputs haven't changed since the last export
+        type: boolean
+        default: false
 
 jobs:
   # Job names are prefixed with the caller's job, e.g. "exports / export
@@ -161,13 +165,57 @@ jobs:
             backoff
           done
 
+      # Each export's manifest, and its GeoJSON if it ran (an unchanged
+      # one's is fetched from R2 below, if needed)
       - name: Fetch other exports
         uses: actions/download-artifact@v8
         with:
-          pattern: geojsonl-*
+          pattern: export-*
           merge-multiple: true
 
+      # Skip zindex and the search DB if nothing they're made from has
+      # changed since the ones in R2: the PBF (by the R2 ETags it's chosen
+      # from), the box, tilemaker, export/, this workflow, the search DB's
+      # script, and the inputs of the exports zindex reads (their manifests;
+      # see bin/build-inputs). The manifest goes next to the GeoJSON as
+      # zindex.inputs. The routes add their hikes to the search DB in R2
+      # again either way (bin/search-add-hikes.py is idempotent).
+      - name: Compare inputs with the last export
+        id: inputs
+        env:
+          BBOX: ${{ inputs.bbox }}
+          REBUILD: ${{ inputs.rebuild }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          base="geojsonl/$NAMESPACE/zindex"
+          bin/skip-if-unchanged "$base" "$base.geojsonl.zst" "$NAMESPACE.autosuggest.db" -- \
+            --name zindex --area "$AREA" --bbox="${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)}" \
+            --profile export/zindex.lua --file .github/workflows/tilemaker-zindex.yml \
+            --file bin/create-autosuggest-db.ts --file .bun-version \
+            --file city-parks.inputs --file countries.inputs --file parks.inputs --file states.inputs
+
+      # The exports zindex reads that didn't change: their GeoJSON in R2 is
+      # this build's.
+      - name: Fetch unchanged exports
+        if: steps.inputs.outputs.skip != 'true'
+        env:
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          for x in city-parks countries parks states; do
+            [ -f "$x.geojsonl" ] && continue
+            echo "$x: unchanged; from R2"
+            aws s3 cp --no-progress "s3://hikes-public/geojsonl/$NAMESPACE/$x.geojsonl.zst" .
+            unzstd -f "$x.geojsonl.zst"
+          done
+
       - name: Export
+        if: steps.inputs.outputs.skip != 'true'
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           # A preview build only exports its box; otherwise the area's, from
@@ -182,7 +230,7 @@ jobs:
             | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
 
       - name: Phase timings
-        if: always()
+        if: always() && steps.inputs.outputs.skip != 'true'
         continue-on-error: true
         uses: ./.github/actions/phase-timings
         with:
@@ -191,6 +239,7 @@ jobs:
       # A pinned version lets setup-bun use its cache; "latest" downloads from
       # bun.sh every time, which once took 2.5 minutes of retries after a 522.
       - uses: oven-sh/setup-bun@v2
+        if: steps.inputs.outputs.skip != 'true'
         with:
           bun-version-file: .bun-version
 
@@ -198,30 +247,37 @@ jobs:
       # query this build with ?build=<namespace>. Uploaded alongside the
       # GeoJSON below.
       - name: Build autosuggest DB
+        if: steps.inputs.outputs.skip != 'true'
         run: |
           bun bin/create-autosuggest-db.ts
           items=$(python3 -c "import sqlite3; print(sqlite3.connect('autosuggest.db').execute('select count(*) from items').fetchone()[0])")
           echo "$items items, $(stat -c %s autosuggest.db) bytes"
 
       - name: Upload autosuggest DB
+        if: steps.inputs.outputs.skip != 'true'
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        # The old manifest goes first; the new one once both are up (below).
         run: |
+          bin/record-inputs "geojsonl/$NAMESPACE/zindex" forget
           aws s3 cp --no-progress --content-type application/vnd.sqlite3 \
             autosuggest.db "s3://hikes-public/$NAMESPACE.autosuggest.db"
           echo "Published https://public.hikeratlas.com/$NAMESPACE.autosuggest.db" | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload zindex GeoJSON
+        if: steps.inputs.outputs.skip != 'true'
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         # Only zindex's own: tilemaker-exports.yml's publish job uploads the rest.
-        run: zstd -9 zindex.geojsonl && aws s3 cp --no-progress zindex.geojsonl.zst s3://hikes-public/geojsonl/"$NAMESPACE"/zindex.geojsonl.zst
+        run: |
+          zstd -9 zindex.geojsonl && aws s3 cp --no-progress zindex.geojsonl.zst s3://hikes-public/geojsonl/"$NAMESPACE"/zindex.geojsonl.zst
+          bin/record-inputs "geojsonl/$NAMESPACE/zindex" "$RUNNER_TEMP/inputs.txt"
 
       # Re-render build-area.yml's progress check with this job's results (#210)
       - name: Build progress

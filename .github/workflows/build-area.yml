@@ -247,7 +247,26 @@ jobs:
       bbox: ${{ needs.config.outputs.bbox }}
     secrets: inherit
 
+  # The layers that read none of the exports' GeoJSON start straight away:
+  # water (the longest, ~12 min for north-america) and land.
+  layers-early:
+    name: layers
+    needs: [config]
+    if: ${{ !cancelled() && needs.config.result == 'success' && needs.config.outputs.mode != 'style-only' }}
+    permissions:
+      actions: write   # the telemetry action reads the job's step times; bin/fetch-pbf may start mirror-pbfs.yml
+      checks: write    # the progress check (#210)
+      contents: read
+    uses: ./.github/workflows/tilemaker-layers.yml
+    with:
+      area: ${{ needs.config.outputs.area }}
+      namespace: ${{ needs.config.outputs.namespace }}
+      bbox: ${{ needs.config.outputs.bbox }}
+      layers: '["land", "water"]'
+    secrets: inherit
+
   layers:
+    name: layers
     needs: [config, exports]
     # Runs after the exports, or without them (no-exports)
     if: >-
@@ -264,6 +283,7 @@ jobs:
       namespace: ${{ needs.config.outputs.namespace }}
       bbox: ${{ needs.config.outputs.bbox }}
       geojsonl_from: ${{ needs.config.outputs.mode == 'no-exports' && needs.config.outputs.reuse_from || '' }}
+      layers: '["boundaries", "buildings", "parks", "peaks", "places", "pois", "ways"]'
     secrets: inherit
 
   # Curated hikes, from the layers just built (see routes.yml). They're an
@@ -273,8 +293,8 @@ jobs:
   # search DB, which reuse may copy in from the reused build first, or zindex
   # build. If zindex fails, the routes still run, on the previous search DB.
   routes:
-    needs: [config, layers, reuse, zindex]
-    if: ${{ !cancelled() && needs.layers.result == 'success' && needs.reuse.result != 'failure' }}
+    needs: [config, layers-early, layers, reuse, zindex]
+    if: ${{ !cancelled() && needs.layers-early.result == 'success' && needs.layers.result == 'success' && needs.reuse.result != 'failure' }}
     permissions:
       actions: read    # the telemetry action reads the job's step times
       checks: write    # the progress check (#210)
@@ -293,8 +313,8 @@ jobs:
   # written once to fixtures/<run id>/ and never changed; fixtures/latest.json
   # moves to it only once it's complete.
   fixtures:
-    needs: [config, layers]
-    if: ${{ !cancelled() && needs.layers.result == 'success' && needs.config.outputs.namespace == 'north-america' }}
+    needs: [config, layers-early, layers]
+    if: ${{ !cancelled() && needs.layers-early.result == 'success' && needs.layers.result == 'success' && needs.config.outputs.namespace == 'north-america' }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     env:
@@ -351,8 +371,8 @@ jobs:
   # archive of their own (<ns>.routes.pmtiles, from the routes job), so this
   # runs alongside them rather than after (#197).
   tile-join:
-    needs: [config, layers]
-    if: ${{ !cancelled() && needs.layers.result == 'success' }}
+    needs: [config, layers-early, layers]
+    if: ${{ !cancelled() && needs.layers-early.result == 'success' && needs.layers.result == 'success' }}
     permissions:
       actions: read    # the telemetry action reads the job's step times
       checks: write    # the progress check (#210)
@@ -484,7 +504,7 @@ jobs:
   # Completes the progress check once every other job has finished, failed
   # or been cancelled. It waits without a runner.
   progress:
-    needs: [config, progress-start, exports, zindex, layers, routes, fixtures, tile-join, deploy-search, reuse, comment]
+    needs: [config, progress-start, exports, zindex, layers-early, layers, routes, fixtures, tile-join, deploy-search, reuse, comment]
     if: ${{ always() && needs.config.result == 'success' }}
     runs-on: ubuntu-24.04-arm
     continue-on-error: true

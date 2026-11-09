@@ -21,9 +21,9 @@ name: Build area
 #     no-exports: nothing the exports use changed. The layers read the reused
 #                 exports' GeoJSON, and search uses their autosuggest DB.
 #     full:       anything else, and every push to main.
-# - In any mode, a layer whose inputs (PBF, slices, GeoJSON, ...; see
-#   bin/layer-inputs) are the same as when the namespace's copy was built
-#   isn't rebuilt. The "rebuild" input builds them all anyway.
+# - In any mode, an export or layer whose inputs (PBF, profiles, GeoJSON,
+#   ...; see bin/build-inputs) are the same as when the namespace's copy was
+#   built isn't built again. The "rebuild" input builds them all anyway.
 # - Any area, including north-america, can be built by hand.
 #
 # Outputs go to R2 under the namespace (which defaults to the area name):
@@ -60,7 +60,7 @@ on:
         options: [full, no-exports, style-only]
         default: full
       rebuild:
-        description: Rebuild every layer, even those whose inputs haven't changed since their last build in the namespace
+        description: Build every export and layer, even those whose inputs haven't changed since their last build in the namespace
         type: boolean
         default: false
 
@@ -151,7 +151,7 @@ jobs:
           BBOX: ${{ steps.target.outputs.bbox }}
           # Files the exports (and the search DB) depend on
           EXPORT_INPUTS: >-
-            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts|fetch-pbf|fetch-qrank)$|pbf-groups\.json$|\.pbf-filter-version$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
+            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts|fetch-pbf|fetch-qrank|build-inputs|skip-if-unchanged|record-inputs)$|pbf-groups\.json$|\.pbf-filter-version$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
         run: |
           if [ -n "$PR" ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
@@ -234,6 +234,7 @@ jobs:
       area: ${{ needs.config.outputs.area }}
       namespace: ${{ needs.config.outputs.namespace }}
       bbox: ${{ needs.config.outputs.bbox }}
+      rebuild: ${{ inputs.rebuild == true }}
     secrets: inherit
 
   # The zindex export and the search DB built from it. The layers don't use
@@ -252,6 +253,7 @@ jobs:
       area: ${{ needs.config.outputs.area }}
       namespace: ${{ needs.config.outputs.namespace }}
       bbox: ${{ needs.config.outputs.bbox }}
+      rebuild: ${{ inputs.rebuild == true }}
     secrets: inherit
 
   # The layers that read none of the exports' GeoJSON start straight away:

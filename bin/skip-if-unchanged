@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# For a job that can skip its build when nothing it builds from has changed
+# (see bin/build-inputs): lists its inputs into $RUNNER_TEMP/inputs.txt and
+# compares them with BASE.inputs in R2, the manifest of the build that made
+# what's there. Sets the step's outputs:
+#   manifest=true  the inputs were listed (the job records them once its
+#                  outputs are up: bin/record-inputs);
+#   skip=true      they're the same as last time, and each OBJECT (what the
+#                  build makes) is in R2: nothing to build.
+# REBUILD=true never skips. Never fails: if the inputs can't be listed, the
+# job builds and doesn't record them.
+#
+#   bin/skip-if-unchanged BASE OBJECT... -- BUILD-INPUTS-ARGS...
+set -uo pipefail
+base=$1; shift
+objects=()
+while [ "$1" != -- ]; do objects+=("$1"); shift; done
+shift
+out=${GITHUB_OUTPUT:-/dev/null}
+manifest=${RUNNER_TEMP:-/tmp}/inputs.txt
+previous=${RUNNER_TEMP:-/tmp}/previous-inputs.txt
+
+if ! bin/build-inputs "$@" > "$manifest"; then
+  echo "::warning::Couldn't list the inputs; building, and not recording them"
+  rm -f "$manifest"
+  exit 0
+fi
+echo "manifest=true" >> "$out"
+cat "$manifest"
+
+if [ "${REBUILD:-}" = true ]; then
+  echo "Building: rebuild asked for"
+  exit 0
+fi
+if ! aws s3 cp --no-progress "s3://hikes-public/$base.inputs" "$previous" > /dev/null 2>&1; then
+  echo "Building: no inputs recorded for the last build"
+  exit 0
+fi
+if ! diff "$previous" "$manifest"; then
+  echo "Building: the inputs changed (above: < last build, > this one)"
+  exit 0
+fi
+for o in "${objects[@]}"; do
+  if ! aws s3api head-object --bucket hikes-public --key "$o" > /dev/null 2>&1; then
+    echo "Building: no $o"
+    exit 0
+  fi
+done
+echo "skip=true" >> "$out"
+echo "Not rebuilt: the inputs are the same as when ${objects[*]} were built" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"

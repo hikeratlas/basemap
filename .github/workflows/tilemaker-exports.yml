@@ -15,6 +15,10 @@ on:
         description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
         type: string
         default: ''
+      rebuild:
+        description: Export again even if the inputs haven't changed since the last export
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       area:
@@ -29,6 +33,10 @@ on:
         description: Only build this box (minlon,minlat,maxlon,maxlat) instead of the whole area, e.g. a PR's preview
         type: string
         default: ''
+      rebuild:
+        description: Export again even if the inputs haven't changed since the last export
+        type: boolean
+        default: false
 
 jobs:
   # The exports that don't depend on any other export run in parallel. Keep
@@ -95,9 +103,34 @@ jobs:
           fi
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
+      # Skip the export if nothing it reads has changed since the one in R2
+      # (geojsonl/<ns>/<export>.geojsonl.zst) was made: the PBF (by the R2
+      # ETags it's chosen from), the box, tilemaker, export/, and this
+      # workflow (see bin/build-inputs). The manifest is uploaded with the
+      # GeoJSON by the publish job, as <export>.inputs, only if the export
+      # ran, so an unchanged export's GeoJSON, and its ETag, stay as they
+      # are; the layers count those ETags as inputs.
+      - name: Compare inputs with the last export
+        id: inputs
+        env:
+          EXPORT: ${{ matrix.export }}
+          BBOX: ${{ inputs.bbox }}
+          REBUILD: ${{ inputs.rebuild }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          base="geojsonl/$NAMESPACE/$EXPORT"
+          bin/skip-if-unchanged "$base" "$base.geojsonl.zst" -- \
+            --name "$EXPORT" --area "$AREA" --bbox "${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)}" \
+            --profile "export/$EXPORT.lua" --file .github/workflows/tilemaker-exports.yml
+          [ ! -f "$RUNNER_TEMP/inputs.txt" ] || cp "$RUNNER_TEMP/inputs.txt" "$EXPORT.inputs"
+
       # Fetch from R2 directly with many concurrent ranged GETs; a single wget
       # stream over the public URL tops out around 70 MB/s.
       - name: Fetch PBF
+        if: steps.inputs.outputs.skip != 'true'
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
@@ -115,6 +148,7 @@ jobs:
           bin/fetch-pbf "$AREA" "$AREA.pbf" export/$EXPORT.lua
 
       - name: Export
+        if: steps.inputs.outputs.skip != 'true'
         env:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           # A preview build only exports its box; otherwise the area's, from
@@ -130,18 +164,29 @@ jobs:
             | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
 
       - name: Phase timings
-        if: always()
+        if: always() && steps.inputs.outputs.skip != 'true'
         continue-on-error: true
         uses: ./.github/actions/phase-timings
         with:
           name: export-${{ matrix.export }}
 
+      # The GeoJSON, if exported, and the manifest of its inputs (none if
+      # they couldn't be listed), for the publish job and zindex. An
+      # unchanged export has only the manifest: they read its GeoJSON from R2.
       - uses: actions/upload-artifact@v7
         with:
-          name: geojsonl-${{ matrix.export }}
-          path: ${{ matrix.export }}.geojsonl
-          if-no-files-found: error
+          name: export-${{ matrix.export }}
+          path: |
+            ${{ matrix.export }}.geojsonl
+            ${{ matrix.export }}.inputs
+          if-no-files-found: ignore
           retention-days: 1
+
+      - name: Check the export's output
+        if: steps.inputs.outputs.skip != 'true'
+        run: test -f "$EXPORT.geojsonl"
+        env:
+          EXPORT: ${{ matrix.export }}
 
       # Re-render build-area.yml's progress check with this job's results (#210)
       - name: Build progress
@@ -159,16 +204,37 @@ jobs:
     env:
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: bin
+
       - name: Fetch the exports
         uses: actions/download-artifact@v8
         with:
-          pattern: geojsonl-*
+          pattern: export-*
           merge-multiple: true
+          path: exports
 
+      # Only the exports that ran: an unchanged one's GeoJSON is already in
+      # R2. Each one's old manifest goes first and its new one after the
+      # GeoJSON, so a manifest never describes GeoJSON it didn't make.
       - name: Upload GeoJSON
         env:
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: for x in *.geojsonl; do zstd -9 "$x"; aws s3 cp --no-progress "$x".zst s3://hikes-public/geojsonl/"$NAMESPACE"/"$x".zst; done
+        run: |
+          shopt -s nullglob
+          for x in exports/*.geojsonl; do
+            name=$(basename "$x" .geojsonl)
+            base="geojsonl/$NAMESPACE/$name"
+            bin/record-inputs "$base" forget
+            zstd -9 "$x"
+            aws s3 cp --no-progress "$x.zst" "s3://hikes-public/$base.geojsonl.zst"
+            bin/record-inputs "$base" "exports/$name.inputs"
+          done
+          for x in exports/*.inputs; do
+            name=$(basename "$x" .inputs)
+            [ -f "exports/$name.geojsonl" ] || echo "$name: unchanged" | tee -a "$GITHUB_STEP_SUMMARY"
+          done

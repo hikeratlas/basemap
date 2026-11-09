@@ -144,56 +144,9 @@ jobs:
       - name: Install mapt
         run: bun rm mapt && bun add https://github.com/cldellow/mapt
 
-      # Just what the layer's profile reads: its group's filtered PBF, or the
-      # whole PBF if that's stale (see bin/fetch-pbf). From R2 directly with
-      # many concurrent ranged GETs; a single wget stream over the public URL
-      # tops out around 70 MB/s.
-      - name: Fetch PBF
-        env:
-          GH_TOKEN: ${{ github.token }}
-          LAYER: ${{ matrix.layer }}
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_RETRY_MODE: adaptive
-          AWS_MAX_ATTEMPTS: 10
-        run: |
-          aws configure set default.s3.max_concurrent_requests 32
-          aws configure set default.s3.multipart_chunksize 64MB
-          bin/fetch-pbf "$AREA" "$AREA.pbf" "slices/$LAYER.lua"
-
-      - name: Fetch supporting GeoJSON and QRank files
-        env:
-          GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
-          LAYER: ${{ matrix.layer }}
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          bin/fetch-qrank
-          # Water and land read none of the exports' GeoJSON, so they're
-          # built without waiting for the exports (build-area.yml's
-          # layers-early), before this build's are published.
-          case $LAYER in water|land) echo "$LAYER reads no exports"; exit 0 ;; esac
-          aws s3 sync "s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/" . --no-progress
-          unzstd *.zst
-          # A reused build from before the campgrounds export has none.
-          if [ ! -f campgrounds.geojsonl ]; then
-            echo "::warning::No campgrounds.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); using an empty one"
-            touch campgrounds.geojsonl
-          fi
-          # Likewise the trails export (bin/trail-areas.py): no trail areas.
-          if [ ! -f trails.geojsonl ]; then
-            echo "::warning::No trails.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no trail areas"
-            touch trails.geojsonl
-          fi
-          # And the hiking-routes export: no known hikes for routes to check.
-          if [ ! -f hiking-routes.geojsonl ]; then
-            echo "::warning::No hiking-routes.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no known hikes"
-            touch hiking-routes.geojsonl
-          fi
+      # Small, and an input to the comparison below (some profiles read it)
+      - name: Fetch QRank file
+        run: bin/fetch-qrank
 
       # Lake labels follow these centerlines; see lake-centerlines.yml.
       - name: Fetch lake centerlines
@@ -244,39 +197,83 @@ jobs:
           unzip "$zip" && mv water-polygons-split-4326 slices/coastline
 
       # Skip the build if nothing it reads has changed since the layer in R2
-      # was built: the PBF, the box, tilemaker, mapt, the slices, this
-      # workflow, and the GeoJSON, QRank and coastline files (see
-      # bin/layer-inputs). The manifest of those inputs sits next to the
-      # layer as <layer>.inputs; the log shows how it differs from the last.
+      # was built: the PBF (by the R2 ETags it's chosen from), the box,
+      # tilemaker, mapt, the slices, this workflow, the exports' GeoJSON (by
+      # their ETags), QRank and the coastline (see bin/build-inputs). It runs
+      # before the PBF and GeoJSON downloads, so a skip takes about a minute.
+      # The manifest of those inputs sits next to the layer as
+      # <layer>.inputs; the log shows how it differs from the last.
+      # Water and land read none of the exports' GeoJSON, so they're built
+      # without waiting for the exports (build-area.yml's layers-early).
       - name: Compare inputs with the last build
         id: inputs
         env:
           LAYER: ${{ matrix.layer }}
           BBOX: ${{ steps.area.outputs.bbox }}
           REBUILD: ${{ inputs.rebuild }}
+          GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          if ! bin/layer-inputs "$LAYER" "$AREA.pbf" "$BBOX" > "$RUNNER_TEMP/inputs.txt"; then
-            echo "::warning::Couldn't list $LAYER's inputs; building it, and not recording them"
-            exit 0
+          opts=(--name "$LAYER" --area "$AREA" --bbox "$BBOX" --profile "slices/$LAYER.lua" --mapt
+                --file .github/workflows/tilemaker-layers.yml --file bin/docker-tilemaker)
+          case $LAYER in
+            water) opts+=(--file lake-centerlines.geojsonl) ;;
+            land) ;;
+            *) opts+=(--geojsonl-from "${GEOJSONL_FROM:-$NAMESPACE}") ;;
+          esac
+          case $LAYER in pois|parks) opts+=(--file bin/parks-near.py --file bin/trail-areas.py --file bin/urban-lots.py) ;; esac
+          [ -d slices/coastline ] && opts+=(--file slices/coastline)
+          bin/skip-if-unchanged "layers/$NAMESPACE/$LAYER" "layers/$NAMESPACE/$LAYER.pmtiles" -- "${opts[@]}"
+
+      # Just what the layer's profile reads: its group's filtered PBF, or the
+      # whole PBF if that's stale (see bin/fetch-pbf). From R2 directly with
+      # many concurrent ranged GETs; a single wget stream over the public URL
+      # tops out around 70 MB/s.
+      - name: Fetch PBF
+        if: steps.inputs.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LAYER: ${{ matrix.layer }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_RETRY_MODE: adaptive
+          AWS_MAX_ATTEMPTS: 10
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          bin/fetch-pbf "$AREA" "$AREA.pbf" "slices/$LAYER.lua"
+
+      - name: Fetch the exports' GeoJSON
+        if: steps.inputs.outputs.skip != 'true' && !contains(fromJSON('["water", "land"]'), matrix.layer)
+        env:
+          GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
+          LAYER: ${{ matrix.layer }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          aws s3 sync "s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/" . --no-progress
+          unzstd *.zst
+          # A reused build from before the campgrounds export has none.
+          if [ ! -f campgrounds.geojsonl ]; then
+            echo "::warning::No campgrounds.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); using an empty one"
+            touch campgrounds.geojsonl
           fi
-          echo "manifest=true" >> "$GITHUB_OUTPUT"
-          cat "$RUNNER_TEMP/inputs.txt"
-          key="layers/$NAMESPACE/$LAYER"
-          if [ "$REBUILD" = true ]; then
-            echo "Building: rebuild asked for"
-          elif ! aws s3 cp --no-progress "s3://hikes-public/$key.inputs" "$RUNNER_TEMP/previous.txt" 2> /dev/null; then
-            echo "Building: no inputs recorded for the last build"
-          elif ! diff "$RUNNER_TEMP/previous.txt" "$RUNNER_TEMP/inputs.txt"; then
-            echo "Building: the inputs changed (above: < last build, > this one)"
-          elif ! aws s3api head-object --bucket hikes-public --key "$key.pmtiles" > /dev/null; then
-            echo "Building: no $key.pmtiles"
-          else
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "Not rebuilt: $LAYER's inputs are the same as when $key.pmtiles was built" | tee -a "$GITHUB_STEP_SUMMARY"
+          # Likewise the trails export (bin/trail-areas.py): no trail areas.
+          if [ ! -f trails.geojsonl ]; then
+            echo "::warning::No trails.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no trail areas"
+            touch trails.geojsonl
+          fi
+          # And the hiking-routes export: no known hikes for routes to check.
+          if [ ! -f hiking-routes.geojsonl ]; then
+            echo "::warning::No hiking-routes.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no known hikes"
+            touch hiking-routes.geojsonl
           fi
 
       # Parking and trailheads within 2 km of a park stay in the poi layer
@@ -402,22 +399,19 @@ jobs:
           AWS_RETRY_MODE: adaptive
           AWS_MAX_ATTEMPTS: 10
           LAYER: ${{ matrix.layer }}
-          MANIFEST: ${{ steps.inputs.outputs.manifest }}
         # The old manifest goes first and the new one only once the layer is
         # up, so a manifest never describes a layer it didn't build.
         run: |
           aws configure set default.s3.multipart_chunksize 128MB
           key="layers/$NAMESPACE/$LAYER"
-          aws s3 rm --only-show-errors "s3://hikes-public/$key.inputs"
+          bin/record-inputs "$key" forget
           for i in 1 2 3 4 5; do
             [ "$i" = 5 ] && exit 1
             aws s3 cp --no-progress "$LAYER.pmtiles" "s3://hikes-public/$key.pmtiles" && break
             echo "Upload attempt $i failed; retrying in $((i*30))s"
             sleep $((i*30))
           done
-          if [ "$MANIFEST" = true ]; then
-            aws s3 cp --no-progress --content-type text/plain "$RUNNER_TEMP/inputs.txt" "s3://hikes-public/$key.inputs"
-          fi
+          bin/record-inputs "$key" "$RUNNER_TEMP/inputs.txt"
 
       # Re-render build-area.yml's progress check with this job's results (#210)
       - name: Build progress

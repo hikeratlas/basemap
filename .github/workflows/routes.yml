@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: 0d317f15e0b527984e99d7eef09e05931b6a2cd3
+  ROUTES_REF: 61469dbb585d5952b7bf15b1aa60113d8ca42c3b
 
 jobs:
   curate:
@@ -309,7 +309,7 @@ jobs:
       - name: Pre-fetch tilemaker image
         run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
 
-      # Just its fixtures/, for the named regressions (fixtures/expect.json);
+      # Just its fixtures/, for the named regressions (fixtures/expect/);
       # before the binary is restored into the same directory.
       - uses: actions/checkout@v7
         with:
@@ -378,7 +378,7 @@ jobs:
           fi
 
       # Well-known routes that are very noticeable when missing or misnamed
-      # (routes' fixtures/expect.json), checked on this build's routes for
+      # (routes' fixtures/expect/), checked on this build's routes for
       # the build progress check and the build history: information only.
       # As routes-summary-regressions, build-progress.py reads it with the
       # shards' summaries (and the previous build's, to say what changed).

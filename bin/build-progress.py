@@ -312,7 +312,7 @@ def live_table(cur, live, phases, summaries, now):
 
 
 def regressions(summaries, prev_summaries):
-    """The named regressions (routes' fixtures/expect.json, checked by the
+    """The named regressions (routes' fixtures/expect/, checked by the
     routes merge job as routes-summary-regressions): a note for the title
     if any is failing, a line for the summary (with what changed since the
     previous build), and a table for the details."""

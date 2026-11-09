@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: e36224f9c6e08c285fc95e16ce6802ae36e253e6
+  ROUTES_REF: 15326b33af0be3afbb0fb0e397a5b1fb9d63da2e
 
 jobs:
   curate:
@@ -309,6 +309,15 @@ jobs:
       - name: Pre-fetch tilemaker image
         run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
 
+      # Just its fixtures/, for the named regressions (fixtures/expect.json);
+      # before the binary is restored into the same directory.
+      - uses: actions/checkout@v7
+        with:
+          repository: hikeratlas/routes
+          ref: ${{ env.ROUTES_REF }}
+          path: routes-src
+          sparse-checkout: fixtures
+
       - name: Restore hikeratlas/routes binary
         uses: actions/cache/restore@v6
         with:
@@ -367,6 +376,29 @@ jobs:
                   print(f"| [{k['name']}](https://www.openstreetmap.org/relation/{k['id']}) | {k.get('network', '')} | {wd} | {k['km']} | {k['park']} | {k['best'] or '—'} ({k['coverage']:.0%}) |")
           PY
           fi
+
+      # Well-known routes that are very noticeable when missing or misnamed
+      # (routes' fixtures/expect.json), checked on this build's routes for
+      # the build progress check and the build history: information only.
+      # As routes-summary-regressions, build-progress.py reads it with the
+      # shards' summaries (and the previous build's, to say what changed).
+      - name: Named regressions
+        continue-on-error: true
+        run: |
+          if [ ! -f routes-src/fixtures/expect.py ]; then
+            echo "routes $ROUTES_REF has no named regressions (fixtures/expect.py)"
+            exit 0
+          fi
+          python3 routes-src/fixtures/expect.py /mnt/routes/out \
+            --json "$RUNNER_TEMP/routes-summary-regressions.json" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the named regressions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: routes-summary-regressions
+          path: ${{ runner.temp }}/routes-summary-regressions.json
+          if-no-files-found: ignore
 
       - name: Upload the known-hike check
         if: always()

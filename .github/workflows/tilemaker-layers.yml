@@ -280,7 +280,7 @@ jobs:
           ls -l lake-centerlines.geojsonl
 
 
-      # The coastline is an 865MB zip from osmdata.openstreetmap.de that downloads
+      # The coastline is a ~900MB zip from osmdata.openstreetmap.de that downloads
       # at ~20 MB/s and takes ~10s to unzip, so cache the unzipped shapefiles.
       # The upstream data changes daily; keying by ISO week refreshes it weekly.
       - name: Compute coastline cache key
@@ -296,9 +296,19 @@ jobs:
           path: slices/coastline
           key: coastline-${{ steps.coastline-key.outputs.week }}
 
+      # osmdata.openstreetmap.de is sometimes down; www.osmdata.org mirrors
+      # it (as in systemed/tilemaker#984's get-coastline.sh). See
+      # https://community.openstreetmap.org/t/availability-of-https-osmdata-openstreetmap-de-is-it-down/149113/4
       - name: Fetch coastline
         if: ${{ startsWith(matrix.layer, 'boundaries') && steps.coastline-cache.outputs.cache-hit != 'true' }}
-        run: wget --progress=dot:giga https://osmdata.openstreetmap.de/download/water-polygons-split-4326.zip && unzip water-polygons-split-4326.zip && mv water-polygons-split-4326 slices/coastline
+        run: |
+          zip=water-polygons-split-4326.zip
+          if ! wget --progress=dot:giga --tries=2 --timeout=60 "https://osmdata.openstreetmap.de/download/$zip"; then
+            echo "::warning::osmdata.openstreetmap.de unreachable; fetching the coastline from www.osmdata.org"
+            rm -f "$zip"
+            wget --progress=dot:giga --tries=3 --timeout=60 "https://www.osmdata.org/download/$zip"
+          fi
+          unzip "$zip" && mv water-polygons-split-4326 slices/coastline
 
       - name: Build layer
         env:

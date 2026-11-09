@@ -19,6 +19,10 @@ on:
         description: Read the exports' GeoJSON from this namespace instead of this build's (when the exports were skipped)
         type: string
         default: ''
+      layers:
+        description: The layers to build, as a JSON list
+        type: string
+        default: '["boundaries", "buildings", "land", "parks", "peaks", "places", "pois", "water", "ways"]'
   workflow_call:
     inputs:
       area:
@@ -37,6 +41,10 @@ on:
         description: Read the exports' GeoJSON from this namespace instead of this build's (when the exports were skipped)
         type: string
         default: ''
+      layers:
+        description: The layers to build, as a JSON list
+        type: string
+        default: '["boundaries", "buildings", "land", "parks", "peaks", "places", "pois", "water", "ways"]'
 
 jobs:
   build:
@@ -52,17 +60,7 @@ jobs:
 
     strategy:
       matrix:
-        layer: [
-          boundaries,
-          buildings,
-          land,
-          parks,
-          peaks,
-          places,
-          pois,
-          water,
-          ways
-        ]
+        layer: ${{ fromJSON(inputs.layers) }}
     steps:
       - name: Runner diagnostics
         continue-on-error: true
@@ -160,12 +158,17 @@ jobs:
       - name: Fetch supporting GeoJSON and QRank files
         env:
           GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
+          LAYER: ${{ matrix.layer }}
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          wget --progress=dot:giga https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+          bin/fetch-qrank
+          # Water and land read none of the exports' GeoJSON, so they're
+          # built without waiting for the exports (build-area.yml's
+          # layers-early), before this build's are published.
+          case $LAYER in water|land) echo "$LAYER reads no exports"; exit 0 ;; esac
           aws s3 sync "s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/" . --no-progress
           unzstd *.zst
           # A reused build from before the campgrounds export has none.

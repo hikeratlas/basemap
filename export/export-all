@@ -14,9 +14,6 @@ main() {
   # By convention, do them in alphabetical order, things prefixed with z are handled
   # last and may assume the existence of the previous exports, e.g. for use in
   # FindIntersecting calls.
-  #
-  # NB: Don't include ztrails - it's very space inefficient and should be done at the
-  # state or national park level.
   for candidate in campgrounds.lua city-parks.lua countries.lua hiking-routes.lua parks.lua states.lua trails.lua zindex.lua; do
     echo "::group::Exporting ${candidate}"
     candidate="$(basename "${candidate}" .lua)"

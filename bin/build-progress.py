@@ -311,11 +311,45 @@ def live_table(cur, live, phases, summaries, now):
     return ['#### Running now', '', '| Run | Phase | Progress | Phase ends | Updated |', '|---|---|---|---|---|', *rows, '']
 
 
+def regressions(summaries, prev_summaries):
+    """The named regressions (routes' fixtures/expect.json, checked by the
+    routes merge job as routes-summary-regressions): a note for the title
+    if any is failing, a line for the summary (with what changed since the
+    previous build), and a table for the details."""
+    reg = summaries.get('regressions')
+    if not reg:
+        return '', [], []
+    rows = [r for r in reg.get('regressions', []) if r.get('status') != 'skipped']
+    if not rows:
+        return '', [], []
+    before = {r['name']: r.get('status') for r in (prev_summaries.get('regressions') or {}).get('regressions', [])}
+    failing = [r for r in rows if r['status'] == 'failing']
+    newly = [r['name'] for r in failing if before.get(r['name']) == 'ok']
+    fixed = [r['name'] for r in rows if r['status'] == 'ok' and before.get(r['name']) == 'failing']
+    note = f" · ⚠️ {len(failing)} named regression{'s' if len(failing) != 1 else ''}" if failing else ''
+    line = (f"**Named regressions:** ❌ {len(failing)} of {len(rows)} failing: "
+            + ', '.join(f"{r['name']} ({r['issue']})" for r in failing)
+            if failing else f"**Named regressions:** ✅ all {len(rows)} ok")
+    if newly:
+        line += f" · newly failing: {', '.join(newly)}"
+    if fixed:
+        line += f" · fixed: {', '.join(fixed)}"
+    table = ['#### Named regressions', '', '| Route | Park | Issue | Status | Previous | Problems |', '|---|---|---|---|---|---|']
+    for r in sorted(rows, key=lambda r: (r['status'] != 'failing', r['name'])):
+        mark = '❌ failing' if r['status'] == 'failing' else '✅ ok'
+        table.append(f"| {r['name']} | {r['park']} | {r['issue']} | {mark} | {before.get(r['name'], '')} | "
+                     f"{'<br>'.join(p.replace('|', '/') for p in r.get('problems', []))} |")
+    return note, [line, ''], table + ['']
+
+
 def render(cur, prev, phases, prev_phases, summaries, prev_summaries, live=None):
     now = datetime.now(timezone.utc)
     title, summary = job_table(cur, prev, now)
+    note, line, table = regressions(summaries, prev_summaries)
+    title += note
+    summary = '\n'.join(line + [summary])
     text = (live_table(cur, live or {}, phases, summaries, now) + phase_tables(phases, prev_phases)
-            + routes_tables(cur, prev, summaries, prev_summaries))
+            + table + routes_tables(cur, prev, summaries, prev_summaries))
     return title, summary[:60000], '\n'.join(text)[:60000]
 
 

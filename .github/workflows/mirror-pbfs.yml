@@ -15,7 +15,8 @@ run-name: Mirror ${{ inputs.area }}${{ !inputs.fetch && ' (from R2)' || '' }}
 # group's filtered PBF, pbfs/filtered/<area>/<group>.zstd.pbf: just what
 # the group's profiles (pbf-groups.json) read; and the relations sidecar,
 # pbfs/<area>.relations.pbf, that `pbf-filter check` needs to tell whether
-# a filtered PBF still serves changed profiles.
+# a filtered PBF still serves changed profiles. An area made of parts merges
+# its parts' where they're current, rather than filtering its own PBF.
 # With fetch off, derive reuses the extract already in R2, skipping the
 # slow download from Geofabrik: what a build on main starts when it finds a
 # filtered PBF stale. hikeratlas/pbf-filter does the PBF work.
@@ -162,8 +163,20 @@ jobs:
             echo "make=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # An area made of parts merges the parts' filtered PBFs and sidecars
+      # where they're current (bin/merge-parts): a few minutes, against
+      # about ten to filter north-america's PBF. The rest is filtered below.
+      - name: Merge the parts' filtered PBFs
+        id: parts
+        if: ${{ steps.area.outputs.parts }}
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          bin/merge-parts "$AREA"
+
       - name: Fetch the area's PBF from R2
-        if: ${{ steps.plan.outputs.make != 'true' }}
+        if: >-
+          steps.plan.outputs.make != 'true'
+          && (!steps.area.outputs.parts || steps.parts.outputs.groups != '{}' || steps.parts.outputs.sidecar == 'make')
         run: |
           aws configure set default.s3.max_concurrent_requests 32
           aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.zstd.pbf" "$AREA".zstd.pbf
@@ -202,19 +215,31 @@ jobs:
           fi
           ls -l "$AREA".zstd.pbf
 
-      # Each group's filtered PBF (pbf-groups.json), in as few reads of the
-      # area's PBF as memory allows; and the relations sidecar. A newly made
-      # area PBF uploads meanwhile.
+      # Each group's filtered PBF (pbf-groups.json) not merged above, in as
+      # few reads of the area's PBF as memory allows; and the relations
+      # sidecar, unless merged. A newly made area PBF uploads meanwhile.
       - name: Make the filtered PBFs and the relations sidecar
         env:
           UPLOAD: ${{ steps.plan.outputs.make }}
+          GROUPS_LEFT: ${{ steps.parts.outputs.groups }}
+          SIDECAR: ${{ steps.parts.outputs.sidecar }}
         run: |
           if [ "$UPLOAD" = true ]; then
             bin/upload-pbf "$AREA".zstd.pbf > upload.log 2>&1 &
             upload=$!
           fi
-          time pbf-filter groups "$AREA".zstd.pbf pbf-groups.json filtered
-          time pbf-filter relations "$AREA".zstd.pbf "$AREA".relations.pbf
+          # Beside pbf-groups.json, as its profile paths are relative.
+          groups=pbf-groups.json
+          if [ -n "$GROUPS_LEFT" ]; then
+            groups=groups-left.json
+            echo "$GROUPS_LEFT" > "$groups"
+          fi
+          if [ "$(jq length "$groups")" -gt 0 ]; then
+            time pbf-filter groups "$AREA".zstd.pbf "$groups" filtered
+          fi
+          if [ "$SIDECAR" != merged ]; then
+            time pbf-filter relations "$AREA".zstd.pbf "$AREA".relations.pbf
+          fi
           ls -l filtered
           if [ -n "${upload:-}" ]; then
             echo "::group::Upload of $AREA.zstd.pbf"

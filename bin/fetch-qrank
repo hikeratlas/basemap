@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Downloads hikeratlas/qrank's latest qrank.db to OUT (default qrank.db).
+# GitHub's release downloads sometimes answer 504 for a while (failing
+# builds' layer, zindex and routes jobs), so retry for a few minutes, not
+# wget's few seconds.
+#
+#   bin/fetch-qrank [OUT]
+set -uo pipefail
+out=${1:-qrank.db}
+url=https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+for i in 1 2 3 4 5 6; do
+  wget -q --timeout=120 -O "$out" "$url" && exit 0
+  echo "Fetching qrank.db failed (attempt $i)"
+  [ "$i" -lt 6 ] && sleep $((i * 15))
+done
+echo "::error::Couldn't fetch qrank.db"
+exit 1

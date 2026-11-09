@@ -164,7 +164,7 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: |
-          wget --progress=dot:giga --tries=5 --waitretry=15 --retry-on-http-error=500,502,503,504 https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+          bin/fetch-qrank
           # Water and land read none of the exports' GeoJSON, so they're
           # built without waiting for the exports (build-area.yml's
           # layers-early), before this build's are published.

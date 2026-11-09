@@ -104,7 +104,7 @@ jobs:
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
       - name: Fetch QRank file
-        run: wget --progress=dot:giga --tries=5 --waitretry=15 --retry-on-http-error=500,502,503,504 https://github.com/hikeratlas/qrank/releases/download/latest/qrank.db
+        run: bin/fetch-qrank
 
       # Fetch from R2 directly with many concurrent ranged GETs; a single wget
       # stream over the public URL tops out around 70 MB/s.

@@ -140,3 +140,4 @@ qrank.csv
 *.geojsonl
 bun.lockb
 data-shp
+__pycache__/

@@ -35,7 +35,7 @@ jobs:
   zindex:
     runs-on: ubuntu-24.04-arm
     permissions:
-      actions: read
+      actions: write   # reads this run's jobs; starts mirror-pbfs.yml if its filtered PBF is stale
       checks: write    # the progress check (#210)
       contents: read
     env:
@@ -116,13 +116,13 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_RETRY_MODE: adaptive
           AWS_MAX_ATTEMPTS: 10
+          GH_TOKEN: ${{ github.token }}
         run: |
           aws configure set default.s3.max_concurrent_requests 32
           aws configure set default.s3.multipart_chunksize 64MB
-          start=$(date +%s)
-          aws s3 cp --no-progress "s3://hikes-public/pbfs/$AREA.zstd.pbf" "$AREA.pbf"  # see mirror-pbfs.yml
-          secs=$(( $(date +%s) - start ))
-          echo "Downloaded $(( $(stat -c %s "$AREA.pbf") / 1048576 )) MiB in ${secs}s"
+          # Its group's filtered PBF if it still serves the profile, else
+          # the whole one (bin/fetch-pbf, mirror-pbfs.yml).
+          bin/fetch-pbf "$AREA" "$AREA.pbf" export/zindex.lua
 
       - name: Wait for other exports
         timeout-minutes: 60

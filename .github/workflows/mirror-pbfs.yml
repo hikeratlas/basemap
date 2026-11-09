@@ -8,8 +8,14 @@ name: Mirror PBFs from Geofabrik
 #   blocks, for tools that can't read zstd, e.g. osmium in
 #   lake-centerlines.yml), and for an area of several extracts, each
 #   extract's too.
+# Derive also writes, for builds to read instead (bin/fetch-pbf), each
+# group's filtered PBF, pbfs/filtered/<area>/<group>.zstd.pbf: just what
+# the group's profiles (pbf-groups.json) read; and the relations sidecar,
+# pbfs/<area>.relations.pbf, that `pbf-filter check` needs to tell whether
+# a filtered PBF still serves changed profiles.
 # With fetch off, derive reuses the extracts already in R2, skipping the
-# slow download from Geofabrik. hikeratlas/pbf-filter does the PBF work.
+# slow download from Geofabrik: what a build on main starts when it finds a
+# filtered PBF stale. hikeratlas/pbf-filter does the PBF work.
 
 on:
   workflow_dispatch:
@@ -23,13 +29,17 @@ on:
         type: boolean
         default: true
 
+# One run per area at a time; more queue (a stale filtered PBF may start
+# several from one build).
+concurrency:
+  group: mirror-pbfs-${{ inputs.area }}
+  cancel-in-progress: false
+
 jobs:
   mirror:
     runs-on: ubuntu-24.04-arm
     env:
       AREA: ${{ inputs.area }}
-      # hikeratlas/pbf-filter's release to use.
-      PBF_FILTER_VERSION: v0.1.0
       # For bin/upload-pbf.
       AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
       AWS_EC2_METADATA_DISABLED: true
@@ -85,10 +95,11 @@ jobs:
           jq -r --arg a "$AREA" '.[$a] | to_entries[] | "\(.key)=\(.value)"' areas.json | tee -a "$GITHUB_OUTPUT"
 
       - name: Install pbf-filter
+        # The release named in .pbf-filter-version.
         run: |
           mkdir -p "$RUNNER_TEMP/bin"
           curl -sSfL --retry 4 -o "$RUNNER_TEMP/bin/pbf-filter" \
-            "https://github.com/hikeratlas/pbf-filter/releases/download/$PBF_FILTER_VERSION/pbf-filter-aarch64-linux"
+            "https://github.com/hikeratlas/pbf-filter/releases/download/$(cat .pbf-filter-version)/pbf-filter-aarch64-linux"
           chmod +x "$RUNNER_TEMP/bin/pbf-filter"
           echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
 
@@ -161,3 +172,23 @@ jobs:
         run: |
           bin/upload-pbf "$AREA".pbf
           bin/upload-pbf "$AREA".zstd.pbf
+
+      # Each group's filtered PBF, from the area's: one read of it per group.
+      - name: Make the filtered PBFs
+        run: |
+          mkdir -p filtered
+          for group in $(jq -r 'keys[]' pbf-groups.json); do
+            mapfile -t profiles < <(jq -r --arg g "$group" '.[$g][]' pbf-groups.json)
+            time pbf-filter filter "$AREA".zstd.pbf "filtered/$group.zstd.pbf" "${profiles[@]}"
+          done
+          ls -l filtered
+
+      - name: Make the relations sidecar
+        run: time pbf-filter relations "$AREA".zstd.pbf "$AREA".relations.pbf
+
+      - name: Upload the filtered PBFs and the relations sidecar
+        run: |
+          for f in filtered/*.zstd.pbf; do
+            bin/upload-pbf "$f" "filtered/$AREA/$(basename "$f")"
+          done
+          bin/upload-pbf "$AREA".relations.pbf

@@ -144,7 +144,7 @@ jobs:
           BBOX: ${{ steps.target.outputs.bbox }}
           # Files the exports (and the search DB) depend on
           EXPORT_INPUTS: >-
-            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts)$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
+            ^(export/|slices/(json|qrank|file_append)\.lua$|areas\.json$|bin/(docker-tilemaker|create-autosuggest-db\.ts|fetch-pbf)$|pbf-groups\.json$|\.pbf-filter-version$|package\.json$|bun\.lockb$|\.bun-version$|\.github/workflows/(build-area|tilemaker-exports|tilemaker-zindex)\.yml$)
         run: |
           if [ -n "$PR" ]; then
             gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
@@ -219,7 +219,7 @@ jobs:
     needs: config
     if: needs.config.outputs.mode == 'full'
     permissions:
-      actions: read    # the telemetry action reads the job's step times
+      actions: write   # the telemetry action reads the job's step times; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
       contents: read
     uses: ./.github/workflows/tilemaker-exports.yml
@@ -237,7 +237,7 @@ jobs:
     needs: config
     if: needs.config.outputs.mode == 'full'
     permissions:
-      actions: read    # it polls this run's jobs for the other exports
+      actions: write   # it polls this run's jobs for the other exports; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
       contents: read
     uses: ./.github/workflows/tilemaker-zindex.yml

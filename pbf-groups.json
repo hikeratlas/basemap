@@ -1,0 +1,12 @@
+{
+  "small": [
+    "slices/boundaries.lua", "slices/parks.lua", "slices/peaks.lua", "slices/places.lua", "slices/pois.lua",
+    "export/campgrounds.lua", "export/city-parks.lua", "export/countries.lua", "export/hiking-routes.lua",
+    "export/parks.lua", "export/states.lua", "export/trails.lua"
+  ],
+  "water": ["slices/water.lua"],
+  "land": ["slices/land.lua"],
+  "buildings": ["slices/buildings.lua"],
+  "ways": ["slices/ways.lua"],
+  "zindex": ["export/zindex.lua"]
+}

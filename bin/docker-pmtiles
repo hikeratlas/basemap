@@ -3,7 +3,11 @@
 # go-pmtiles, from the merge-vector-layers branch of cldellow/go-pmtiles: its
 # `merge` can combine archives whose tiles overlap but whose layers don't,
 # which tile-join.yml uses to combine the layers.
-IMAGE=ghcr.io/cldellow/go-pmtiles:sha-b95bb0313b7260b77d2fde0e960a49563cdc549c
+#
+# From b9af497 it joins the zstd frames of a combined tile rather than
+# recompressing them, so a tile can hold several frames. The website decodes
+# those from hikeratlas/website's "Decode zstd tiles made of several frames".
+IMAGE=ghcr.io/cldellow/go-pmtiles:sha-b9af497cdcaa3f04c19dd623d14e8b897b108712
 
 mkdir -p /mnt/layers /mnt/out 2>/dev/null || true
 exec docker run \

@@ -121,5 +121,8 @@ find the slow ones.
     and concatenates the layers of overlapping tiles;
   - it reads and writes zstd tiles, and recompresses to the compression given
     by `--tile-compression`;
+  - for zstd output, it joins the zstd frames of the tiles it combines rather
+    than recompressing them, so a tile may be several frames. libzstd decodes
+    them all; the website's zstd-wasm needs to be handed one frame at a time;
   - it skips layer archives that have no tiles;
   - `--no-progress` hides its progress bars in CI logs.

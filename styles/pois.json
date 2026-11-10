@@ -988,9 +988,17 @@
       "source-layer": "poi",
       "source": "tiles"
     },
+    // Trailheads, shelters and campsites have "metadata": {"zindex": 98}: mapt
+    // puts them above the trail names (path_name*, 95-97), not with the
+    // rest of poi (86). MapLibre places labels from the top layer down and
+    // drops any that overlap one already placed, so otherwise a trail name
+    // running past a campsite hides it, icon and name (#252). The other POIs
+    // stay below trail names: raised too, benches and toilets crowd out
+    // whole trails' names (e.g. Plain of Six Glaciers at Lake Louise).
     {
       "id": "trailhead",
       "type": "symbol",
+      "metadata": {"zindex": 98},
       "filter": ["==", ["get", "highway"], "trailhead"],
       "layout": {
         "symbol-placement": "point",
@@ -1018,6 +1026,7 @@
     {
       "id": "shelter",
       "type": "symbol",
+      "metadata": {"zindex": 98},
       "filter": [
         "any",
         [
@@ -1054,6 +1063,7 @@
     {
       "id": "campsite",
       "type": "symbol",
+      "metadata": {"zindex": 98},
       "filter": ["==", ["get", "tourism"], "camp_site"],
       "layout": {
         "symbol-placement": "point",

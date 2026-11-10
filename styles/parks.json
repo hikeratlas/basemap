@@ -29,9 +29,16 @@
       "source-layer": "park",
       "source": "tiles"
     },
+    // A park's border is drawn over what's under the boundary (#262), not
+    // under it with the rest of park_outline (11): the band (zindex 31)
+    // above water and buildings, so a river or lake along or across the
+    // boundary doesn't break it, but under routes, roads and paths (49-51),
+    // which stay crisp inside it; the edge (52) above those too, so the line
+    // itself is unbroken. Both stay under every label.
     {
       "id": "park-band",
       "type": "line",
+      "metadata": {"zindex": 31},
       "filter": ["all", ["!=", "leisure", "park"], ["!=", "landuse", "recreation_ground"]],
       "layout": {"line-join": "round"},
       "paint": {
@@ -49,6 +56,7 @@
     {
       "id": "park-edge",
       "type": "line",
+      "metadata": {"zindex": 52},
       "filter": ["all", ["!=", "leisure", "park"], ["!=", "landuse", "recreation_ground"]],
       "layout": {"line-join": "round"},
       "paint": {

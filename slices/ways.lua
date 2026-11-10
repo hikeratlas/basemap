@@ -15,7 +15,7 @@ end
 
 -- route=ferry and aerialway: foot crossings that aren't highway=* ways (see
 -- way_function_crossing).
-way_keys = {'highway', 'route=road', 'route=ferry', 'aerialway'}
+way_keys = {'highway', 'route=road', 'route=ferry', 'aerialway', 'amenity=parking'}
 
 -- These zooms are for roads, i.e. where cars go
 local road_zooms = {
@@ -61,9 +61,20 @@ function node_function()
 end
 
 function way_function()
+	if Find('amenity') == 'parking' then way_function_parking() end
 	local highway = Find('highway')
 	if highway ~= '' then way_function_highway(highway); return end
 	way_function_crossing()
+end
+
+-- A parking lot's outline, in parks, for hikeratlas/routes: a trail that
+-- ends on a lot's outline connects to the roads and ways that touch or cross
+-- the lot. OSM often ends a trail there (Algonquin's Big Pines Trail, 40 m
+-- from the road through its lot), and an outline isn't a way to walk.
+function way_function_parking()
+	if not IsClosed() or not Intersects('parks') then return end
+	Layer('parking_lot', true)
+	MinZoom(14)
 end
 
 -- Crossings hikers make that OSM doesn't map as highway=* ways: ferries and

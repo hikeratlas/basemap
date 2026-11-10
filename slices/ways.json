@@ -52,6 +52,11 @@
             "maxzoom": 14,
             "simplify_below": 15,
             "simplify_level": 0.000064373
+        },
+        "parking_lot": {
+            "zindex": 40,
+            "minzoom": 14,
+            "maxzoom": 14
         }
     },
     "settings": {

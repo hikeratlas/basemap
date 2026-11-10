@@ -122,6 +122,22 @@ export function mergePieces(rows: any[]): any[] {
 	return out;
 }
 
+// Where an item is, as words to narrow a search by (#250): its park (and
+// the words a shortened name stands for: "Killarney PP" is also "provincial
+// park"), its state and its abbreviations, and its country and its. As
+// bin/search-add-hikes.py's place_text, from bin/search-place.json.
+const PLACE = JSON.parse(fs.readFileSync(new URL('./search-place.json', import.meta.url), 'utf8'));
+export function placeText(park: string | null, state: string | null, country: string | null): string {
+	const words: string[] = [];
+	if (park) {
+		words.push(park);
+		for (const w of park.split(/\s+/)) if (PLACE.park_words[w]) words.push(PLACE.park_words[w]);
+	}
+	if (state) words.push(state, ...(PLACE.states[state] ?? []));
+	if (country) words.push(country, ...(PLACE.countries[country] ?? []));
+	return words.join(' ');
+}
+
 // As export/zindex.lua's sanitize_park: a row's park is its park's name
 // shortened this way.
 function sanitizePark(x: string): string {
@@ -174,8 +190,16 @@ async function main() {
 	}
 	const db = new Database(DB_FILE);
 
-	db.query(`CREATE VIRTUAL TABLE fts USING fts5(name, qrank)`).run();
-	db.query(`CREATE VIRTUAL TABLE fts_popular USING fts5(name, qrank)`).run();
+	// What search matches: an item's name, and where it is (placeText), to
+	// narrow by place in the same query (#250): `{name}: "panorama ridge"*
+	// AND {place}: gar*`. Search only ever wants the matching rowids, so the
+	// tables keep no copy of their text (content=''; ~34 MB, about what
+	// `items` holds again) and no per-row token counts (columnsize=0: search
+	// orders by qrank, not relevance). A row is removed by repeating its
+	// text: see bin/search-add-hikes.py. fts_popular: the rows with
+	// qrank > 1, for short prefixes.
+	db.query(`CREATE VIRTUAL TABLE fts USING fts5(name, place, content='', columnsize=0)`).run();
+	db.query(`CREATE VIRTUAL TABLE fts_popular USING fts5(name, content='', columnsize=0)`).run();
 	db.query(`CREATE TABLE items(
 qrank INTEGER NOT NULL,
 wikidata TEXT,
@@ -226,8 +250,11 @@ area INTEGER
 		});
 	}
 
-	db.query(`INSERT INTO fts(rowid, name, qrank) SELECT rowid, name, qrank FROM items`).run();
-	db.query(`INSERT INTO fts_popular(rowid, name, qrank) SELECT rowid, name, qrank FROM items WHERE qrank > 1`).run();
+	const insFts = db.query(`INSERT INTO fts(rowid, name, place) VALUES (?, ?, ?)`);
+	for (const r of db.query(`SELECT rowid, name, park, state, country FROM items`).all() as any[]) {
+		insFts.run(r.rowid, r.name, placeText(r.park, r.state, r.country));
+	}
+	db.query(`INSERT INTO fts_popular(rowid, name) SELECT rowid, name FROM items WHERE qrank > 1`).run();
 	db.close();
 }
 

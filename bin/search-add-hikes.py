@@ -29,7 +29,7 @@
 # same thing, with a page, elevation profile and URL. Only if the hike is at
 # least COVER of the trail's length, though: a 7 km day hike named for the
 # 152 km Lone Star Hiking Trail shouldn't hide the whole trail. Its items row stays,
-# marked hidden = 1, and only its fts rows go; the hike takes the trail's
+# marked hidden = 1, and only its search rows go; the hike takes the trail's
 # qrank if higher, so it ranks where the trail did.
 #
 # Hike items from an earlier run (a reused DB) are removed first, and hidden
@@ -71,21 +71,79 @@ def routes(doc):
         yield f'stop/{i}', h['dest'], h['dest'], False, 'stop', h['route']
 
 
+PLACE = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'search-place.json')))
+
+
+def place_text(park, state, country):
+    """Where an item is, for narrowing a search by place (#250): as
+    create-autosuggest-db.ts's placeText, from search-place.json."""
+    words = []
+    if park:
+        words.append(park)
+        words += [PLACE['park_words'][w] for w in park.split() if w in PLACE['park_words']]
+    if state:
+        words += [state, *PLACE['states'].get(state, [])]
+    if country:
+        words += [country, *PLACE['countries'].get(country, [])]
+    return ' '.join(words)
+
+
+# The search tables keep no copy of their text (create-autosuggest-db.ts), so
+# a row is removed by repeating exactly the text it was added with: these
+# give it from items. An item's searched name is its name, except a curated
+# hike's (`searched`, from routes()). It's in fts_popular too if its qrank
+# is over 1; hide_trails keeps that so when it raises a hike's qrank.
+def fts_rows(db, where, args=()):
+    """(rowid, searched name, place text, qrank) of the items where."""
+    return [(r, n, place_text(p, s, c), q) for r, n, p, s, c, q in db.execute(
+        f'select rowid, coalesce(searched, name), park, state, country, qrank from items where {where}', args)]
+
+
+def index(db, rows):
+    db.executemany('insert into fts(rowid, name, place) values (?, ?, ?)', [(r, n, pl) for r, n, pl, q in rows])
+    db.executemany('insert into fts_popular(rowid, name) values (?, ?)', [(r, n) for r, n, pl, q in rows if (q or 0) > 1])
+
+
+def unindex(db, rows):
+    db.executemany("insert into fts(fts, rowid, name, place) values ('delete', ?, ?, ?)",
+                   [(r, n, pl) for r, n, pl, q in rows])
+    db.executemany("insert into fts_popular(fts_popular, rowid, name) values ('delete', ?, ?)",
+                   [(r, n) for r, n, pl, q in rows if (q or 0) > 1])
+
+
+def remake_fts(db):
+    """A DB from before #250 (a reused build's) has fts(name, qrank) and
+    fts_popular(name, qrank), which keep their text. Remakes them as
+    create-autosuggest-db.ts makes them, from their own rows: the hikes'
+    searched names are only there, so they're kept in items first."""
+    old = db.execute('select rowid, name from fts').fetchall()
+    popular = db.execute('select rowid from fts_popular').fetchall()
+    hikes = {r for (r,) in db.execute("select rowid from items where kind = 'hike'")}
+    db.executemany('update items set searched = ? where rowid = ?', [(n, r) for r, n in old if r in hikes])
+    db.execute('drop table fts')
+    db.execute('drop table fts_popular')
+    db.execute("create virtual table fts using fts5(name, place, content='', columnsize=0)")
+    db.execute("create virtual table fts_popular using fts5(name, content='', columnsize=0)")
+    rows = {r[0]: r for r in fts_rows(db, 'true')}
+    db.executemany('insert into fts(rowid, name, place) values (?, ?, ?)', [(r, n, rows[r][2]) for r, n in old])
+    db.executemany('insert into fts_popular(rowid, name) select rowid, coalesce(searched, name) from items where rowid = ?',
+                   popular)
+
+
 def main(db_path, parks_dir):
     db = sqlite3.connect(db_path)
     cols = {r[1] for r in db.execute('pragma table_info(items)')}
     for col, typ in (('km', 'NUMERIC'), ('gain', 'INTEGER'), ('hike', 'TEXT'), ('hikes', 'INTEGER'),
-                     ('hidden', 'INTEGER')):
+                     ('hidden', 'INTEGER'), ('searched', 'TEXT')):
         if col not in cols:
             db.execute(f'alter table items add column {col} {typ}')
-    old = [r[0] for r in db.execute("select rowid from items where kind = 'hike'")]
-    for t in ('fts', 'fts_popular', 'items'):
-        db.executemany(f'delete from {t} where rowid = ?', [(r,) for r in old])
+    if "content=''" not in db.execute("select sql from sqlite_master where name = 'fts'").fetchone()[0]:
+        remake_fts(db)
+    old = fts_rows(db, "kind = 'hike'")
+    unindex(db, old)
+    db.executemany('delete from items where rowid = ?', [(r[0],) for r in old])
     db.execute('update items set hikes = null where hikes is not null')
-    # fts rows are just items' name and qrank (create-autosuggest-db.ts).
-    db.execute('insert into fts(rowid, name, qrank) select rowid, name, qrank from items where hidden = 1')
-    db.execute('insert into fts_popular(rowid, name, qrank) select rowid, name, qrank from items'
-               ' where hidden = 1 and qrank > 1')
+    index(db, fts_rows(db, 'hidden = 1'))
     db.execute('update items set hidden = null where hidden is not null')
 
     parks = {}
@@ -119,14 +177,12 @@ def main(db_path, parks_dir):
             qrank = max(1, round((pq or 1) * PARK_SHARE * w))
             cur = db.execute(
                 'insert into items (qrank, osm_id, kind, park, country, state, name, lon, lat,'
-                ' min_lon, min_lat, max_lon, max_lat, km, gain, hike)'
-                " values (?, ?, 'hike', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ' min_lon, min_lat, max_lon, max_lat, km, gain, hike, searched)'
+                " values (?, ?, 'hike', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (qrank, f'{park_id}/{suffix}', sanitize_park(name) if name else None, country, state, t,
                  line[0][0], line[0][1], min(lons), min(lats), max(lons), max(lats),
-                 round(km, 1), round(r.get('gain') or 0), hike))
-            db.execute('insert into fts(rowid, name, qrank) values (?, ?, ?)', (cur.lastrowid, searched, qrank))
-            if qrank > 1:
-                db.execute('insert into fts_popular(rowid, name, qrank) values (?, ?, ?)', (cur.lastrowid, searched, qrank))
+                 round(km, 1), round(r.get('gain') or 0), hike, searched))
+            index(db, fts_rows(db, 'rowid = ?', (cur.lastrowid,)))
             if hike != 'stop':
                 counts[park_id] = counts.get(park_id, 0) + 1
             n_hikes += 1
@@ -156,16 +212,13 @@ def hide_trails(db):
                 hidden.add(t[0])
                 best = max(best, t[7] or 0)
         if best > (qrank or 0):
-            # Re-index with the new qrank, keeping the searched text.
-            text = db.execute('select name from fts where rowid = ?', (rowid,)).fetchone()[0]
+            # Its text doesn't change (fts has no qrank), but it may now
+            # belong in fts_popular.
+            if best > 1 and (qrank or 0) <= 1:
+                db.execute('insert into fts_popular(rowid, name) select rowid, searched from items where rowid = ?',
+                           (rowid,))
             db.execute('update items set qrank = ? where rowid = ?', (best, rowid))
-            for f in ('fts', 'fts_popular'):
-                db.execute(f'delete from {f} where rowid = ?', (rowid,))
-            db.execute('insert into fts(rowid, name, qrank) values (?, ?, ?)', (rowid, text, best))
-            if best > 1:
-                db.execute('insert into fts_popular(rowid, name, qrank) values (?, ?, ?)', (rowid, text, best))
-    for f in ('fts', 'fts_popular'):
-        db.executemany(f'delete from {f} where rowid = ?', [(r,) for r in hidden])
+    unindex(db, [row for r in sorted(hidden) for row in fts_rows(db, 'rowid = ?', (r,))])
     db.executemany('update items set hidden = 1 where rowid = ?', [(r,) for r in hidden])
     return len(hidden)
 

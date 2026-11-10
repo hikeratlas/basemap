@@ -161,6 +161,12 @@ function way_function_highway(highway)
 		-- hikeratlas/routes walks these like tracks, and doesn't treat
 		-- campsites near them as drive-in.
 		if closed_to_cars() then AttributeBoolean('closed_to_cars', true) end
+		-- A lot's driving aisles: hikeratlas/routes starts hikes from a
+		-- lot mapped only by its aisles, with no amenity=parking area
+		-- (Killarney's Granite Ridge trailhead, routes#102).
+		if highway == 'service' and Find('service') == 'parking_aisle' then
+			AttributeBoolean('parking_aisle', true)
+		end
 		if name == '' then return end
 		Layer('road_name', false)
 		MinZoom(road_zoom)

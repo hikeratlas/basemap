@@ -194,7 +194,7 @@ jobs:
           bin/skip-if-unchanged "$base" "$base.geojsonl.zst" "$NAMESPACE.autosuggest.db" -- \
             --name zindex --area "$AREA" --bbox="${BBOX:-$(jq -r --arg a "$AREA" '.[$a].bbox' areas.json)}" \
             --profile export/zindex.lua --file .github/workflows/tilemaker-zindex.yml \
-            --file bin/create-autosuggest-db.ts --file .bun-version \
+            --file bin/create-autosuggest-db.ts --file bin/search-place.json --file .bun-version \
             --file city-parks.inputs --file countries.inputs --file parks.inputs --file states.inputs
 
       # The exports zindex reads that didn't change: their GeoJSON in R2 is

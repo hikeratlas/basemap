@@ -179,8 +179,11 @@ jobs:
         working-directory: pkg
         run: |
           # Runs the lambda_function.py being deployed against the DB being
-          # deployed, as the Lambda would.
-          python3 - <<'EOF'
+          # deployed, as the Lambda would. Each query takes milliseconds; the
+          # time limit fails a pairing that hangs instead, e.g. code from
+          # before basemap#250 with a DB from after (its FTS tables have no
+          # qrank, which that code ranks them by).
+          timeout 120 python3 - <<'EOF'
           import json
           import lambda_function
 

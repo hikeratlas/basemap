@@ -154,7 +154,7 @@ jobs:
           routes-src/target/release/routes "${region[@]}" --shard "${{ matrix.shard }}/$SHARDS" \
             --out /mnt/routes/out --write-region /mnt/routes/region.json
           pids=()
-          for layer in ways land water pois; do
+          for layer in ways land water pois buildings; do
             python3 bin/fetch-region.py "https://public.hikeratlas.com/layers/$NAMESPACE/$layer.pmtiles" \
               /mnt/routes/region.json "/mnt/routes/$layer.pmtiles" & pids+=($!)
           done
@@ -219,7 +219,7 @@ jobs:
           echo "DEM cache: $(find /mnt/routes/dem -type f 2>/dev/null | wc -l) tiles restored ($(du -sh /mnt/routes/dem 2>/dev/null | cut -f1))"
           start=$(date +%s)
           args=()
-          for layer in ways land water parks peaks pois trailareas hikingroutes; do
+          for layer in ways land water parks peaks pois trailareas hikingroutes buildings; do
             [ -f "/mnt/routes/$layer.pmtiles" ] && args+=(--tiles "/mnt/routes/$layer.pmtiles")
           done
           [ -s /mnt/routes/timings.json ] && args+=(--shard-costs /mnt/routes/timings.json)

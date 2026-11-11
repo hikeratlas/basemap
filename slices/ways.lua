@@ -75,8 +75,30 @@ end
 -- path layer doesn't fill up with car ferries and ski lifts.
 local crossing_aerialways = { yes = true, zip_line = true, cable_car = true }
 
+-- Lifts that carry people up and down the mountain all year, e.g. Grouse
+-- Mountain's Skyride (aerialway=cable_car), which hikers ride down after the
+-- Grouse Grind, a trail that is up only. hikeratlas/routes reads them for a
+-- way back to the trailhead, never as a way to walk. Chair lifts are left
+-- out: most only run for skiers.
+local passenger_lifts = { gondola = true, cable_car = true, mixed_lift = true }
+
+function way_function_lift()
+	if not passenger_lifts[Find('aerialway')] then return false end
+	local access = Find('access')
+	if access == 'no' or access == 'private' then return true end
+	if Find('disused') == 'yes' or Find('abandoned') == 'yes' then return true end
+	if not Intersects('parks') then return true end
+	Layer('path', false)
+	MinZoom(12)
+	Attr('name', Find('name'))
+	Attr('kind', 'lift')
+	return true
+end
+
 function way_function_crossing()
 	local foot = Find('foot')
+	-- A walk-on cable car across a river stays a crossing (below).
+	if foot ~= 'yes' and foot ~= 'designated' and way_function_lift() then return end
 	if foot ~= 'yes' and foot ~= 'designated' then return end
 	local kind
 	if Find('route') == 'ferry' then

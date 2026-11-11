@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: d0c591bc1455615595171bb2ab2061807fd4d342
+  ROUTES_REF: cbdd8a51e4145c58b3404eb0c6a47a9cd36b9627
 
 jobs:
   curate:
@@ -150,6 +150,10 @@ jobs:
           # downloads took (bin/fetch-region.py).
           region=(--tiles /mnt/routes/parks.pmtiles)
           [ -f /mnt/routes/trailareas.pmtiles ] && region+=(--tiles /mnt/routes/trailareas.pmtiles)
+          # A small park is curated only if an OSM hiking route runs through
+          # it (routes#163): without the routes, Grouse Mountain Regional
+          # Park was left out of the region, and so not curated.
+          [ -f /mnt/routes/hikingroutes.pmtiles ] && region+=(--tiles /mnt/routes/hikingroutes.pmtiles)
           [ -s /mnt/routes/timings.json ] && region+=(--shard-costs /mnt/routes/timings.json)
           routes-src/target/release/routes "${region[@]}" --shard "${{ matrix.shard }}/$SHARDS" \
             --out /mnt/routes/out --write-region /mnt/routes/region.json

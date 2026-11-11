@@ -367,7 +367,13 @@ jobs:
           else
             parks=$(sha256sum routes-src/fixtures/parks.json | cut -d' ' -f1)
           fi
-          aws s3 cp --no-progress fixtures.tar.gz "s3://hikes-public/fixtures/$ID/fixtures.tar.gz"
+          # Retried as the routes uploads are: R2 once lost a part of this
+          # 270 MB multipart upload (InvalidPart, run 43068705816).
+          for i in 1 2 3; do
+            aws s3 cp --no-progress fixtures.tar.gz "s3://hikes-public/fixtures/$ID/fixtures.tar.gz" && break
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30)) || exit 1
+          done
           jq -n --arg id "$ID" --arg parks "$parks" --arg built "$(date -u +%FT%TZ)" \
             --arg url "https://public.hikeratlas.com/fixtures/$ID/fixtures.tar.gz" \
             '{id: $id, url: $url, parks_sha256: $parks, built: $built}' > latest.json

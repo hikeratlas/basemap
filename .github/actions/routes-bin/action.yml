@@ -1,0 +1,63 @@
+name: hikeratlas/routes binary
+description: >
+  The routes binary for a commit, at routes-src/target/release/routes: from the
+  Actions cache, else hikeratlas/routes' CI's build of it (its rolling "bin"
+  release, routes#173), else compiled from routes-src (checked out here if
+  it isn't). Saved to the cache when it wasn't there. Compiling took ~75 s
+  on each curate shard of every run after a ROUTES_REF bump (12 compiles a
+  bump); build-area.yml runs this early, beside the layer jobs, so the shards
+  mostly find it cached.
+inputs:
+  ref:
+    description: hikeratlas/routes commit (routes.yml's ROUTES_REF)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Restore hikeratlas/routes binary
+      id: cache
+      uses: actions/cache/restore@v6
+      with:
+        path: routes-src/target/release/routes
+        key: routes-bin-${{ runner.arch }}-${{ inputs.ref }}
+
+    - name: Download routes' build of it
+      id: download
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REF: ${{ inputs.ref }}
+      run: |
+        mkdir -p routes-src/target/release
+        if gh release download bin -R hikeratlas/routes -p "routes-$REF-aarch64-linux" -O routes-src/target/release/routes --clobber \
+          && chmod +x routes-src/target/release/routes \
+          && { routes-src/target/release/routes 2>&1 || true; } | grep -q -- --tiles; then
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          echo "routes $REF: downloaded from hikeratlas/routes' bin release" | tee -a "$GITHUB_STEP_SUMMARY"
+        else
+          rm -f routes-src/target/release/routes
+          echo "routes $REF: no build of it in hikeratlas/routes' bin release; compiling"
+        fi
+
+    - name: Check out hikeratlas/routes
+      if: steps.cache.outputs.cache-hit != 'true' && steps.download.outputs.ok != 'true' && hashFiles('routes-src/Cargo.toml') == ''
+      uses: actions/checkout@v7
+      with:
+        repository: hikeratlas/routes
+        ref: ${{ inputs.ref }}
+        path: routes-src
+
+    - name: Build hikeratlas/routes
+      if: steps.cache.outputs.cache-hit != 'true' && steps.download.outputs.ok != 'true'
+      shell: bash
+      run: cargo build --release --locked --manifest-path routes-src/Cargo.toml
+
+    # Another job of the run may have saved it first: that's fine.
+    - name: Save hikeratlas/routes binary
+      if: steps.cache.outputs.cache-hit != 'true'
+      continue-on-error: true
+      uses: actions/cache/save@v6
+      with:
+        path: routes-src/target/release/routes
+        key: routes-bin-${{ runner.arch }}-${{ inputs.ref }}

@@ -83,18 +83,11 @@ jobs:
       - name: Pre-fetch tilemaker image
         run: nohup ./bin/docker-tilemaker > "$RUNNER_TEMP/tilemaker-prefetch.log" 2>&1 &
 
-      # Building takes ~1 minute, so the binary is cached per pinned commit:
-      # only the first build after a bump compiles it.
-      - name: Restore hikeratlas/routes binary
-        id: routes-cache
-        uses: actions/cache@v6
+      # Usually cached already, by build-area.yml's routes-bin job.
+      - name: hikeratlas/routes binary
+        uses: ./.github/actions/routes-bin
         with:
-          path: routes-src/target/release/routes
-          key: routes-bin-${{ runner.arch }}-${{ env.ROUTES_REF }}
-
-      - name: Build hikeratlas/routes
-        if: steps.routes-cache.outputs.cache-hit != 'true'
-        run: cargo build --release --locked --manifest-path routes-src/Cargo.toml
+          ref: ${{ env.ROUTES_REF }}
 
       # /mnt has more room than the workspace.
       - name: Fetch the layers routes reads, and QRank

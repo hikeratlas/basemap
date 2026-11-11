@@ -39,6 +39,9 @@ function node_function()
 	Attr('name', name)
 	-- Popularity (QRank), for hikeratlas/routes to rank peaks as destinations
 	Attr('wikidata', Find('wikidata'))
+	-- Passed on by hikeratlas/routes with a route to the peak, so other data
+	-- about it (trip reports in hikeratlas/cc-crawler) can be joined.
+	Attr('osm_id', Id())
 
 	if ele > 0 then
 		Attr('ele', ele)

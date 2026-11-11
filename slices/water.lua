@@ -149,7 +149,10 @@ function maybe_emit()
 	if isClosed then
 		Attr('area', area)
 	end
-	if debug then
+	-- Named lakes carry their id: hikeratlas/routes passes it on with a route
+	-- that goes to the lake, so other data about the lake (trip reports in
+	-- hikeratlas/cc-crawler) can be joined to the route.
+	if debug or (isClosed and kind == 'lake' and name ~= '') then
 		Attr('osm_id', Id())
 	end
 

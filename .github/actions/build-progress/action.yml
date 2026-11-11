@@ -5,8 +5,9 @@ description: >
   and routes summary ($RUNNER_TEMP/phases-*.json, routes-summary-*.json)
   into the check and re-renders it. With live:, early in a long job: starts
   a background loop that puts where the job's run is now (from its log)
-  into the check every few minutes until the job ends. The job needs
-  checks: write and actions: read. It never fails the job.
+  into the check every few minutes until the job ends, and the same into
+  the build's progress comment. The job needs checks: write, issues: write
+  and actions: read. It never fails the job.
 inputs:
   live:
     description: Name of the run for the live loop, e.g. layer-ways; empty for an update.

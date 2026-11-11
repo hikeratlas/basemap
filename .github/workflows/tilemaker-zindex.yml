@@ -41,6 +41,7 @@ jobs:
     permissions:
       actions: write   # reads this run's jobs; starts mirror-pbfs.yml if its filtered PBF is stale
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     env:
       AREA: ${{ inputs.area }}

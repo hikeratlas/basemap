@@ -178,6 +178,11 @@ def eta(cur, prev, t0, now):
     return t0 + timedelta(seconds=(max(ends) - pt0).total_seconds() + drift)
 
 
+def link(text, url):
+    """TEXT linked to URL (a job's page), if there is one."""
+    return f'[{text}]({url})' if url and text else text
+
+
 def job_table(cur, prev, now):
     t0 = min((t(j['started_at']) for j in cur if j['started_at']), default=now)
     by_name = {j['name']: j for j in prev}
@@ -193,8 +198,11 @@ def job_table(cur, prev, now):
             flag = ' ⚠️'
         state = j['conclusion'] or j['status']
         done += j['status'] == 'completed'
-        rows.append(f"| {j['name']} | {state} | {minutes((start - t0).total_seconds()) if start else ''} | "
-                    f"{minutes(dur) + flag if start else ''} | {minutes(pdur) if pdur else ''} |")
+        # Each job links to its page (its log); the previous time, to the
+        # previous build's job, where its data has the link.
+        p = by_name.get(j['name']) or {}
+        rows.append(f"| {link(j['name'], j.get('html_url'))} | {state} | {minutes((start - t0).total_seconds()) if start else ''} | "
+                    f"{minutes(dur) + flag if start else ''} | {link(minutes(pdur), p.get('html_url')) if pdur else ''} |")
         if start:
             gantt.append(f"    {j['name'].replace(':', ' ')} :{'done' if end else 'active'}, "
                          f"{int((start - t0).total_seconds())}, {max(1, int(dur))}s")
@@ -526,10 +534,10 @@ def unpack(summary):
 
 def slim(jobs_):
     """What renders need of a previous build's jobs."""
-    keep = ('name', 'status', 'conclusion', 'started_at', 'completed_at')
+    keep = ('name', 'status', 'conclusion', 'started_at', 'completed_at', 'html_url')
     out = []
     for j in jobs_:
-        k = {x: j[x] for x in keep}
+        k = {x: j.get(x) for x in keep}
         if j['name'].startswith('routes / curate'):
             k['steps'] = [{x: st[x] for x in ('name', 'started_at', 'completed_at')} for st in j.get('steps', [])]
         out.append(k)

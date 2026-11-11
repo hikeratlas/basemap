@@ -116,14 +116,30 @@ def region_tiles(region, z):
     return want
 
 
-def coalesce(spans, gap):
+# Requests are at most this long: one write() moves at most ~2 GiB on Linux,
+# and a request is held in memory whole. North-america's ways layer grew to
+# 6.1 GB (the service attribute, #269), and a shard's 2+ GiB range was
+# written short: the rest of it stayed a hole of zeros, and routes panicked
+# reading those tiles ("Unknown frame descriptor", run 42958230168).
+MAX_REQUEST = 256 << 20
+
+
+def coalesce(spans, gap, most=MAX_REQUEST):
     ranges = []
     for off, ln in sorted(spans):
-        if ranges and off - ranges[-1][1] <= gap:
+        if ranges and off - ranges[-1][1] <= gap and off + ln - ranges[-1][0] <= most:
             ranges[-1][1] = max(ranges[-1][1], off + ln)
         else:
             ranges.append([off, off + ln])
     return ranges
+
+
+def pwrite_all(fd, data, off):
+    """os.pwrite until all of data is written: one call may write less."""
+    view = memoryview(data)
+    while view:
+        n = os.pwrite(fd, view, off)
+        view, off = view[n:], off + n
 
 
 def main():
@@ -158,7 +174,7 @@ def main():
                        ('meta', meta_off, meta_len), ('leaves', leaf_off, leaf_len)):
         if n:
             sections[name] = get(a.url, o, n)
-            os.pwrite(fd, sections[name], o)
+            pwrite_all(fd, sections[name], o)
     leaves = sections.get('leaves', b'')
     entries = []
     for e in parse_dir(dec(sections['root'])):
@@ -179,7 +195,7 @@ def main():
 
     def fetch(r):
         s, e = r
-        os.pwrite(fd, get(a.url, data_off + s, e - s), data_off + s)
+        pwrite_all(fd, get(a.url, data_off + s, e - s), data_off + s)
     with ThreadPoolExecutor(a.threads) as pool:
         list(pool.map(fetch, ranges))
     os.close(fd)

@@ -436,6 +436,31 @@ jobs:
             python3 bin/hike-paths.py autosuggest.db /mnt/routes/out/parks /mnt/routes/out/index.json /mnt/routes/out/regions.json | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
+      # Trip reports and other pages about each route (hikeratlas/cc-crawler,
+      # public): its newest route-inputs-run-* release has the hike table and
+      # the places each page mentions; its scripts/route_links.py links them
+      # to the routes just curated, by destination (OSM id, else name and
+      # position) and way up (places along the line, trails, trailhead). The
+      # result is a bundle like the routes', per park route key -> {reports,
+      # about}, located by index.json's "reports". A failure here leaves the
+      # routes without reports, not the build without routes.
+      - name: Link trip reports
+        id: reports
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git clone -q --depth 1 https://github.com/hikeratlas/cc-crawler.git "$RUNNER_TEMP/cc-crawler"
+          tag=$(gh api 'repos/hikeratlas/cc-crawler/releases?per_page=100' \
+            --jq '[.[] | select(.tag_name | startswith("route-inputs-run-"))][0].tag_name')
+          [ -n "$tag" ] || { echo "::warning::No route-inputs release in hikeratlas/cc-crawler"; exit 1; }
+          gh release download "$tag" -R hikeratlas/cc-crawler --dir "$RUNNER_TEMP/reports-in"
+          python3 -I "$RUNNER_TEMP/cc-crawler"/scripts/route_links.py \
+            --routes-index /mnt/routes/out/index.json --routes-bundle /mnt/routes/out/routes.bin \
+            --hikes "$RUNNER_TEMP"/reports-in/hikes.tsv.gz --groups "$RUNNER_TEMP"/reports-in/hike_groups.tsv.gz \
+            --features "$RUNNER_TEMP"/reports-in/route_features.jsonl.gz --bundle-dir "$RUNNER_TEMP/reports"
+          echo "Trip reports: $(jq '.parks | length' "$RUNNER_TEMP"/reports/reports.json) parks, from cc-crawler's $tag" | tee -a "$GITHUB_STEP_SUMMARY"
+
       # The parks' routes for the website go up as 2 files, not one per park
       # (~5,500 writes a north-america build): a bundle of every park's JSON
       # gzipped, named for this run, then index.json pointing into it. The
@@ -445,15 +470,26 @@ jobs:
       - name: Upload
         env:
           BUNDLE: ${{ github.run_id }}.bin
+          REPORTS: reports-${{ github.run_id }}.bin
         run: |
           dest="s3://hikes-public/routes/$NAMESPACE"
           jq -c --arg b "$BUNDLE" '.bundle = $b' /mnt/routes/out/index.json > index.json
-          prev=$(curl -sf "https://public.hikeratlas.com/routes/$NAMESPACE/index.json" | jq -r '.bundle // empty' || true)
+          # The trip reports' index goes in index.json too ("reports"), so the
+          # website gets it with the routes'; its bundle goes up with theirs.
+          if [ -s "$RUNNER_TEMP"/reports/reports.json ]; then
+            jq -c --arg r "$REPORTS" --slurpfile rep "$RUNNER_TEMP"/reports/reports.json \
+              '.reports = ($rep[0] | .bundle = $r)' index.json > index.reports.json && mv index.reports.json index.json
+          fi
+          prev_index=$(curl -sf "https://public.hikeratlas.com/routes/$NAMESPACE/index.json" || true)
+          prev=$(echo "$prev_index" | jq -r '.bundle // empty' 2>/dev/null || true)
+          prev_reports=$(echo "$prev_index" | jq -r '.reports.bundle // empty' 2>/dev/null || true)
           echo "PREV=$prev" >> "$GITHUB_ENV"
+          echo "PREV_REPORTS=$prev_reports" >> "$GITHUB_ENV"
           for i in 1 2 3; do
             aws s3 cp --no-progress slices/routes.pmtiles "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" \
               && aws s3 cp --no-progress --cache-control no-cache slices/routes.pmtiles "s3://hikes-public/$NAMESPACE.routes.pmtiles" \
               && aws s3 cp --no-progress --content-type application/octet-stream /mnt/routes/out/routes.bin "$dest/$BUNDLE" \
+              && { [ ! -s "$RUNNER_TEMP"/reports/reports.bin ] || aws s3 cp --no-progress --content-type application/octet-stream "$RUNNER_TEMP"/reports/reports.bin "$dest/$REPORTS"; } \
               && { [ ! -s /mnt/routes/out/regions.json ] || aws s3 cp --no-progress --content-type application/json --cache-control no-cache /mnt/routes/out/regions.json "$dest/regions.json"; } \
               && aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json" \
               && break
@@ -486,12 +522,16 @@ jobs:
         continue-on-error: true
         env:
           BUNDLE: ${{ github.run_id }}.bin
+          REPORTS: reports-${{ github.run_id }}.bin
         run: |
           prefix="routes/$NAMESPACE/"
           aws s3api list-objects-v2 --bucket hikes-public --prefix "$prefix" --query 'Contents[].Key' --output json > keys.json
+          # Kept: the index, this and the previous bundle, and the same for
+          # the trip reports' bundle (PREV_REPORTS from Upload).
           jq -r --arg p "$prefix" --arg keep1 "index.json" --arg keep2 "$BUNDLE" --arg keep3 "$PREV" --arg keep4 "regions.json" \
+            --arg keep5 "$REPORTS" --arg keep6 "$PREV_REPORTS" \
             '(. // [])[] | select(ltrimstr($p) | test("/") | not)
-             | select(ltrimstr($p) as $f | ($f != $keep1 and $f != $keep2 and $f != $keep3 and $f != $keep4 and ($f | test("\\.(json|bin)$"))))' keys.json > old.txt
+             | select(ltrimstr($p) as $f | ([$keep1, $keep2, $keep3, $keep4, $keep5, $keep6] | index($f) | not) and ($f | test("\\.(json|bin)$")))' keys.json > old.txt
           echo "Removing $(wc -l < old.txt) old route files"
           split -l 1000 old.txt batch-
           for b in batch-*; do

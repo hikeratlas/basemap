@@ -167,6 +167,12 @@ function way_function_highway(highway)
 		if highway == 'service' and Find('service') == 'parking_aisle' then
 			AttributeBoolean('parking_aisle', true)
 		end
+		-- What a service road is for (OSM's service=*: driveway,
+		-- parking_aisle, alley, drive-through, emergency_access...).
+		-- hikeratlas/routes treats a lodge's or visitor centre's driveways
+		-- like a lot: a trail leaving them is a trailhead (Mt Norquay's day
+		-- lodge, routes#156).
+		if highway == 'service' then Attr('service', Find('service')) end
 		if name == '' then return end
 		Layer('road_name', false)
 		MinZoom(road_zoom)

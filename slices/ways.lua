@@ -235,6 +235,11 @@ function way_function_highway(highway)
 		AttributeBoolean('in_city_park', in_city_park)
 		if on_route then AttributeBoolean('on_route', true) end
 		if closed then AttributeBoolean('closed', true) end
+		-- One-way trails: walk the way only as drawn (yes), or only against it
+		-- (-1). hikeratlas/routes won't walk them backwards: the Grouse Grind is
+		-- up only, so its hike comes down another trail (routes#163).
+		local oneway = Find('oneway')
+		if oneway == 'yes' or oneway == '-1' then Attr('oneway', oneway) end
 		-- Mountain bike trails, which hikeratlas/routes avoids when the trail
 		-- isn't also designated for walking (foot). Whistler's are graded with
 		-- mtb:scale:imba rather than mtb:scale (e.g. way/1411691966).

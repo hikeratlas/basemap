@@ -430,7 +430,8 @@ def comment_body(meta, title, summary='', sections=None):
     """The progress comment: what the check's page shows, the job table and
     what's running now first, the rest folded, within GitHub's limit."""
     url = f'https://github.com/{REPO}/actions/runs/{RUN}'
-    what = (f'#{RUN_NUMBER} ' if RUN_NUMBER else '') + f"{meta.get('date', '')} {MODE} build" + ('' if HISTORY else f' of {NAMESPACE}')
+    what = (f'#{RUN_NUMBER} ' if RUN_NUMBER else '') + meta.get('date', '') + (
+        History.mode() if HISTORY else f' {MODE} build of {NAMESPACE}')
     check = f" · [check]({meta['check_url']})" if meta.get('check_url') else ''
     head = f"{COMMENT_MARK}{run_mark()}\n### [{what.strip()}]({url}) ({SHA[:7]}): {title}{check}\n\n"
     body = head + summary
@@ -484,14 +485,21 @@ class History:
         url = f'https://github.com/{REPO}/actions/runs/{RUN}'
         progress = f" · [progress]({meta['check_url']})" if meta.get('check_url') else ''
         number = f'#{RUN_NUMBER} ' if RUN_NUMBER else ''
-        new = f"- [{number}{meta['date']} {MODE} build]({url}): {status}{progress} {mark}"
+        new = f"- [{number}{meta['date']}{History.mode()}]({url}): {status}{progress} {mark}"
         body = (request('GET', f'/repos/{REPO}/issues/{issue}')['body'] or '').replace(History.OLD_BODY, History.BODY)
         m = History.LIST.search(body)
-        old = [History.numbered(l) for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
+        old = [History.numbered(l).replace(' full build](', '](', 1)
+               for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
         block = '<!-- builds -->\n' + '\n'.join([new] + old[:HISTORY_LINES - 1]) + '\n<!-- /builds -->'
         body = (body[:m.start()] + block + body[m.end():]) if m else f'{body.rstrip()}\n\n**Builds**, newest first:\n\n{block}\n'
         request('PATCH', f'/repos/{REPO}/issues/{issue}', {'body': body})
 
+
+    @staticmethod
+    def mode():
+        """How a line names the build's mode: not at all for a full build, as
+        nearly all of them are; " no-exports build" and so on otherwise."""
+        return '' if MODE == 'full' else f' {MODE} build'
 
     OLD_LINE = re.compile(r'^- \[(?!#)(.*?)\]\(https://github\.com/[^)]*/actions/runs/(\d+)\)')
 

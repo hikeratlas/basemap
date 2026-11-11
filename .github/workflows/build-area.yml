@@ -258,6 +258,23 @@ jobs:
       rebuild: ${{ inputs.rebuild == true }}
     secrets: inherit
 
+  # The routes binary routes.yml's curate shards run, into the Actions cache,
+  # while the layers build (see .github/actions/routes-bin): they used to
+  # compile it themselves after a ROUTES_REF bump, on their critical path.
+  routes-bin:
+    needs: [config]
+    runs-on: ubuntu-24.04-arm
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: ROUTES_REF
+        id: ref
+        run: |
+          echo "ref=$(sed -n 's/^  ROUTES_REF: *//p' .github/workflows/routes.yml)" | tee -a "$GITHUB_OUTPUT"
+      - uses: ./.github/actions/routes-bin
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+
   # The layers that read none of the exports' GeoJSON start straight away:
   # water (the longest, ~12 min for north-america) and land.
   layers-early:

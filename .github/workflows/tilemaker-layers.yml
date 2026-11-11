@@ -253,6 +253,10 @@ jobs:
         env:
           GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
           LAYER: ${{ matrix.layer }}
+          BBOX: ${{ steps.area.outputs.bbox }}
+          # pbf-filter's clip, pinned on its own: bumping .pbf-filter-version
+          # changes every build's inputs, rebuilding everything once.
+          CLIP_VERSION: v0.5.0
           AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
           AWS_EC2_METADATA_DISABLED: true
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -274,6 +278,28 @@ jobs:
           if [ ! -f hiking-routes.geojsonl ]; then
             echo "::warning::No hiking-routes.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no known hikes"
             touch hiking-routes.geojsonl
+          fi
+          # In the pois and parks jobs, another build's exports (a preview's
+          # no-exports build reads north-america's: 1.5 GB) are clipped to
+          # this build's box first, so their Python steps don't each sift a
+          # continent (on a Mt Norquay preview: pois 82 -> 68 s, parks 56 ->
+          # 51 s). Other layers only save what fetching the clip costs. The
+          # margin covers what those steps look at outside the box (parks
+          # within 2 km of it, parking within 0.05°), and each still checks
+          # the box exactly; a feature whose coordinates pbf-filter can't
+          # read is kept.
+          if [ -n "$GEOJSONL_FROM" ] && [ "$GEOJSONL_FROM" != "$NAMESPACE" ] && [ -n "$BBOX" ] \
+              && { [ "$LAYER" = pois ] || [ "$LAYER" = parks ]; }; then
+            arch=$(uname -m); [ "$arch" = arm64 ] && arch=aarch64
+            if curl -sSfL --retry 3 -o "$RUNNER_TEMP/pbf-filter" \
+                "https://github.com/hikeratlas/pbf-filter/releases/download/$CLIP_VERSION/pbf-filter-$arch-linux"; then
+              chmod +x "$RUNNER_TEMP/pbf-filter"
+              for f in *.geojsonl; do
+                "$RUNNER_TEMP/pbf-filter" clip "$BBOX" "$f" "$f.clipped" --margin 0.1 && mv "$f.clipped" "$f"
+              done
+            else
+              echo "::warning::Couldn't download pbf-filter $CLIP_VERSION; the exports aren't clipped to the box"
+            fi
           fi
 
       # Parking and trailheads within 2 km of a park stay in the poi layer

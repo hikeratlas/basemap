@@ -218,6 +218,11 @@ def job_table(cur, prev, now):
         if ps and pe:
             pt = (max(pe) - min(ps)).total_seconds()
     total = sum(1 for j in cur if j['conclusion'] != 'skipped')
+    # GitHub lists a job only once the jobs it needs are done, so while the
+    # build runs, the previous comparable build's count (same namespace and
+    # mode) says how many are still to come: "19 of 27", not "19 of 19".
+    if running and prev:
+        total = max(total, sum(1 for j in prev if j['conclusion'] != 'skipped'))
     title = f'{done} of {total} jobs done, {minutes(elapsed)} min'
     if running and (when := eta(cur, prev, t0, now)):
         left = max(0, (when - now).total_seconds())
@@ -425,7 +430,8 @@ def comment_body(meta, title, summary='', sections=None):
     """The progress comment: what the check's page shows, the job table and
     what's running now first, the rest folded, within GitHub's limit."""
     url = f'https://github.com/{REPO}/actions/runs/{RUN}'
-    what = (f'#{RUN_NUMBER} ' if RUN_NUMBER else '') + f"{meta.get('date', '')} {MODE} build" + ('' if HISTORY else f' of {NAMESPACE}')
+    what = (f'#{RUN_NUMBER} ' if RUN_NUMBER else '') + meta.get('date', '') + (
+        History.mode() if HISTORY else f' {MODE} build of {NAMESPACE}')
     check = f" · [check]({meta['check_url']})" if meta.get('check_url') else ''
     head = f"{COMMENT_MARK}{run_mark()}\n### [{what.strip()}]({url}) ({SHA[:7]}): {title}{check}\n\n"
     body = head + summary
@@ -479,14 +485,21 @@ class History:
         url = f'https://github.com/{REPO}/actions/runs/{RUN}'
         progress = f" · [progress]({meta['check_url']})" if meta.get('check_url') else ''
         number = f'#{RUN_NUMBER} ' if RUN_NUMBER else ''
-        new = f"- [{number}{meta['date']} {MODE} build]({url}): {status}{progress} {mark}"
+        new = f"- [{number}{meta['date']}{History.mode()}]({url}): {status}{progress} {mark}"
         body = (request('GET', f'/repos/{REPO}/issues/{issue}')['body'] or '').replace(History.OLD_BODY, History.BODY)
         m = History.LIST.search(body)
-        old = [History.numbered(l) for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
+        old = [History.numbered(l).replace(' full build](', '](', 1)
+               for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
         block = '<!-- builds -->\n' + '\n'.join([new] + old[:HISTORY_LINES - 1]) + '\n<!-- /builds -->'
         body = (body[:m.start()] + block + body[m.end():]) if m else f'{body.rstrip()}\n\n**Builds**, newest first:\n\n{block}\n'
         request('PATCH', f'/repos/{REPO}/issues/{issue}', {'body': body})
 
+
+    @staticmethod
+    def mode():
+        """How a line names the build's mode: not at all for a full build, as
+        nearly all of them are; " no-exports build" and so on otherwise."""
+        return '' if MODE == 'full' else f' {MODE} build'
 
     OLD_LINE = re.compile(r'^- \[(?!#)(.*?)\]\(https://github\.com/[^)]*/actions/runs/(\d+)\)')
 
@@ -736,28 +749,31 @@ def live(name, kind, log):
     """Runs in the background of a long job (.github/actions/build-progress
     with live:), putting where the job's run is into the check every 5-8
     minutes until the job ends. Jobs' loops are spread out at random, which
-    keeps the API calls to 3 per job every 6.5 minutes or so, and they skip
-    updates while the repository's API budget is low (LIVE_RESERVE)."""
+    keeps the API calls to 4 per job every 6.5 minutes or so, and they skip
+    updates while the repository's API budget is low (LIVE_RESERVE). Until
+    the job's log says where it is (a routes shard before it starts
+    curating), it still refreshes the check's job table and times: otherwise
+    nothing did between the last job to finish and the next."""
     random.seed(f'{RUN}/{name}')
     time.sleep(random.uniform(30, 150))
     check_id = None
     while True:
         try:
             status = live_status(kind, log)
-            if status:
-                check = request('GET', f'/repos/{REPO}/check-runs/{check_id}') if check_id else find_check()
-                if check and check['status'] == 'completed':
-                    return
-                if REMAINING is not None and REMAINING < LIVE_RESERVE:
-                    print(f'{REMAINING} API calls left this hour; skipping this update', flush=True)
-                    check = None
-                data = unpack(check['output']['summary']) if check else None
-                if data:
-                    check_id = check['id']
-                    configure(data['meta'])
+            check = request('GET', f'/repos/{REPO}/check-runs/{check_id}') if check_id else find_check()
+            if check and check['status'] == 'completed':
+                return
+            if REMAINING is not None and REMAINING < LIVE_RESERVE:
+                print(f'{REMAINING} API calls left this hour; skipping this update', flush=True)
+                check = None
+            data = unpack(check['output']['summary']) if check else None
+            if data:
+                check_id = check['id']
+                configure(data['meta'])
+                if status:
                     status['updated'] = int(time.time() * 1000)
                     data.setdefault('live', {})[name] = status
-                    publish(check, data)
+                publish(check, data)
         except Exception:
             print(traceback.format_exc(), file=sys.stderr, flush=True)
         time.sleep(random.uniform(300, 480))

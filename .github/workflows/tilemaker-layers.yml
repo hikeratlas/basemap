@@ -387,10 +387,19 @@ jobs:
           TILEMAKER: ${{ github.workspace }}/bin/docker-tilemaker
           LAYER: ${{ matrix.layer }}
           BBOX: ${{ steps.area.outputs.bbox }}
+          # Set only for a preview (its box; area builds use the area's).
+          PREVIEW_BBOX: ${{ inputs.bbox }}
         # tilemaker's output, timestamped, for the phase timings below (#210)
+        #
+        # A preview skips the OSM ways and relations that can't reach its box
+        # (grown to whole z10 tiles), rather than running all of the area's
+        # through Lua: water spent ~106 s on Canada's for a Mt Norquay
+        # preview, to write 293 tiles. Tiles from z10 up are unchanged; z9
+        # and below lose what's outside the box. (cldellow/tilemaker#26)
         run: |
           set -o pipefail
-          bun mapt build "$AREA".pbf $LAYER -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"} 2>&1 \
+          bun mapt build "$AREA".pbf $LAYER -- --store /mnt/store --fast ${BBOX:+--bbox "$BBOX"} \
+              ${PREVIEW_BBOX:+--skip-outside-bbox 10} 2>&1 \
             | python3 bin/timestamp-lines.py "$RUNNER_TEMP/tilemaker.log"
 
       # Where tilemaker spent its time, for build-area.yml's "Build progress"

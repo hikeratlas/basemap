@@ -234,6 +234,44 @@ jobs:
           path: /mnt/routes/dem
           key: dem-${{ inputs.area }}-3-${{ steps.dem-key.outputs.week }}
           restore-keys: dem-${{ inputs.area }}-3-
+      # The weekly caches above are saved once a week, by its first build:
+      # later builds downloaded the tiles they lacked again, one at a time
+      # per thread, ~800 a shard at ~0.8 s each, and the shards' CPUs sat
+      # ~45% idle for their last 6 minutes (run 43116405228). So each shard
+      # also saves the tiles it read that the weekly caches lack, per build
+      # ("new DEM tiles"), and every shard restores each shard's newest.
+      - name: List the weekly caches' DEM tiles
+        run: (cd /mnt/routes/dem 2>/dev/null && find . -type f | sort) > "$RUNNER_TEMP/dem-weekly.txt" || true
+      - name: Restore shard 0's new DEM tiles
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem-delta
+          key: dem-delta-${{ inputs.area }}-0-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-delta-${{ inputs.area }}-0-${{ steps.dem-key.outputs.week }}-
+      - name: Restore shard 1's new DEM tiles
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem-delta
+          key: dem-delta-${{ inputs.area }}-1-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-delta-${{ inputs.area }}-1-${{ steps.dem-key.outputs.week }}-
+      - name: Restore shard 2's new DEM tiles
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem-delta
+          key: dem-delta-${{ inputs.area }}-2-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-delta-${{ inputs.area }}-2-${{ steps.dem-key.outputs.week }}-
+      - name: Restore shard 3's new DEM tiles
+        uses: actions/cache/restore@v6
+        with:
+          path: /mnt/routes/dem-delta
+          key: dem-delta-${{ inputs.area }}-3-${{ steps.dem-key.outputs.week }}
+          restore-keys: dem-delta-${{ inputs.area }}-3-${{ steps.dem-key.outputs.week }}-
+      - name: Add the new DEM tiles
+        run: |
+          if [ -d /mnt/routes/dem-delta ]; then
+            echo "New DEM tiles: $(find /mnt/routes/dem-delta -type f | wc -l) restored"
+            mkdir -p /mnt/routes/dem && cp -r --update=none /mnt/routes/dem-delta/. /mnt/routes/dem/ && rm -rf /mnt/routes/dem-delta
+          fi
 
       - name: Curate
         run: |
@@ -276,6 +314,30 @@ jobs:
         with:
           path: /mnt/routes/dem
           key: dem-${{ inputs.area }}-${{ matrix.shard }}-${{ steps.dem-key.outputs.week }}
+
+      # The tiles this run read that the weekly caches lack (see "List the
+      # weekly caches' DEM tiles"), for the week's later builds. Not when this
+      # shard saved its weekly cache: that has them.
+      - name: Collect the new DEM tiles
+        id: dem-delta
+        if: ${{ steps.dem-cache.outputs.cache-hit == 'true' && github.ref == 'refs/heads/main' }}
+        run: |
+          cd /mnt/routes/dem
+          find . -type f -newer "$RUNNER_TEMP/dem-stamp" | sort | comm -23 - "$RUNNER_TEMP/dem-weekly.txt" > "$RUNNER_TEMP/dem-new.txt"
+          n=$(wc -l < "$RUNNER_TEMP/dem-new.txt")
+          echo "New DEM tiles: $n read that the weekly caches lack" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$n" -gt 0 ]; then
+            mkdir -p /mnt/routes/dem-delta
+            tar -cf - -T "$RUNNER_TEMP/dem-new.txt" | tar -xf - -C /mnt/routes/dem-delta
+            echo "save=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Save the new DEM tiles
+        if: ${{ steps.dem-delta.outputs.save == 'true' }}
+        continue-on-error: true
+        uses: actions/cache/save@v6
+        with:
+          path: /mnt/routes/dem-delta
+          key: dem-delta-${{ inputs.area }}-${{ matrix.shard }}-${{ steps.dem-key.outputs.week }}-${{ github.run_id }}
 
       - name: Upload the log
         if: always()

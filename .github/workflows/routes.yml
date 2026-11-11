@@ -98,6 +98,8 @@ jobs:
 
       # /mnt has more room than the workspace.
       - name: Fetch the layers routes reads, and QRank
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           sudo mkdir -p /mnt/routes && sudo chown "$USER" /mnt/routes
           aws configure set default.s3.max_concurrent_requests 32
@@ -127,6 +129,24 @@ jobs:
           # OSM hiking routes, to check the routes against (known.jsonl): optional too.
           fetch hikingroutes || echo "::warning::No hikingroutes.pmtiles in layers/$NAMESPACE/; no check against known hikes"
           for pid in "${pids[@]}"; do wait "$pid" || failed=1; done
+          # How many sites write about each place, to score up popular trails
+          # and destinations (routes --mentions, #281): hikeratlas/cc-crawler's
+          # mentions.py over its newest route-inputs release, as Link trip
+          # reports reads. Optional: without it, routes scores as before.
+          # (&&, not set -e: errexit is off in an if's condition.)
+          tag=$(gh api 'repos/hikeratlas/cc-crawler/releases?per_page=100' \
+            --jq '[.[] | select(.tag_name | startswith("route-inputs-run-"))][0].tag_name' || true)
+          if [ -n "$tag" ] \
+            && git clone -q --depth 1 https://github.com/hikeratlas/cc-crawler.git "$RUNNER_TEMP/cc-crawler" \
+            && gh release download "$tag" -R hikeratlas/cc-crawler --dir "$RUNNER_TEMP/ri" \
+              --pattern hikes.tsv.gz --pattern route_features.jsonl.gz \
+            && python3 -I "$RUNNER_TEMP/cc-crawler/scripts/mentions.py" --hikes "$RUNNER_TEMP/ri/hikes.tsv.gz" \
+              --features "$RUNNER_TEMP/ri/route_features.jsonl.gz" --out /mnt/routes/mentions.tsv.gz; then
+            echo "Mentions: from cc-crawler's $tag" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            rm -f /mnt/routes/mentions.tsv.gz
+            echo "::warning::No mentions from hikeratlas/cc-crawler; curating without them"
+          fi
           # The last build's curate seconds per park (routes --merge's
           # timings.json), to balance the shards by (routes#81). Optional, but
           # every shard must deal from the same file: one that's there and
@@ -227,6 +247,10 @@ jobs:
             [ -f "/mnt/routes/$layer.pmtiles" ] && args+=(--tiles "/mnt/routes/$layer.pmtiles")
           done
           [ -s /mnt/routes/timings.json ] && args+=(--shard-costs /mnt/routes/timings.json)
+          # Only a routes that takes it (routes#172).
+          if [ -s /mnt/routes/mentions.tsv.gz ] && { routes-src/target/release/routes 2>&1 || true; } | grep -q -- --mentions; then
+            args+=(--mentions /mnt/routes/mentions.tsv.gz)
+          fi
           routes-src/target/release/routes "${args[@]}" --qrank /mnt/routes/qrank.db \
             --dem-cache /mnt/routes/dem --shard "${{ matrix.shard }}/$SHARDS" --out /mnt/routes/out \
             --park-timeout "$PARK_TIMEOUT" 2> >(tee /mnt/routes/log.txt >&2)

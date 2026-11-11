@@ -228,6 +228,7 @@ jobs:
     permissions:
       actions: write   # the telemetry action reads the job's step times; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     uses: ./.github/workflows/tilemaker-exports.yml
     with:
@@ -247,6 +248,7 @@ jobs:
     permissions:
       actions: write   # it polls this run's jobs for the other exports; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     uses: ./.github/workflows/tilemaker-zindex.yml
     with:
@@ -265,6 +267,7 @@ jobs:
     permissions:
       actions: write   # the telemetry action reads the job's step times; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     uses: ./.github/workflows/tilemaker-layers.yml
     with:
@@ -286,6 +289,7 @@ jobs:
     permissions:
       actions: write   # the telemetry action reads the job's step times; bin/fetch-pbf may start mirror-pbfs.yml
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     uses: ./.github/workflows/tilemaker-layers.yml
     with:
@@ -309,6 +313,7 @@ jobs:
     permissions:
       actions: read    # the telemetry action reads the job's step times
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     uses: ./.github/workflows/routes.yml
     with:
@@ -387,6 +392,7 @@ jobs:
     permissions:
       actions: read    # the telemetry action reads the job's step times
       checks: write    # the progress check (#210)
+      issues: write   # its comment, on the PR or the Build history issue
       contents: read
     uses: ./.github/workflows/tile-join.yml
     with:

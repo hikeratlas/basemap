@@ -29,8 +29,10 @@
 #
 # Distances are approximate: each network is measured with longitude scaled
 # by the cosine of its latitude.
-import json, math, sys
+import json, math, os, sys
 from collections import Counter, defaultdict
+from functools import partial
+from multiprocessing import Pool
 import numpy as np
 import shapely
 from shapely.geometry import shape, mapping, LineString, MultiLineString, Point
@@ -51,15 +53,73 @@ if '--bbox' in args:
     del args[i:i + 2]
 trails_path, parks_path, out_path = args
 
-def read(path):
+COORDS = '"coordinates":'
+BRACKETS = str.maketrans('', '', '[]')
+CHUNK = 20_000
+
+
+def text_bounds(line):
+    """A feature's bounds from its coordinates' text, without parsing it, or
+    None if they can't be read that way (it's then parsed in full)."""
+    i = line.find(COORDS)
+    if i < 0:
+        return None
+    i += len(COORDS)
+    j = line.find('}', i)
+    if j < 0:
+        return None
+    s = line[i:j]
+    s = s[:s.rfind(']') + 1].translate(BRACKETS)
+    a = np.fromstring(s, sep=',') if s else np.zeros(0)
+    if a.size < 2 or a.size % 2 or a.size != s.count(',') + 1:
+        return None
+    return a[0::2].min(), a[1::2].min(), a[0::2].max(), a[1::2].max()
+
+
+def near(box, lines):
+    """The lines whose features' bounds may reach the box."""
+    out = []
+    for line in lines:
+        b = text_bounds(line)
+        if b is None or not (b[2] < box[0] or b[0] > box[2] or b[3] < box[1] or b[1] > box[3]):
+            out.append(line)
+    return out
+
+
+def chunks(f):
+    batch = []
+    for line in f:
+        batch.append(line)
+        if len(batch) == CHUNK:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
+
+
+def lines_of(path):
+    """The file's lines; with a box, only those whose features may reach it.
+    A preview reads north-america's exports (2.1 million trails and points,
+    1 GB): building a shape for each before the box check took ~80 s on a
+    runner, for a few hundred near the box. Checked from the text instead,
+    in parallel, only those are parsed (in_bbox still decides)."""
     with open(path) as f:
-        for line in f:
-            line = line.strip().lstrip('\x1e')
-            if line:
-                try:
-                    yield json.loads(line)
-                except ValueError:
-                    pass
+        if not bbox:
+            yield from f
+            return
+        with Pool(os.cpu_count()) as pool:
+            for kept in pool.imap(partial(near, bbox), chunks(f)):
+                yield from kept
+
+
+def read(path):
+    for line in lines_of(path):
+        line = line.strip().lstrip('\x1e')
+        if line:
+            try:
+                yield json.loads(line)
+            except ValueError:
+                pass
 
 def in_bbox(g):
     if not bbox:

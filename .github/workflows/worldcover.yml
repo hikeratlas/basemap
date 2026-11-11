@@ -1,0 +1,75 @@
+name: Prepare WorldCover land cover
+
+# ESA WorldCover 2021 (10 m land cover, CC BY 4.0) as z12 PNG tiles, for
+# hikeratlas/routes to fall back on where OSM maps no land cover (issue #167):
+# OSM often maps a mountain's forest and leaves what's above the trees blank.
+# bin/worldcover.py reads WorldCover's public Cloud-Optimized GeoTIFFs on AWS
+# and publishes worldcover/north-america.pmtiles to R2, which routes reads
+# from public.hikeratlas.com.
+#
+# WorldCover 2021 is its last release, so this runs once, by hand (or again
+# for another bbox).
+
+on:
+  workflow_dispatch:
+    inputs:
+      bbox:
+        description: W,S,E,N (defaults to north-america's)
+        required: false
+        default: '-170,20,-48,75'
+      key:
+        description: R2 key under hikes-public
+        required: false
+        default: worldcover/north-america.pmtiles
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04-arm
+    # ~480 sources (~29 GB) and up to ~1M tiles
+    timeout-minutes: 360
+    env:
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+      # Neighbouring sources are read by range: don't list their directories.
+      GDAL_DISABLE_READDIR_ON_OPEN: EMPTY_DIR
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Collect resource telemetry
+        uses: ./.github/actions/telemetry
+
+      - name: Install Python packages
+        run: python3 -m venv venv && venv/bin/pip install -q numpy pillow pmtiles rasterio requests
+
+      # /mnt has more room than the workspace: each job's source, and the
+      # tiles before they're sorted into the archive.
+      - name: Build the tiles
+        env:
+          BBOX: ${{ inputs.bbox }}
+        run: |
+          sudo mkdir -p /mnt/worldcover && sudo chown "$USER" /mnt/worldcover
+          start=$(date +%s)
+          venv/bin/python bin/worldcover.py /mnt/worldcover/out.pmtiles \
+            --bbox "$BBOX" --workdir /mnt/worldcover/work
+          echo "Built in $(( $(date +%s) - start ))s"
+          ls -l /mnt/worldcover/out.pmtiles
+
+      # Some R2 failures aren't retried by the CLI (e.g. "InvalidPart"), so
+      # retry the whole upload too; see mirror-pbfs.yml.
+      - name: Upload
+        env:
+          KEY: ${{ inputs.key }}
+        run: |
+          aws configure set default.s3.max_concurrent_requests 32
+          aws configure set default.s3.multipart_chunksize 64MB
+          for i in 1 2 3; do
+            aws s3 cp --no-progress /mnt/worldcover/out.pmtiles "s3://hikes-public/$KEY" && exit 0
+            echo "Upload failed (attempt $i)"
+            [ "$i" -lt 3 ] && sleep $((i * 30))
+          done
+          exit 1

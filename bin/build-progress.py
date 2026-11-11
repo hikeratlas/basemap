@@ -218,6 +218,11 @@ def job_table(cur, prev, now):
         if ps and pe:
             pt = (max(pe) - min(ps)).total_seconds()
     total = sum(1 for j in cur if j['conclusion'] != 'skipped')
+    # GitHub lists a job only once the jobs it needs are done, so while the
+    # build runs, the previous comparable build's count (same namespace and
+    # mode) says how many are still to come: "19 of 27", not "19 of 19".
+    if running and prev:
+        total = max(total, sum(1 for j in prev if j['conclusion'] != 'skipped'))
     title = f'{done} of {total} jobs done, {minutes(elapsed)} min'
     if running and (when := eta(cur, prev, t0, now)):
         left = max(0, (when - now).total_seconds())
@@ -736,28 +741,31 @@ def live(name, kind, log):
     """Runs in the background of a long job (.github/actions/build-progress
     with live:), putting where the job's run is into the check every 5-8
     minutes until the job ends. Jobs' loops are spread out at random, which
-    keeps the API calls to 3 per job every 6.5 minutes or so, and they skip
-    updates while the repository's API budget is low (LIVE_RESERVE)."""
+    keeps the API calls to 4 per job every 6.5 minutes or so, and they skip
+    updates while the repository's API budget is low (LIVE_RESERVE). Until
+    the job's log says where it is (a routes shard before it starts
+    curating), it still refreshes the check's job table and times: otherwise
+    nothing did between the last job to finish and the next."""
     random.seed(f'{RUN}/{name}')
     time.sleep(random.uniform(30, 150))
     check_id = None
     while True:
         try:
             status = live_status(kind, log)
-            if status:
-                check = request('GET', f'/repos/{REPO}/check-runs/{check_id}') if check_id else find_check()
-                if check and check['status'] == 'completed':
-                    return
-                if REMAINING is not None and REMAINING < LIVE_RESERVE:
-                    print(f'{REMAINING} API calls left this hour; skipping this update', flush=True)
-                    check = None
-                data = unpack(check['output']['summary']) if check else None
-                if data:
-                    check_id = check['id']
-                    configure(data['meta'])
+            check = request('GET', f'/repos/{REPO}/check-runs/{check_id}') if check_id else find_check()
+            if check and check['status'] == 'completed':
+                return
+            if REMAINING is not None and REMAINING < LIVE_RESERVE:
+                print(f'{REMAINING} API calls left this hour; skipping this update', flush=True)
+                check = None
+            data = unpack(check['output']['summary']) if check else None
+            if data:
+                check_id = check['id']
+                configure(data['meta'])
+                if status:
                     status['updated'] = int(time.time() * 1000)
                     data.setdefault('live', {})[name] = status
-                    publish(check, data)
+                publish(check, data)
         except Exception:
             print(traceback.format_exc(), file=sys.stderr, flush=True)
         time.sleep(random.uniform(300, 480))

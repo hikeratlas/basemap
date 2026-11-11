@@ -265,7 +265,7 @@
       "filter": [
         "all",
         ["!=", "closed", true],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         ["==", "in_park", true],
         ["!=", "canoe", "portage"],
         ["!=", "mtb", true],
@@ -310,7 +310,7 @@
       "filter": [
         "all",
         ["!=", "closed", true],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         [
           "==",
           "in_park",
@@ -379,7 +379,7 @@
       "type": "line",
       "filter": [
         "all",
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         [
           "==",
           "in_park",
@@ -429,7 +429,7 @@
       "filter": [
         "all",
         ["==", "closed", true],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         ["any", ["==", "in_park", true], ["==", "in_city_park", true], ["has", "name"]]
       ],
       "paint": {
@@ -451,7 +451,8 @@
         "in",
         "kind",
         "ferry",
-        "cable_car"
+        "cable_car",
+        "lift"
       ],
       "minzoom": 12,
       "paint": {
@@ -562,7 +563,7 @@
       "filter": [
         "all",
         ["!=", "closed", true],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         ["==", "in_park", false],
         [
           "any",
@@ -592,7 +593,7 @@
       "filter": [
         "all",
         ["!=", "closed", true],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         ["==", "in_park", false],
         ["==", "in_city_park", true],
         ["!=", "mtb", true],
@@ -616,7 +617,7 @@
       "filter": [
         "all",
         ["!=", "closed", true],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         [
           "==",
           "in_park",
@@ -680,7 +681,7 @@
       "filter": [
         "all",
         ["!=", "kind", "cycleway"],
-        ["!in", "kind", "ferry", "cable_car"],
+        ["!in", "kind", "ferry", "cable_car", "lift"],
         [
           "==",
           "in_park",
@@ -737,7 +738,7 @@
       "filter": [
         "all",
        
-        ["==", "kind", "cycleway"], ["!in", "kind", "ferry", "cable_car"],
+        ["==", "kind", "cycleway"], ["!in", "kind", "ferry", "cable_car", "lift"],
         [
           "==",
           "in_park",

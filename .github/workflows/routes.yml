@@ -150,6 +150,10 @@ jobs:
           # downloads took (bin/fetch-region.py).
           region=(--tiles /mnt/routes/parks.pmtiles)
           [ -f /mnt/routes/trailareas.pmtiles ] && region+=(--tiles /mnt/routes/trailareas.pmtiles)
+          # A small park is curated only if an OSM hiking route runs through
+          # it (routes#163): without the routes, Grouse Mountain Regional
+          # Park was left out of the region, and so not curated.
+          [ -f /mnt/routes/hikingroutes.pmtiles ] && region+=(--tiles /mnt/routes/hikingroutes.pmtiles)
           [ -s /mnt/routes/timings.json ] && region+=(--shard-costs /mnt/routes/timings.json)
           routes-src/target/release/routes "${region[@]}" --shard "${{ matrix.shard }}/$SHARDS" \
             --out /mnt/routes/out --write-region /mnt/routes/region.json

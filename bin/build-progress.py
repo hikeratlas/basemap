@@ -40,6 +40,8 @@ from datetime import datetime, timedelta, timezone
 API = 'https://api.github.com'
 REPO = os.environ['GITHUB_REPOSITORY']
 RUN = int(os.environ['GITHUB_RUN_ID'])
+# The run's number in the workflow, as GitHub shows it ("Build area #689").
+RUN_NUMBER = os.environ.get('GITHUB_RUN_NUMBER', '')
 SHA = os.environ['SHA']
 TOKEN = os.environ['GH_TOKEN']
 RUNNER_TEMP = os.environ.get('RUNNER_TEMP', '/tmp')
@@ -423,7 +425,7 @@ def comment_body(meta, title, summary='', sections=None):
     """The progress comment: what the check's page shows, the job table and
     what's running now first, the rest folded, within GitHub's limit."""
     url = f'https://github.com/{REPO}/actions/runs/{RUN}'
-    what = f"{meta.get('date', '')} {MODE} build" + ('' if HISTORY else f' of {NAMESPACE}')
+    what = (f'#{RUN_NUMBER} ' if RUN_NUMBER else '') + f"{meta.get('date', '')} {MODE} build" + ('' if HISTORY else f' of {NAMESPACE}')
     check = f" · [check]({meta['check_url']})" if meta.get('check_url') else ''
     head = f"{COMMENT_MARK}{run_mark()}\n### [{what.strip()}]({url}) ({SHA[:7]}): {title}{check}\n\n"
     body = head + summary
@@ -476,13 +478,31 @@ class History:
         mark = run_mark()
         url = f'https://github.com/{REPO}/actions/runs/{RUN}'
         progress = f" · [progress]({meta['check_url']})" if meta.get('check_url') else ''
-        new = f"- [{meta['date']} {MODE} build]({url}): {status}{progress} {mark}"
+        number = f'#{RUN_NUMBER} ' if RUN_NUMBER else ''
+        new = f"- [{number}{meta['date']} {MODE} build]({url}): {status}{progress} {mark}"
         body = (request('GET', f'/repos/{REPO}/issues/{issue}')['body'] or '').replace(History.OLD_BODY, History.BODY)
         m = History.LIST.search(body)
-        old = [l for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
+        old = [History.numbered(l) for l in (m[1].splitlines() if m else []) if l.strip() and mark not in l]
         block = '<!-- builds -->\n' + '\n'.join([new] + old[:HISTORY_LINES - 1]) + '\n<!-- /builds -->'
         body = (body[:m.start()] + block + body[m.end():]) if m else f'{body.rstrip()}\n\n**Builds**, newest first:\n\n{block}\n'
         request('PATCH', f'/repos/{REPO}/issues/{issue}', {'body': body})
+
+
+    OLD_LINE = re.compile(r'^- \[(?!#)(.*?)\]\(https://github\.com/[^)]*/actions/runs/(\d+)\)')
+
+    @staticmethod
+    def numbered(line):
+        """A line from before lines showed the run's number, with it (one API
+        call, once: the line keeps it)."""
+        m = History.OLD_LINE.match(line)
+        if not m:
+            return line
+        try:
+            n = request('GET', f'/repos/{REPO}/actions/runs/{m[2]}')['run_number']
+        except Exception as e:
+            print(f'run {m[2]}: {e}', file=sys.stderr)
+            return line
+        return f'- [#{n} {m[1]}]' + line[m.end(1) + 1:]
 
 
 LINK = re.compile(r'<!-- build-progress -->.*?<!-- /build-progress -->\n*', re.S)

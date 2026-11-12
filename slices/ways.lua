@@ -79,7 +79,10 @@ local crossing_aerialways = { yes = true, zip_line = true, cable_car = true }
 -- Mountain's Skyride (aerialway=cable_car), which hikers ride down after the
 -- Grouse Grind, a trail that is up only. hikeratlas/routes reads them for a
 -- way back to the trailhead, never as a way to walk. Chair lifts are left
--- out: most only run for skiers.
+-- out: most only run for skiers. Kept in or out of parks: a resort's lifts
+-- often run just outside the park beside them (the Red Skyride, ~35 m
+-- outside Grouse Mountain Regional Park, was dropped while the Blue Grouse
+-- Gondola beside it, just inside, was kept: #295), and there are few of them.
 local passenger_lifts = { gondola = true, cable_car = true, mixed_lift = true }
 
 function way_function_lift()
@@ -87,7 +90,6 @@ function way_function_lift()
 	local access = Find('access')
 	if access == 'no' or access == 'private' then return true end
 	if Find('disused') == 'yes' or Find('abandoned') == 'yes' then return true end
-	if not Intersects('parks') then return true end
 	Layer('path', false)
 	MinZoom(12)
 	Attr('name', Find('name'))

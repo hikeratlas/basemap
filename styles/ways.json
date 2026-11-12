@@ -471,6 +471,29 @@
       "source": "tiles"
     },
     {
+      // A lift's name along it, e.g. Grouse Mountain's "Red Skyride", in the
+      // crossings' blue, so it reads as the lift's, not a trail's. Lifts are
+      // straight, so the label sits on the line itself (trails need the
+      // simplified path_name copies, below).
+      "id": "lift-names",
+      "type": "symbol",
+      "filter": ["all", ["==", "kind", "lift"], ["has", "name"]],
+      "minzoom": 13,
+      "paint": {
+        "text-color": "sky-800",
+        "text-halo-color": "#f1f8f3",
+        "text-halo-width": 2.5
+      },
+      "layout": {
+        "symbol-placement": "line",
+        "text-font": ["Hubot Sans-Regular Italic"],
+        "text-field": "{name}",
+        "text-size": 13
+      },
+      "source-layer": "path",
+      "source": "tiles"
+    },
+    {
       // Trail names sit on the trail, along a copy of it simplified by ~6 px
       // at each zoom (path_name, path_name_15 and path_name_16 in
       // slices/ways.json). MapLibre drops a line label wherever its line bends

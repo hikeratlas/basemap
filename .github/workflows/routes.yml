@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: c1052d43d4469fa7a6be8dc30121739838e5414e
+  ROUTES_REF: ce2974e801da4efdc644fcd993f383cd7758b00a
 
 jobs:
   curate:
@@ -522,11 +522,12 @@ jobs:
 
       # The website's /hikes/<country>/<state>/<park> URLs (website#55, #56):
       # regions.json lists every country, state and park with its slug, and
-      # index.json gains park id -> path (bin/hike-paths.py).
+      # index.json gains park id -> path (bin/hike-paths.py), and "cards":
+      # each state's park cards (website#110), added to the bundle's end.
       - name: Hike paths
         run: |
           if [ -s autosuggest.db ]; then
-            python3 bin/hike-paths.py autosuggest.db /mnt/routes/out/parks /mnt/routes/out/index.json /mnt/routes/out/regions.json | tee -a "$GITHUB_STEP_SUMMARY"
+            python3 bin/hike-paths.py autosuggest.db /mnt/routes/out/parks /mnt/routes/out/index.json /mnt/routes/out/regions.json /mnt/routes/out/routes.bin | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
       # Trip reports and other pages about each route (hikeratlas/cc-crawler,

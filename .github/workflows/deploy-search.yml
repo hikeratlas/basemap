@@ -5,7 +5,8 @@ name: Deploy search index
 #
 # The Lambda serves the main site's search from a DB bundled in its zip. This
 # downloads the deployed zip, swaps in the new DB, checks that search still
-# works, and uploads it again.
+# works (hikeratlas/website's search/test_search.py: known searches must find
+# what they did), and uploads it again.
 #
 # It deploys the search code too: with website_ref (e.g. main), it swaps in
 # hikeratlas/website's search/lambda_function.py at that ref. Otherwise the
@@ -99,12 +100,14 @@ jobs:
           AWS_REGION: auto
         run: aws s3 cp --no-progress "s3://hikes-public/$NAMESPACE.autosuggest.db" new.db
 
+      # The search code at website_ref (deployed only with it), and its
+      # known searches (search/test_search.py), from main when deploying a
+      # DB alone.
       - name: Fetch the search code
-        if: inputs.website_ref != ''
         uses: actions/checkout@v7
         with:
           repository: hikeratlas/website
-          ref: ${{ inputs.website_ref }}
+          ref: ${{ inputs.website_ref || 'main' }}
           path: website
           sparse-checkout: search
 
@@ -193,6 +196,21 @@ jobs:
               print(q, resp['statusCode'], len(hits), hits[:1])
               assert resp['statusCode'] == 200 and hits, 'no results for ' + q
           EOF
+
+          # hikeratlas/website's known searches (search/test_search.py): the
+          # code being deployed must still find what they say, in the DB
+          # being deployed. A DB alone is checked with website main's cases
+          # against the deployed code: if a search change merged there isn't
+          # deployed yet, deploy it (website_ref main) first.
+          if [ -f ../website/search/test_search.py ]; then
+            mkdir -p "$RUNNER_TEMP/test"
+            cp ../website/search/test_search.py lambda_function.py "$RUNNER_TEMP/test/"
+            if ! timeout 300 python3 "$RUNNER_TEMP/test/test_search.py" autosuggest.db | tee "$RUNNER_TEMP/test/out.txt"; then
+              echo "::error::Known searches failed (website search/test_search.py); see the log."
+              { echo '```'; grep '^FAIL' "$RUNNER_TEMP/test/out.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          fi
 
       - name: Upload the function
         if: steps.swap.outputs.changed == 'true'

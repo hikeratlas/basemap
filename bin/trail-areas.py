@@ -8,7 +8,14 @@
 # per kept network: its trails grown by BUFFER_M, with name, osm_id
 # ("trail-<first way id>"), km and area (m²).
 #
-# A network is the named trails outside parks that share nodes. It's kept if:
+# A network is the named trails outside parks that share nodes, and then
+# networks of the same name within MERGE_GAP_M of each other: a long trail
+# is cut wherever it leaves the export (through a park, along a road, a
+# gap in the mapping), and each piece was an area of its own, listed under
+# the same name several times (the Ottawa-Temiskaming Highland Trail four
+# times in Ontario: basemap#296). Pieces farther apart stay apart: a
+# long-distance trail's sections hundreds of km apart aren't one walk.
+# It's kept if:
 #   - it has at least MIN_KM of trail,
 #   - at least MIN_DESTS viewpoints, waterfalls or peaks are within DEST_M,
 #     or one peak is: a named trail to a summit is a hike on its own (5040
@@ -41,6 +48,7 @@ MIN_KM = 3.0
 MIN_DESTS = 2
 DEST_M = 300.0
 BUFFER_M = 500.0
+MERGE_GAP_M = 2000.0
 URBAN_LOTS = 12
 SNAP = 1e-6  # nodes shared between ways have identical coordinates
 M_PER_DEG = 111_320.0
@@ -200,6 +208,39 @@ groups = defaultdict(list)
 for i in range(len(lines)):
     groups[find(i)].append(i)
 
+def main_name(members):
+    by_len = Counter()
+    for i in members:
+        by_len[names[i]] += lines[i].length
+    return by_len.most_common(1)[0][0]
+
+# Same-named networks within MERGE_GAP_M: one trail's pieces. Measured on
+# each name's networks with longitude scaled at their mean latitude, and
+# simplified by 20 m (the gap is 2 km).
+by_name = defaultdict(list)
+for g, members in groups.items():
+    by_name[main_name(members)].append(g)
+merged = 0
+for name, gs in by_name.items():
+    if len(gs) < 2 or not name:
+        continue
+    lat = float(np.mean([lines[groups[g][0]].centroid.y for g in gs]))
+    k = math.cos(math.radians(lat)) or 1e-6
+    geoms = [shapely.transform(MultiLineString([lines[i] for i in groups[g]]), lambda c: c * [k, 1]).simplify(20 / M_PER_DEG) for g in gs]
+    tree = shapely.STRtree(geoms)
+    a_idx, b_idx = tree.query(np.array(geoms, dtype=object), predicate='dwithin', distance=MERGE_GAP_M / M_PER_DEG)
+    for a, b in zip(a_idx.tolist(), b_idx.tolist()):
+        if a < b:
+            ra, rb = find(groups[gs[a]][0]), find(groups[gs[b]][0])
+            if ra != rb:
+                parent[ra] = rb
+                merged += 1
+if merged:
+    groups = defaultdict(list)
+    for i in range(len(lines)):
+        groups[find(i)].append(i)
+print(f'{merged} same-named networks within {MERGE_GAP_M / 1000:g} km joined to another', file=sys.stderr)
+
 dest_tree = shapely.STRtree(dests) if dests else None
 lot_tree = shapely.STRtree(lots) if lots else None
 lot_xy = np.array([(p.x, p.y) for p in lots]) if lots else np.zeros((0, 2))
@@ -251,11 +292,8 @@ for members in groups.values():
     area = scaled.buffer(BUFFER_M / M_PER_DEG, quad_segs=4).simplify(50 / M_PER_DEG)
     area_m2 = area.area * M_PER_DEG ** 2
     poly = shapely.transform(area, lambda c: c / [k, 1])
-    by_len = Counter()
-    for i in members:
-        by_len[names[i]] += lines[i].length
     out.append({'type': 'Feature', 'geometry': mapping(poly), 'properties': {
-        'name': by_len.most_common(1)[0][0],
+        'name': main_name(members),
         'osm_id': f'trail-{min(ids[i] for i in members)}',
         'km': round(km, 1),
         'area': round(area_m2),

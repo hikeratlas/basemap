@@ -20,7 +20,10 @@
 # area (no park item) takes the nearest place's that has one. Parks whose
 # routes are one document under two ids (Cape Breton Highlands' two OSM
 # relations) get one slug, for both ids. Two parks in a state with the same
-# slug get -2, -3, ... in OSM-id order. Hike slugs aren't here: the website
+# name are told apart by the nearest town to their hikes, "Pacific Crest
+# Trail (near Wrightwood)" (basemap#296: pieces of one park, or of one trail,
+# are one area already, so these are different places); any still alike get
+# -2, -3, ... in OSM-id order. Hike slugs aren't here: the website
 # derives them from each park's routes, which it loads anyway.
 import json, math, os, re, sqlite3, sys, unicodedata
 from collections import defaultdict
@@ -85,6 +88,48 @@ class Nearest:
         return None, None
 
 
+class Towns:
+    """The nearest city, town or village to a point, from a 0.1-degree grid of
+    them, up to ~50 km away."""
+    def __init__(self, db):
+        self.grid = defaultdict(list)
+        for lat, lon, name in db.execute(
+                "select lat, lon, name from items where kind in ('city', 'town', 'village') and name is not null"):
+            self.grid[(int(lat * 10), int(lon * 10))].append((lat, lon, name))
+
+    def __call__(self, lat, lon):
+        gy, gx = int(lat * 10), int(lon * 10)
+        for r in range(0, 6):
+            best = None
+            for dy in range(-r, r + 1):
+                for dx in range(-r, r + 1):
+                    if max(abs(dy), abs(dx)) != r:
+                        continue
+                    for p in self.grid.get((gy + dy, gx + dx), ()):
+                        d = (p[0] - lat) ** 2 + ((p[1] - lon) * math.cos(math.radians(lat))) ** 2
+                        if best is None or d < best[0]:
+                            best = (d, p[2])
+            if best:
+                return best[1]
+        return None
+
+
+def tell_apart(xs, towns):
+    """Areas of a state with the same name: each named for the town nearest
+    its hikes' middle, "<name> (near <town>)", where that tells them apart."""
+    by_name = defaultdict(list)
+    for a in xs:
+        by_name[a['name']].append(a)
+    for name, same in by_name.items():
+        if len(same) < 2:
+            continue
+        near = [towns((a['bbox'][1] + a['bbox'][3]) / 2, (a['bbox'][0] + a['bbox'][2]) / 2) if a['bbox'] else None
+                for a in same]
+        for a, t in zip(same, near):
+            if t and near.count(t) == 1 and t.lower() not in name.lower():
+                a['name'] = f'{name} (near {t})'
+
+
 def main(db_path, parks_dir, index_path, regions_path):
     db = sqlite3.connect(db_path)
     index = json.load(open(index_path))
@@ -95,6 +140,7 @@ def main(db_path, parks_dir, index_path, regions_path):
         if osm_id not in place or (qrank or 0) > place[osm_id][4]:
             place[osm_id] = (name, state, country, [w, s, e, n] if w is not None else None, qrank or 0)
     nearest = Nearest(db)
+    towns = Towns(db)
 
     # Park ids by routes document: twins share a slice of the bundle.
     by_slice = defaultdict(list)
@@ -148,6 +194,7 @@ def main(db_path, parks_dir, index_path, regions_path):
     paths = {}
     countries = defaultdict(list)
     for (country, state), xs in areas.items():
+        tell_apart(xs, towns)
         # Slugs, -2, -3, ... for repeats in OSM-id order.
         xs.sort(key=lambda a: (slugify(a['name']), int(a['ids'][0]) if a['ids'][0].isdigit() else 10 ** 12))
         used = defaultdict(int)

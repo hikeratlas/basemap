@@ -509,6 +509,7 @@ jobs:
           # so `pmtiles verify` fails: the count is put back from before.
           addressed=$(python3 -c 'import struct,sys; print(struct.unpack_from("<Q", open(sys.argv[1],"rb").read(127), 72)[0])' routes.pmtiles)
           ../bin/docker-pmtiles cluster routes.pmtiles
+          sudo chown "$USER" routes.pmtiles  # docker's, after cluster
           python3 -c 'import struct,sys; f=open(sys.argv[1],"r+b"); f.seek(72); f.write(struct.pack("<Q", int(sys.argv[2])))' routes.pmtiles "$addressed"
           ../bin/docker-pmtiles verify routes.pmtiles
           ../bin/docker-pmtiles show routes.pmtiles | grep -E 'clustered|addressed tiles'

@@ -500,6 +500,16 @@ jobs:
           ../bin/docker-tilemaker --output routes.pmtiles --config routes.json --process routes.lua \
             --bbox "$(jq -r --arg a "$AREA" '.[$a].bbox' ../areas.json)"
           ls -l routes.pmtiles
+          # Clustered (tiles in tile-id order), as tile-join's archives are, so
+          # a park's tiles are together: `pmtiles extract` takes it, and the
+          # Android app's offline areas fetch them in a few ranges (#292).
+          # tilemaker doesn't cluster. ~2 s for north-america; no tile changes.
+          # verify: go-pmtiles before 1.30 wrote a wrong addressed-tiles count
+          # when clustering tilemaker's run-length entries (this image's
+          # doesn't), which this would catch.
+          ../bin/docker-pmtiles cluster routes.pmtiles
+          ../bin/docker-pmtiles verify routes.pmtiles
+          ../bin/docker-pmtiles show routes.pmtiles | grep -E 'clustered|addressed tiles'
 
       # The search DB (built with the exports, before the routes), for the
       # parks' places in the hike paths below and for adding the hikes to

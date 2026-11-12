@@ -30,9 +30,12 @@ The sandbox's AWS key is a placeholder, so put images in R2 with a workflow:
 
 - Make an orphan branch (`git switch --orphan`; empty index, so no other
   push workflow comes along) holding only `images/` and a one-off
-  `.github/workflows/upload.yml`: on push to that branch, with the R2 env of
-  `lake-centerlines.yml`, run `aws s3 cp --recursive --content-type image/png
-  images/ s3://hikes-public/claude-images/<topic>/`. Never open a PR from it.
+  `.github/workflows/upload.yml`: on push to that branch, with
+  `permissions: contents: write` and the R2 env of `lake-centerlines.yml`, run
+  `aws s3 cp --recursive --content-type image/png images/
+  s3://hikes-public/claude-images/<topic>/`, then
+  `git push origin --delete "$GITHUB_REF_NAME"` (after `actions/checkout`).
+  The sandbox can't delete branches, but the workflow can; if the upload
+  fails, the branch stays. Never open a PR from it.
 - Link `https://public.hikeratlas.com/claude-images/<topic>/<file>.png`.
-- The sandbox can't delete branches: ask the user to delete it afterwards, or
-  full clones keep the images. Still ask before committing images (above).
+- Still ask before committing images (above).

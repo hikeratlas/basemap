@@ -1,5 +1,15 @@
 {
     "layers": {
+        "landcover": {
+            "zindex": 1,
+            "minzoom": 10,
+            "maxzoom": 14,
+            "source": "../worldcover.geojsonl",
+            "source_columns": ["class"],
+            "simplify_below": 12,
+            "simplify_level": 0.0002,
+            "simplify_algorithm": "visvalingam"
+        },
         "land": {
             "zindex": 2,
             "minzoom": 10,

@@ -6,13 +6,92 @@
   "sprite": "http://localhost:8081/sprite/sprite",
   "sources": {
     "tiles": {
-      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors",
+      "attribution": "© <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors; <a href='https://esa-worldcover.org/'>ESA WorldCover 2021</a> (CC BY 4.0)",
       "url": "pmtiles://http://localhost:8081/land.pmtiles",
       "type": "vector",
       "bounds": [-180, -85.0511287798066, 180, 85.0511287798066]
     }
   },
   "layers": [
+    // WorldCover land cover (#167, bin/worldcover-polygons.py), under all of
+    // OSM's land fills: OSM's opaque fills cover it wherever OSM maps
+    // anything, so it shows only in OSM's gaps (often above the trees, and
+    // holes in mapped forest). Same colours and textures as OSM's classes.
+    {
+      "id": "landcover-meadow",
+      "type": "fill",
+      "filter": ["==", "class", "meadow"],
+      "paint": {"fill-color": "#d6f3e0"},
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-forest",
+      "type": "fill",
+      "filter": ["==", "class", "forest"],
+      "paint": {"fill-color": "#9fe0b8"},
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-scrub",
+      "type": "fill",
+      "filter": ["==", "class", "scrub"],
+      "paint": {"fill-color": "#bfe9cd"},
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-scrub-texture",
+      "type": "fill",
+      "filter": ["==", "class", "scrub"],
+      "paint": {"fill-pattern": "patterns:scrub"},
+      "minzoom": 12,
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-wetland",
+      "type": "fill",
+      "filter": ["==", "class", "wetland"],
+      "paint": {"fill-color": "#d5f5ee"},
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-wetland-texture",
+      "type": "fill",
+      "filter": ["==", "class", "wetland"],
+      "paint": {"fill-pattern": "patterns:wetland"},
+      "minzoom": 12,
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-rock",
+      "type": "fill",
+      "filter": ["==", "class", "rock"],
+      "paint": {"fill-color": "zinc-200"},
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-rock-texture",
+      "type": "fill",
+      "filter": ["==", "class", "rock"],
+      "paint": {"fill-pattern": "patterns:rock"},
+      "minzoom": 12,
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
+    {
+      "id": "landcover-glacier",
+      "type": "fill",
+      "filter": ["==", "class", "glacier"],
+      "paint": {"fill-color": "#e6ecff"},
+      "source-layer": "landcover",
+      "source": "tiles"
+    },
     {
       // Golf courses (#152): the course, a little darker than its fairways
       // and greens (mapped as grass, drawn on top) and lighter than its

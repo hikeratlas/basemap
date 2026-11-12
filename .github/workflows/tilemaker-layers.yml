@@ -166,6 +166,27 @@ jobs:
           ls -l lake-centerlines.geojsonl
 
 
+      # WorldCover land cover as polygons, for the land layer's "landcover"
+      # (#167; bin/worldcover-polygons.py), from the archive worldcover.yml
+      # published. An experiment for preview builds: a box over 25 square
+      # degrees (Nova Scotia's is ~45) gets none, for now.
+      - name: Make WorldCover land cover
+        if: ${{ matrix.layer == 'land' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+        run: |
+          area=$(python3 -c "import sys; w,s,e,n=map(float,sys.argv[1].split(',')); print((e-w)*(n-s))" "$BBOX")
+          if python3 -c "import sys; sys.exit(0 if float(sys.argv[1]) <= 25 else 1)" "$area"; then
+            python3 -m venv "$RUNNER_TEMP/wc" && "$RUNNER_TEMP/wc/bin/pip" install -q numpy pillow pmtiles rasterio shapely
+            bin/docker-pmtiles extract https://public.hikeratlas.com/worldcover/north-america.pmtiles worldcover.pmtiles --bbox="$BBOX"
+            "$RUNNER_TEMP/wc/bin/python" bin/worldcover-polygons.py worldcover.pmtiles "$BBOX" worldcover.geojsonl
+            rm worldcover.pmtiles
+          else
+            echo "::notice::No WorldCover land cover for a box of $area square degrees (over 25)"
+            : > worldcover.geojsonl
+          fi
+          ls -l worldcover.geojsonl
+
       # The coastline is a ~900MB zip from osmdata.openstreetmap.de that downloads
       # at ~20 MB/s and takes ~10s to unzip, so cache the unzipped shapefiles.
       # The upstream data changes daily; keying by ISO week refreshes it weekly.
@@ -221,7 +242,7 @@ jobs:
                 --file .github/workflows/tilemaker-layers.yml --file bin/docker-tilemaker)
           case $LAYER in
             water) opts+=(--file lake-centerlines.geojsonl) ;;
-            land) ;;
+            land) opts+=(--file worldcover.geojsonl --file bin/worldcover-polygons.py) ;;
             *) opts+=(--geojsonl-from "${GEOJSONL_FROM:-$NAMESPACE}") ;;
           esac
           case $LAYER in pois|parks) opts+=(--file bin/parks-near.py --file bin/trail-areas.py --file bin/urban-lots.py) ;; esac

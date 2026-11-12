@@ -376,7 +376,7 @@ jobs:
   merge:
     needs: curate
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 60   # the first build with photos makes ~10k thumbnails
     env:
       AREA: ${{ inputs.area }}
       NAMESPACE: ${{ inputs.namespace || inputs.area }}
@@ -549,11 +549,34 @@ jobs:
             --jq '[.[] | select(.tag_name | startswith("route-inputs-run-"))][0].tag_name')
           [ -n "$tag" ] || { echo "::warning::No route-inputs release in hikeratlas/cc-crawler"; exit 1; }
           gh release download "$tag" -R hikeratlas/cc-crawler --dir "$RUNNER_TEMP/reports-in"
-          python3 -I "$RUNNER_TEMP/cc-crawler"/scripts/route_links.py \
+          # Each page's photo (cc-crawler's page_images.py), when the release has it.
+          images=(); [ -f "$RUNNER_TEMP"/reports-in/page_images.tsv.gz ] && images=(--images "$RUNNER_TEMP"/reports-in/page_images.tsv.gz)
+          python3 -I "$RUNNER_TEMP/cc-crawler"/scripts/route_links.py "${images[@]}" \
             --routes-index /mnt/routes/out/index.json --routes-bundle /mnt/routes/out/routes.bin \
             --hikes "$RUNNER_TEMP"/reports-in/hikes.tsv.gz --groups "$RUNNER_TEMP"/reports-in/hike_groups.tsv.gz \
             --features "$RUNNER_TEMP"/reports-in/route_features.jsonl.gz --bundle-dir "$RUNNER_TEMP/reports"
           echo "Trip reports: $(jq '.parks | length' "$RUNNER_TEMP"/reports/reports.json) parks, from cc-crawler's $tag" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Thumbnails of the reports' photos (cc-crawler's thumbs.py): each photo
+      # is fetched from its site once, checked, shrunk to a 320 px WebP and
+      # kept at routes/<namespace>/thumbs/<hash of its URL>.webp, so later
+      # builds reuse it. The bundle's "img" (the photo's own URL) becomes
+      # "thumb" (that path). A failure leaves the reports without photos.
+      - name: Thumbnails for trip reports
+        if: steps.reports.outcome == 'success'
+        continue-on-error: true
+        run: |
+          python3 -m pip install --quiet --user --break-system-packages pillow
+          aws s3 ls "s3://hikes-public/routes/$NAMESPACE/thumbs/" | awk '{print $4}' | sed 's/\.webp$//' > "$RUNNER_TEMP/have-thumbs.txt" || true
+          python3 "$RUNNER_TEMP/cc-crawler"/scripts/thumbs.py --bundle-dir "$RUNNER_TEMP/reports" \
+            --existing "$RUNNER_TEMP/have-thumbs.txt" --out "$RUNNER_TEMP/reports-thumbs" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ -n "$(ls "$RUNNER_TEMP/reports-thumbs/thumbs")" ]; then
+            aws s3 cp --no-progress --recursive --content-type image/webp \
+              --cache-control "public, max-age=31536000, immutable" \
+              "$RUNNER_TEMP/reports-thumbs/thumbs/" "s3://hikes-public/routes/$NAMESPACE/thumbs/"
+          fi
+          # Only once the thumbnails are up: the bundle that points at them.
+          cp "$RUNNER_TEMP/reports-thumbs/reports.json" "$RUNNER_TEMP/reports-thumbs/reports.bin" "$RUNNER_TEMP/reports/"
 
       # The parks' routes for the website go up as 2 files, not one per park
       # (~5,500 writes a north-america build): a bundle of every park's JSON

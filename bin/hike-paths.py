@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hike-paths.py AUTOSUGGEST_DB PARKS_DIR INDEX_JSON REGIONS_JSON
+# hike-paths.py AUTOSUGGEST_DB PARKS_DIR INDEX_JSON REGIONS_JSON [BUNDLE]
 #
 # The website's /hikes/<country>/<state>/<park> URLs (hikeratlas/website#55
 # and #56): a slug for every park and trail area with curated hikes, and the
@@ -25,7 +25,17 @@
 # are one area already, so these are different places); any still alike get
 # -2, -3, ... in OSM-id order. Hike slugs aren't here: the website
 # derives them from each park's routes, which it loads anyway.
-import json, math, os, re, sqlite3, sys, unicodedata
+#
+# With BUNDLE (the routes' bundle, routes.bin), each state's park cards
+# (hikeratlas/website#110) are added to its end, one gzipped JSON a state,
+# {<area id>: {"top", "tags", "outline"}}, and INDEX_JSON gains "cards",
+# "<country>/<state>" -> [offset, length], as for a park's routes: the state
+# page loads its own, not every park's in regions.json (which every map
+# page loads). "top" is its best hike's name, "tags" what its hikes pass
+# most ("Lakes", "Lookouts"... and "Backcountry" for camps or multi-day
+# trips), "outline" its shape (hikeratlas/routes' park outline) as an SVG
+# path in a 100 x 100 box, filled nonzero.
+import gzip, json, math, os, re, sqlite3, sys, unicodedata
 from collections import defaultdict
 
 # The countries with hike pages, as the search DB names them (#158).
@@ -56,6 +66,67 @@ def union(boxes):
     if not boxes:
         return None
     return [min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes)]
+
+
+# What a hike passes (hikeratlas/routes' route "passes" kinds), as a tag.
+TAGS = {'peak': 'Peaks', 'viewpoint': 'Lookouts', 'lake': 'Lakes', 'waterfall': 'Waterfalls',
+        'hut': 'Huts', 'spring': 'Springs'}
+
+
+def card(doc, rs):
+    """A park's card: its best hike's name, its tags and its outline."""
+    top = None
+    if doc.get('day_hikes'):
+        h = doc['day_hikes'][0]
+        top = h.get('name') or h.get('dest')
+    elif doc.get('point_to_points'):
+        t = doc['point_to_points'][0]
+        top = t.get('name') or f"{t.get('from')} to {t.get('to')}"
+    elif doc.get('base_camps'):
+        top = doc['base_camps'][0].get('camp')
+    # Each kind by the places of it passed (not the hikes passing them), at
+    # least 2; the 3 most.
+    seen = defaultdict(set)
+    for r in rs:
+        for kind, names in r.get('passes') or []:
+            if kind in TAGS:
+                seen[kind].update(names)
+    tags = [TAGS[k] for k, v in sorted(seen.items(), key=lambda kv: -len(kv[1])) if len(v) >= 2][:3]
+    if doc.get('base_camps') or doc.get('point_to_points'):
+        tags = tags[:2] + ['Backcountry']
+    c = {'top': top, 'tags': tags}
+    path = outline_path(doc.get('park', {}).get('outline'))
+    if path:
+        c['outline'] = path
+    return c
+
+
+def outline_path(rings):
+    """An outline's rings ([lon, lat]) as an SVG path in a 100 x 100 box, in
+    Web Mercator, centred."""
+    rings = [r for r in rings or [] if len(r) >= 3]
+    if not rings:
+        return None
+    merc = lambda p: (p[0], math.degrees(math.log(math.tan(math.pi / 4 + math.radians(p[1]) / 2))))
+    rings = [[merc(p) for p in r] for r in rings]
+    xs = [p[0] for r in rings for p in r]
+    ys = [p[1] for r in rings for p in r]
+    w, e, s, n = min(xs), max(xs), min(ys), max(ys)
+    size = max(e - w, n - s)
+    if not size > 0:
+        return None
+    k = 100 / size
+    ox, oy = (100 - (e - w) * k) / 2, (100 - (n - s) * k) / 2
+    out = []
+    for r in rings:
+        pts = []
+        for x, y in r:
+            q = (round(ox + (x - w) * k), round(oy + (n - y) * k))
+            if not pts or q != pts[-1]:
+                pts.append(q)
+        if len(pts) >= 3:
+            out.append('M' + 'L'.join(f'{x} {y}' for x, y in pts) + 'Z')
+    return ''.join(out) or None
 
 
 def r5(b):
@@ -130,7 +201,7 @@ def tell_apart(xs, towns):
                 a['name'] = f'{name} (near {t})'
 
 
-def main(db_path, parks_dir, index_path, regions_path):
+def main(db_path, parks_dir, index_path, regions_path, bundle_path=None):
     db = sqlite3.connect(db_path)
     index = json.load(open(index_path))
     place = {}  # park osm_id -> (name, state, country, box)
@@ -189,6 +260,7 @@ def main(db_path, parks_dir, index_path, regions_path):
             # Fit to the hikes, not the whole park: Jasper's hikes, not the
             # empty north of it.
             'bbox': r5(route_box),
+            'card': card(doc, rs),
         })
 
     paths = {}
@@ -220,6 +292,17 @@ def main(db_path, parks_dir, index_path, regions_path):
                     'hikes': sum(s['hikes'] for s in states), 'parks': sum(s['parks'] for s in states),
                     'bbox': r5(union([s['bbox'] for s in states])), 'states': states})
     json.dump({'countries': out}, open(regions_path, 'w'), separators=(',', ':'), ensure_ascii=False)
+    # Each state's cards at the end of the bundle.
+    if bundle_path:
+        cards = {}
+        with open(bundle_path, "ab") as f:
+            f.seek(0, os.SEEK_END)
+            for (country, state), xs in sorted(areas.items()):
+                blob = gzip.compress(json.dumps({a['id']: a['card'] for a in xs}, separators=(',', ':'),
+                                                ensure_ascii=False).encode(), mtime=0)
+                cards[f'{slugify(country)}/{slugify(state)}'] = [f.tell(), len(blob)]
+                f.write(blob)
+        index['cards'] = cards
     index['paths'] = paths
     # Country and state names by path, for the website's breadcrumbs.
     index['regions'] = {c['slug']: c['name'] for c in out}

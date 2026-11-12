@@ -600,8 +600,10 @@ jobs:
           prev_index=$(curl -sf "https://public.hikeratlas.com/routes/$NAMESPACE/index.json" || true)
           prev=$(echo "$prev_index" | jq -r '.bundle // empty' 2>/dev/null || true)
           prev_reports=$(echo "$prev_index" | jq -r '.reports.bundle // empty' 2>/dev/null || true)
+          prev_home=$(echo "$prev_index" | jq -r '.home // empty' 2>/dev/null || true)
           echo "PREV=$prev" >> "$GITHUB_ENV"
           echo "PREV_REPORTS=$prev_reports" >> "$GITHUB_ENV"
+          echo "PREV_HOME=$prev_home" >> "$GITHUB_ENV"
           for i in 1 2 3; do
             aws s3 cp --no-progress slices/routes.pmtiles "s3://hikes-public/layers/$NAMESPACE/routes.pmtiles" \
               && aws s3 cp --no-progress --cache-control no-cache slices/routes.pmtiles "s3://hikes-public/$NAMESPACE.routes.pmtiles" \
@@ -620,6 +622,33 @@ jobs:
             aws s3 cp --no-progress --content-type application/json /mnt/routes/out/timings.json "s3://hikes-public/layers/$NAMESPACE/routes-timings.json" \
               || echo "::warning::Couldn't upload routes-timings.json"
           fi
+
+      # The homepage's featured cards as pictures (hikeratlas/website#116):
+      # its two MapLibre maps and DEM elevation profile were heavy for the
+      # page's first look. Each showcase park's cards, drawn live by the site
+      # (its ?shots mode) from the routes just uploaded, are pictured
+      # (bin/home-images.mjs) into a folder named for this run, and
+      # index.json is pointed at it ("home") only when every park's are
+      # there. Until then, or if this fails, the site draws them live.
+      - name: Homepage pictures
+        continue-on-error: true
+        env:
+          HOME_DIR: home-${{ github.run_id }}
+        run: |
+          dest="s3://hikes-public/routes/$NAMESPACE"
+          pw="$RUNNER_TEMP/pw"
+          mkdir -p "$pw"
+          npm install --prefix "$pw" --no-save --no-package-lock --silent playwright@1.48.2
+          "$pw/node_modules/.bin/playwright" install --with-deps chromium > /dev/null
+          # Beside its node_modules, so its import of playwright finds it.
+          cp bin/home-images.mjs "$pw/"
+          query=""
+          [ "$NAMESPACE" = north-america ] || query="build=$NAMESPACE"
+          node "$pw/home-images.mjs" https://www.hikeratlas.com "$query" "$RUNNER_TEMP/home" | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+          aws s3 cp --no-progress --recursive --content-type image/jpeg --cache-control "public, max-age=31536000, immutable" \
+            "$RUNNER_TEMP/home/" "$dest/$HOME_DIR/"
+          jq -c --arg h "$HOME_DIR" '.home = $h' index.json > index.home.json && mv index.home.json index.json
+          aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json"
 
       # Curated hikes in search (hikeratlas/website#44): the search DB is
       # built with the exports, before the routes, so they're added to it here
@@ -649,6 +678,10 @@ jobs:
             --arg keep5 "$REPORTS" --arg keep6 "$PREV_REPORTS" \
             '(. // [])[] | select(ltrimstr($p) | test("/") | not)
              | select(ltrimstr($p) as $f | ([$keep1, $keep2, $keep3, $keep4, $keep5, $keep6] | index($f) | not) and ($f | test("\\.(json|bin)$")))' keys.json > old.txt
+          # Homepage pictures' folders but this run's (if it made them) and
+          # the previous build's (for browsers holding its index).
+          jq -r --arg p "${prefix}home-" --arg cur "${prefix}home-${{ github.run_id }}/" --arg prev "${prefix}${PREV_HOME:-none}/" \
+            '(. // [])[] | select(startswith($p) and (startswith($cur) | not) and (startswith($prev) | not))' keys.json >> old.txt
           echo "Removing $(wc -l < old.txt) old route files"
           split -l 1000 old.txt batch-
           for b in batch-*; do

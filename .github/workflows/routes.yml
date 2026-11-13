@@ -551,6 +551,14 @@ jobs:
           gh release download "$tag" -R hikeratlas/cc-crawler --dir "$RUNNER_TEMP/reports-in"
           # Each page's photo (cc-crawler's page_images.py), when the release has it.
           images=(); [ -f "$RUNNER_TEMP"/reports-in/page_images.tsv.gz ] && images=(--images "$RUNNER_TEMP"/reports-in/page_images.tsv.gz)
+          # Pages gone from the live web (cc-crawler's link_check.py, run monthly):
+          # left out, and pages that moved linked where they are now (cc-crawler#79).
+          ls_tag=$(gh api 'repos/hikeratlas/cc-crawler/releases?per_page=100' \
+            --jq '[.[] | select(.tag_name | startswith("link-status-run-"))][0].tag_name // empty')
+          if [ -n "$ls_tag" ] && gh release download "$ls_tag" -R hikeratlas/cc-crawler --pattern link_status.tsv.gz --dir "$RUNNER_TEMP/link-status"; then
+            images+=(--link-status "$RUNNER_TEMP/link-status/link_status.tsv.gz")
+            echo "Link status: cc-crawler's $ls_tag" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
           python3 -I "$RUNNER_TEMP/cc-crawler"/scripts/route_links.py "${images[@]}" \
             --routes-index /mnt/routes/out/index.json --routes-bundle /mnt/routes/out/routes.bin \
             --hikes "$RUNNER_TEMP"/reports-in/hikes.tsv.gz --groups "$RUNNER_TEMP"/reports-in/hike_groups.tsv.gz \

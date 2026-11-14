@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# search-add-hikes.py AUTOSUGGEST_DB PARKS_DIR [REGIONS_JSON]
+# search-add-hikes.py AUTOSUGGEST_DB PARKS_DIR [REGIONS_JSON [STATES_GEOJSONL QRANK_DB]]
 #
 # Adds the curated hikes (hikeratlas/routes' per-park JSON in PARKS_DIR) to a
 # search DB built by bin/create-autosuggest-db.ts, so search finds hikes, not
@@ -40,9 +40,11 @@
 #     BC"), so "bc" finds it; country, but no state or park;
 #   - lat/lon at the centre of its box, and the box;
 #   - hikes: how many curated hikes it has;
-#   - qrank: one more than the best of its own items', so it comes just
-#     before them ("alberta" before Alberta's towns and parks), and isn't
-#     lost among other places' ("british" before British Columbia's lakes).
+#   - qrank: its own Wikidata QRank (its wikidata from STATES_GEOJSONL, the
+#     states export, by name; QRank from QRANK_DB, hikeratlas/qrank's), as
+#     places' are: Alberta's 1.95M puts it before Albuquerque (1.58M) for
+#     "alb". Without one, one more than the best of its own items', so it
+#     still comes before them.
 #
 # Hike and state items from an earlier run (a reused DB) are removed first,
 # and hidden trails restored, so a trail comes back if its hike goes.
@@ -142,13 +144,37 @@ def remake_fts(db):
                    popular)
 
 
-def add_states(db, regions_path):
-    """Adds a 'state' item for each state in regions.json; returns how many."""
+def state_qranks(states_path, qrank_path):
+    """Each state's name -> its QRank, from the states export's wikidata.
+    A name with more than one wikidata (two states named alike) gets none."""
+    if not states_path or not qrank_path:
+        return {}
+    wikidata = {}
+    for line in open(states_path):
+        p = json.loads(line).get('properties') or {}
+        if p.get('name'):
+            wikidata.setdefault(p['name'], set()).add(p.get('wikidata') or '')
+    qrank = sqlite3.connect(qrank_path)
+    out = {}
+    for name, ws in wikidata.items():
+        w = next(iter(ws))
+        if len(ws) == 1 and w[:1] == 'Q' and w[1:].isdigit():
+            row = qrank.execute('select qrank from qrank where id = ?', (int(w[1:]),)).fetchone()
+            if row:
+                out[name] = row[0]
+    qrank.close()
+    return out
+
+
+def add_states(db, regions_path, states_path=None, qrank_path=None):
+    """Adds a 'state' item for each state in regions.json; returns how many
+    and how many have their own QRank."""
     regions = json.load(open(regions_path))
+    own = state_qranks(states_path, qrank_path)
     best = {(s, c): q for s, c, q in db.execute(
         "select state, country, max(qrank) from items where state is not null and kind != 'hike'"
         ' group by state, country')}
-    n = 0
+    n, n_own = 0, 0
     for c in regions.get('countries', []):
         for st in c.get('states', []):
             box = st.get('bbox')
@@ -156,18 +182,20 @@ def add_states(db, regions_path):
                 continue
             w, s, e, nn = box
             searched = ' '.join([st['name'], *PLACE['states'].get(st['name'], [])])
+            qrank = own.get(st['name']) or (best.get((st['name'], c['name'])) or 1) + 1
+            n_own += st['name'] in own
             cur = db.execute(
                 'insert into items (qrank, osm_id, kind, country, name, lon, lat,'
                 ' min_lon, min_lat, max_lon, max_lat, hikes, searched)'
                 " values (?, ?, 'state', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                ((best.get((st['name'], c['name'])) or 1) + 1, f"{c['slug']}/{st['slug']}", c['name'], st['name'],
+                (qrank, f"{c['slug']}/{st['slug']}", c['name'], st['name'],
                  (w + e) / 2, (s + nn) / 2, w, s, e, nn, st.get('hikes') or 0, searched))
             index(db, fts_rows(db, 'rowid = ?', (cur.lastrowid,)))
             n += 1
-    return n
+    return n, n_own
 
 
-def main(db_path, parks_dir, regions_path=None):
+def main(db_path, parks_dir, regions_path=None, states_path=None, qrank_path=None):
     db = sqlite3.connect(db_path)
     cols = {r[1] for r in db.execute('pragma table_info(items)')}
     for col, typ in (('km', 'NUMERIC'), ('gain', 'INTEGER'), ('hike', 'TEXT'), ('hikes', 'INTEGER'),
@@ -226,12 +254,13 @@ def main(db_path, parks_dir, regions_path=None):
     db.executemany('update items set hikes = ? where rowid = ?',
                    [(n, r) for p, n in counts.items() for r in park_rows.get(p, [])])
     n_hidden = hide_trails(db)
-    n_states = add_states(db, regions_path) if regions_path else 0
+    n_states, n_own = add_states(db, regions_path, states_path, qrank_path) if regions_path else (0, 0)
     db.commit()
     db.execute('vacuum')
     db.close()
     print(f'{n_hikes} hikes from {n_parks} parks added to {db_path} (replacing {len(old)});'
-          f' {n_hidden} OSM trails hidden behind them; {n_states} states and provinces')
+          f' {n_hidden} OSM trails hidden behind them; {n_states} states and provinces'
+          f' ({n_own} with their own QRank)')
 
 
 def hide_trails(db):

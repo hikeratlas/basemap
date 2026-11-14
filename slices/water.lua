@@ -1,7 +1,7 @@
 local debug = false
 
-way_keys = {'natural=water', 'water', 'waterway'}
-node_keys = {'waterway=weir', 'waterway=dam'}
+way_keys = {'natural=water', 'natural=bay', 'natural=strait', 'water', 'waterway'}
+node_keys = {'waterway=weir', 'waterway=dam', 'natural=bay', 'natural=strait'}
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
 
@@ -43,6 +43,8 @@ end
 function node_function()
 	local waterway = Find('waterway')
 	if barrier_zooms[waterway] then emit_barrier(waterway, true) end
+	local natural = Find('natural')
+	if natural == 'bay' or natural == 'strait' then emit_bay_name(natural, true) end
 end
 
 -- water=* values for areas that are long and thin, like rivers.
@@ -62,6 +64,27 @@ function mercator_area(area)
 	return area / (k * k)
 end
 
+-- A bay's or strait's name, at a point, as small lakes have theirs (the
+-- lake-point-labels style). Most bays are mapped as a single node, e.g.
+-- Little Dunks Bay (#317); areas big enough for a centerline get their
+-- label along it instead (hikeratlas/lake-centrelines labels bays and
+-- straits too), so only smaller ones here.
+function emit_bay_name(kind, is_node)
+	local name = Find('name')
+	if name == '' then return end
+	if is_node then
+		Layer('water_poly_name', false)
+	else
+		if mercator_area(Area()) >= centerline_min_area then return end
+		LayerAsCentroid('water_poly_name')
+	end
+	AttributeBoolean('point_label', true)
+	MinZoom(12)
+	Attr('name', name)
+	Attr('kind', kind)
+	Attr('wikidata', Find('wikidata'))
+end
+
 function maybe_emit()
 	local name = Find('name')
   local natural = Find('natural')
@@ -72,6 +95,12 @@ function maybe_emit()
 
 	if barrier_zooms[waterway] then
 		emit_barrier(waterway, false)
+		return
+	end
+
+	-- Bays and straits: just their name (they're open water, drawn already).
+	if natural == 'bay' or natural == 'strait' then
+		emit_bay_name(natural, false)
 		return
 	end
 

@@ -22,6 +22,8 @@ node_keys = {
 	'natural=volcano',
 	'tourism=camp_site',
 	'waterway=waterfall',
+	'natural=bay',
+	'natural=strait',
 }
 way_keys = {
 	'boundary=national_park',
@@ -32,6 +34,9 @@ way_keys = {
 	'natural=cliff',
 	'tourism=camp_site',
 	'water=lake',
+	'natural=water',
+	'natural=bay',
+	'natural=strait',
 	'highway=path',
 	'highway=footway',
 }
@@ -175,6 +180,21 @@ function node_function()
 	if tourism == 'camp_site' then
 		return emit({kind='camp_site'})
 	end
+
+	-- Most bays are mapped as a single node, e.g. Little Dunks Bay (#317):
+	-- https://www.openstreetmap.org/node/1279898806
+	if natural == 'bay' or natural == 'strait' then
+		return emit({kind=natural})
+	end
+end
+
+-- A water area people search for: a lake (water=lake, or natural=water with
+-- no water=*, as many are mapped), a bay or a strait; nil otherwise.
+function water_kind()
+	local natural = Find('natural')
+	local water = Find('water')
+	if water == 'lake' or (natural == 'water' and water == '') then return 'lake' end
+	if natural == 'bay' or natural == 'strait' then return natural end
 end
 
 -- Trails people search for by name (website#11): the West Coast Trail is a
@@ -203,8 +223,9 @@ function way_function()
 		return emit({kind='park'}, true)
 	end
 
-	if water == 'lake' then
-		return emit({kind='lake', area=math.floor(Area())}, true)
+	local wk = water_kind()
+	if wk then
+		return emit({kind=wk, area=math.floor(Area())}, true)
 	end
 
 	if tourism == 'camp_site' then
@@ -231,7 +252,7 @@ function relation_scan_function()
 		boundary == 'protected_area' or
 		leisure == 'nature_reserve' or
 		tourism == 'camp_site' or
-		water == 'lake' or
+		water_kind() or
 		is_trail_relation() then
 		Accept()
 	end
@@ -264,8 +285,9 @@ function relation_function()
 		return emit({kind='camp_site'}, true)
 	end
 
-	if water == 'lake' then
-		return emit({kind='lake', area=math.floor(Area())}, true)
+	local wk = water_kind()
+	if wk then
+		return emit({kind=wk, area=math.floor(Area())}, true)
 	end
 
 	if is_trail_relation() then

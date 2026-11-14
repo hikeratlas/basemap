@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# search-add-hikes.py AUTOSUGGEST_DB PARKS_DIR
+# search-add-hikes.py AUTOSUGGEST_DB PARKS_DIR [REGIONS_JSON]
 #
 # Adds the curated hikes (hikeratlas/routes' per-park JSON in PARKS_DIR) to a
 # search DB built by bin/create-autosuggest-db.ts, so search finds hikes, not
@@ -32,8 +32,20 @@
 # marked hidden = 1, and only its search rows go; the hike takes the trail's
 # qrank if higher, so it ranks where the trail did.
 #
-# Hike items from an earlier run (a reused DB) are removed first, and hidden
-# trails restored, so a trail comes back if its hike goes.
+# Each state or province in REGIONS_JSON (bin/hike-paths.py's: those with
+# curated hikes) becomes an item of kind 'state' (basemap#318), which the
+# website opens as its /hikes/<country>/<state> page:
+#   - osm_id: "<country slug>/<state slug>", the page's path under /hikes;
+#   - name, and searched as its name and abbreviations ("British Columbia
+#     BC"), so "bc" finds it; country, but no state or park;
+#   - lat/lon at the centre of its box, and the box;
+#   - hikes: how many curated hikes it has;
+#   - qrank: one more than the best of its own items', so it comes just
+#     before them ("alberta" before Alberta's towns and parks), and isn't
+#     lost among other places' ("british" before British Columbia's lakes).
+#
+# Hike and state items from an earlier run (a reused DB) are removed first,
+# and hidden trails restored, so a trail comes back if its hike goes.
 import json, os, sqlite3, sys
 
 PARK_SHARE = 0.01   # as in create-autosuggest-db.ts
@@ -130,7 +142,32 @@ def remake_fts(db):
                    popular)
 
 
-def main(db_path, parks_dir):
+def add_states(db, regions_path):
+    """Adds a 'state' item for each state in regions.json; returns how many."""
+    regions = json.load(open(regions_path))
+    best = {(s, c): q for s, c, q in db.execute(
+        "select state, country, max(qrank) from items where state is not null and kind != 'hike'"
+        ' group by state, country')}
+    n = 0
+    for c in regions.get('countries', []):
+        for st in c.get('states', []):
+            box = st.get('bbox')
+            if not box:
+                continue
+            w, s, e, nn = box
+            searched = ' '.join([st['name'], *PLACE['states'].get(st['name'], [])])
+            cur = db.execute(
+                'insert into items (qrank, osm_id, kind, country, name, lon, lat,'
+                ' min_lon, min_lat, max_lon, max_lat, hikes, searched)'
+                " values (?, ?, 'state', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ((best.get((st['name'], c['name'])) or 1) + 1, f"{c['slug']}/{st['slug']}", c['name'], st['name'],
+                 (w + e) / 2, (s + nn) / 2, w, s, e, nn, st.get('hikes') or 0, searched))
+            index(db, fts_rows(db, 'rowid = ?', (cur.lastrowid,)))
+            n += 1
+    return n
+
+
+def main(db_path, parks_dir, regions_path=None):
     db = sqlite3.connect(db_path)
     cols = {r[1] for r in db.execute('pragma table_info(items)')}
     for col, typ in (('km', 'NUMERIC'), ('gain', 'INTEGER'), ('hike', 'TEXT'), ('hikes', 'INTEGER'),
@@ -139,7 +176,7 @@ def main(db_path, parks_dir):
             db.execute(f'alter table items add column {col} {typ}')
     if "content=''" not in db.execute("select sql from sqlite_master where name = 'fts'").fetchone()[0]:
         remake_fts(db)
-    old = fts_rows(db, "kind = 'hike'")
+    old = fts_rows(db, "kind in ('hike', 'state')")
     unindex(db, old)
     db.executemany('delete from items where rowid = ?', [(r[0],) for r in old])
     db.execute('update items set hikes = null where hikes is not null')
@@ -189,11 +226,12 @@ def main(db_path, parks_dir):
     db.executemany('update items set hikes = ? where rowid = ?',
                    [(n, r) for p, n in counts.items() for r in park_rows.get(p, [])])
     n_hidden = hide_trails(db)
+    n_states = add_states(db, regions_path) if regions_path else 0
     db.commit()
     db.execute('vacuum')
     db.close()
     print(f'{n_hikes} hikes from {n_parks} parks added to {db_path} (replacing {len(old)});'
-          f' {n_hidden} OSM trails hidden behind them')
+          f' {n_hidden} OSM trails hidden behind them; {n_states} states and provinces')
 
 
 def hide_trails(db):

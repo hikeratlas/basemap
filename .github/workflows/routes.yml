@@ -663,14 +663,17 @@ jobs:
           jq -c --arg h "$HOME_DIR" '.home = $h' index.json > index.home.json && mv index.home.json index.json
           aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json"
 
-      # Curated hikes in search (hikeratlas/website#44): the search DB is
-      # built with the exports, before the routes, so they're added to it here
-      # (bin/search-add-hikes.py; a reused DB's earlier hikes are replaced).
+      # Curated hikes in search (hikeratlas/website#44), and the states and
+      # provinces with hikes (basemap#318): the search DB is built with the
+      # exports, before the routes, so they're added to it here
+      # (bin/search-add-hikes.py; a reused DB's earlier ones are replaced).
       # A download and an upload of the DB per build.
       - name: Add hikes to search
         run: |
           [ -s autosuggest.db ] || exit 0
-          python3 bin/search-add-hikes.py autosuggest.db /mnt/routes/out/parks | tee -a "$GITHUB_STEP_SUMMARY"
+          regions=/mnt/routes/out/regions.json
+          [ -s "$regions" ] || regions=
+          python3 bin/search-add-hikes.py autosuggest.db /mnt/routes/out/parks $regions | tee -a "$GITHUB_STEP_SUMMARY"
           aws s3 cp --no-progress autosuggest.db "s3://hikes-public/$NAMESPACE.autosuggest.db"
 
       # Deletes are free on R2: the per-park files from before the bundle,

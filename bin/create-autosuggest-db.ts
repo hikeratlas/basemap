@@ -26,6 +26,8 @@ const DB_FILE = 'autosuggest.db';
 // just outside the park) and keep the best piece's park and point (a box
 // centre may be off the range). Twin Peaks and Twin Buttes have an ele each
 // and stay separate.
+const COUNTRIES = new Set(['Canada', 'United States']);
+
 const MERGED_KINDS = new Set(['cliff', 'park', 'trail', 'range']);
 const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1, range: 50 };
 const RANGE_NAME = /\b(mountains|range|hills|ridges|highlands)\b/i;
@@ -221,7 +223,10 @@ area INTEGER
 )`).run();
 
 
-	const rows = rankByPark(mergePieces((await Bun.file('zindex.geojsonl').text()).split('\n').filter(x => x).map(x => JSON.parse(x))));
+	// Canada and the US only (basemap#318): not the few places across their
+	// borders that the PBF's outlines take in (Mexico, Saint-Pierre-et-Miquelon).
+	const rows = rankByPark(mergePieces((await Bun.file('zindex.geojsonl').text()).split('\n').filter(x => x).map(x => JSON.parse(x))
+		.filter((r) => !r.country || COUNTRIES.has(r.country))));
 
 	db.query('PRAGMA synchronous = OFF').run();
 

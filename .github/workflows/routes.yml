@@ -663,14 +663,28 @@ jobs:
           jq -c --arg h "$HOME_DIR" '.home = $h' index.json > index.home.json && mv index.home.json index.json
           aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json"
 
-      # Curated hikes in search (hikeratlas/website#44): the search DB is
-      # built with the exports, before the routes, so they're added to it here
-      # (bin/search-add-hikes.py; a reused DB's earlier hikes are replaced).
+      # Curated hikes in search (hikeratlas/website#44), and the states and
+      # provinces with hikes (basemap#318): the search DB is built with the
+      # exports, before the routes, so they're added to it here
+      # (bin/search-add-hikes.py; a reused DB's earlier ones are replaced).
       # A download and an upload of the DB per build.
       - name: Add hikes to search
         run: |
           [ -s autosuggest.db ] || exit 0
-          python3 bin/search-add-hikes.py autosuggest.db /mnt/routes/out/parks | tee -a "$GITHUB_STEP_SUMMARY"
+          # States: those with hikes (regions.json), ranked by their own
+          # QRank, found by their wikidata in the states export.
+          states=()
+          if [ -s /mnt/routes/out/regions.json ]; then
+            states=(/mnt/routes/out/regions.json)
+            # (curate's qrank.db is on another runner: fetched again.)
+            if aws s3 cp --no-progress "s3://hikes-public/geojsonl/$NAMESPACE/states.geojsonl.zst" states.geojsonl.zst \
+                && unzstd -qf states.geojsonl.zst && bin/fetch-qrank qrank.db; then
+              states+=(states.geojsonl qrank.db)
+            else
+              echo "::warning::No states export or qrank.db: states ranked by their places instead"
+            fi
+          fi
+          python3 bin/search-add-hikes.py autosuggest.db /mnt/routes/out/parks "${states[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           aws s3 cp --no-progress autosuggest.db "s3://hikes-public/$NAMESPACE.autosuggest.db"
 
       # Deletes are free on R2: the per-park files from before the bundle,

@@ -37,6 +37,14 @@ function dump(is_relation)
 
 	if kind == 'country' and string.find(dump_filename, 'state') then return end
 	if kind == 'state' and not string.find(dump_filename, 'state') then return end
+	-- Only the US's states and Canada's provinces and territories (basemap#318),
+	-- by ISO 3166-2 code, which all 64 have. Neighbours' states are cut at the
+	-- PBF's edge and closed wrongly: "Sonora" spilled over southern Arizona and
+	-- "Tamaulipas" over south Texas, and claimed their parks.
+	if kind == 'state' then
+		local iso = Find('ISO3166-2')
+		if not (string.find(iso, '^US%-') or string.find(iso, '^CA%-')) then return end
+	end
 
 	local geojson = GeoJSON(true)
 	if not geojson then return end

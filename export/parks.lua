@@ -93,11 +93,11 @@ end
 function relation_function()
   local id = Id()
 
-	-- Ignore some broken relations. (Alaska's Tongass and Chugach National
-	-- Forests and West Chichagof-Yakobi Wilderness were here too, from the
-	-- first commit; the trails in them are park trails,
-	-- basemap#314.)
+	-- Ignore some broken relations.
+	if id == '11538224' then return end
+	if id == '12180623' then return end
 	if id == '6495680' then return end
+	if id == '6535292' then return end -- Tongass National Park
 
 	dump()
 end

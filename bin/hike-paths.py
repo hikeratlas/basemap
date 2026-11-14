@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# hike-paths.py AUTOSUGGEST_DB PARKS_DIR INDEX_JSON REGIONS_JSON [BUNDLE]
+# hike-paths.py AUTOSUGGEST_DB PARKS_DIR INDEX_JSON REGIONS_JSON [BUNDLE] [--states STATES_GEOJSONL]
 #
 # The website's /hikes/<country>/<state>/<park> URLs (hikeratlas/website#55
 # and #56): a slug for every park and trail area with curated hikes, and the
@@ -10,7 +10,12 @@
 #   {"countries": [{"slug", "name", "hikes", "parks", "bbox", "states": [
 #       {"slug", "name", "hikes", "parks", "bbox", "areas": [
 #           {"slug", "id", "ids", "name", "hikes", "bbox"}, ...]}, ...]}, ...]}
-# sorted by name, areas by hikes (most first). bbox is [w, s, e, n].
+# sorted by name, areas by hikes (most first). bbox is [w, s, e, n]: an
+# area's is its hikes' (Jasper's hikes, not the empty north of it); a
+# state's is its outline's, from the states export (STATES_GEOJSONL), so
+# its page shows all of it (website#143: Prince Edward Island's hikes are
+# mostly in PEI National Park), within NEAR_HIKES of its areas' (not all
+# of Hawaii's islands, or Alaska's); a country's, its states' areas'.
 # And adds to INDEX_JSON (the routes index the website already loads) "paths",
 # park id -> "<country>/<state>/<park>", and "regions", country and state
 # path -> name, so it can build a URL and breadcrumbs for a park opened on
@@ -201,7 +206,51 @@ def tell_apart(xs, towns):
                 a['name'] = f'{name} (near {t})'
 
 
-def main(db_path, parks_dir, index_path, regions_path, bundle_path=None):
+def state_boxes(path):
+    """Each state's name -> the box of its outline in the states export,
+    west of the antimeridian (a box around both sides of it would wrap the
+    world)."""
+    if not path:
+        return {}
+    out = {}
+    def walk(c, b):
+        if c and isinstance(c[0], (int, float)):
+            if c[0] < 0:
+                b[0], b[1], b[2], b[3] = min(b[0], c[0]), min(b[1], c[1]), max(b[2], c[0]), max(b[3], c[1])
+        else:
+            for x in c:
+                walk(x, b)
+    for line in open(path):
+        f = json.loads(line)
+        name = (f.get('properties') or {}).get('name')
+        if not name or not f.get('geometry'):
+            continue
+        b = [math.inf, math.inf, -math.inf, -math.inf]
+        walk(f['geometry'].get('coordinates') or [], b)
+        if b[0] < b[2]:
+            out[name] = union([out.get(name), b])
+    return out
+
+
+# A state's box is its outline's within this many degrees of its hikes:
+# state boundaries run out to sea, and Hawaii's takes in its northwestern
+# islands, out to 178°W, Alaska's the Aleutians.
+NEAR_HIKES = 2.0
+
+
+def state_box(outline, hikes):
+    """Its outline's box, clipped to NEAR_HIKES around its hikes' box, and
+    with all its hikes in it."""
+    if not outline or not hikes:
+        return outline or hikes
+    w, s, e, n = hikes
+    near = [w - NEAR_HIKES, s - NEAR_HIKES, e + NEAR_HIKES, n + NEAR_HIKES]
+    clip = [max(outline[0], near[0]), max(outline[1], near[1]), min(outline[2], near[2]), min(outline[3], near[3])]
+    return union([clip, hikes]) if clip[0] < clip[2] and clip[1] < clip[3] else hikes
+
+
+def main(db_path, parks_dir, index_path, regions_path, bundle_path=None, states_path=None):
+    outlines = state_boxes(states_path)
     db = sqlite3.connect(db_path)
     index = json.load(open(index_path))
     place = {}  # park osm_id -> (name, state, country, box)
@@ -282,7 +331,8 @@ def main(db_path, parks_dir, index_path, regions_path, bundle_path=None):
         xs.sort(key=lambda a: (-a['hikes'], a['name']))
         countries[country].append({
             'slug': ss, 'name': state, 'hikes': sum(a['hikes'] for a in xs), 'parks': len(xs),
-            'bbox': r5(union([a['bbox'] for a in xs])),
+            'bbox': r5(state_box(outlines.get(state), union([a['bbox'] for a in xs]))),
+            'hikes_bbox': union([a['bbox'] for a in xs]),
             'areas': [{k: a[k] for k in ('slug', 'id', 'ids', 'name', 'hikes', 'bbox')} for a in xs],
         })
     out = []
@@ -290,7 +340,7 @@ def main(db_path, parks_dir, index_path, regions_path, bundle_path=None):
         states.sort(key=lambda s: s['name'])
         out.append({'slug': slugify(country), 'name': country,
                     'hikes': sum(s['hikes'] for s in states), 'parks': sum(s['parks'] for s in states),
-                    'bbox': r5(union([s['bbox'] for s in states])), 'states': states})
+                    'bbox': r5(union([s.pop('hikes_bbox') for s in states])), 'states': states})
     json.dump({'countries': out}, open(regions_path, 'w'), separators=(',', ':'), ensure_ascii=False)
     # Each state's cards at the end of the bundle.
     if bundle_path:
@@ -315,4 +365,10 @@ def main(db_path, parks_dir, index_path, regions_path, bundle_path=None):
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:])
+    args = sys.argv[1:]
+    states = None
+    if '--states' in args:
+        i = args.index('--states')
+        states = args[i + 1]
+        del args[i:i + 2]
+    main(*args, states_path=states)

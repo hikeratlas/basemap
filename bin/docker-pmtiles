@@ -7,7 +7,11 @@
 # From b9af497 it joins the zstd frames of a combined tile rather than
 # recompressing them, so a tile can hold several frames. The website decodes
 # those from hikeratlas/website's "Decode zstd tiles made of several frames".
-IMAGE=ghcr.io/cldellow/go-pmtiles:sha-b9af497cdcaa3f04c19dd623d14e8b897b108712
+#
+# From c565d97 (cldellow/go-pmtiles#2) cluster keeps an archive's tile
+# compression; before, it declared an MVT archive's tiles gzip, which broke
+# the zstd route layer (#316).
+IMAGE=ghcr.io/cldellow/go-pmtiles:sha-c565d97cf5cde4b3c865443bd0acc3c941e27d58
 
 mkdir -p /mnt/layers /mnt/out 2>/dev/null || true
 exec docker run \

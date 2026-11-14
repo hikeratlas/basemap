@@ -507,15 +507,11 @@ jobs:
           # verify: go-pmtiles before 1.30 wrote a wrong addressed-tiles count
           # when clustering tilemaker's run-length entries (this image's
           # doesn't), which this would catch.
-          # cluster rewrites an MVT archive's header as gzip tiles (go-pmtiles'
-          # finalize, shared with its MBTiles convert, sets TileCompression =
-          # Gzip), but tilemaker's are zstd (routes.json): browsers then
-          # failed to read every tile, and the map drew no routes. Its tiles
-          # are unchanged, so put the header's tile-compression byte (98)
-          # back, and fail if it isn't zstd (4).
-          tc=$(od -An -tu1 -j98 -N1 routes.pmtiles | tr -d ' ')
           ../bin/docker-pmtiles cluster routes.pmtiles
-          sudo python3 -c "import sys; f = open('routes.pmtiles', 'r+b'); f.seek(98); f.write(bytes([int(sys.argv[1])]))" "$tc"
+          # The header must say zstd (4), as tilemaker writes the tiles
+          # (routes.json): go-pmtiles' cluster used to declare them gzip, and
+          # browsers then failed to read every tile, so the map drew no routes
+          # (#316; fixed in cldellow/go-pmtiles#2).
           python3 -c "import sys; b = open('routes.pmtiles', 'rb').read(127); sys.exit(0 if b[:7] == b'PMTiles' and b[98] == 4 else 'routes.pmtiles: tile compression %d, not zstd (4)' % b[98])"
           ../bin/docker-pmtiles verify routes.pmtiles
           ../bin/docker-pmtiles show routes.pmtiles | grep -E 'clustered|addressed tiles|compression'

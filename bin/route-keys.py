@@ -120,8 +120,13 @@ def main(out_dir):
                     dst.write(src.read(length))
             index[name] = {k: copied[tuple(at)] for k, at in slices.items()}
     index['parks'] = {pid: parks[pid] for pid in index['parks']}
+    # Both written in full before either is swapped in, so a failure leaves
+    # the old bundle and index together.
+    index_tmp = index_path + '.tmp'
+    with open(index_tmp, 'wb') as f:
+        f.write(json.dumps(index, separators=(',', ':')).encode())
     os.replace(tmp, bundle_path)
-    write_atomic(index_path, json.dumps(index, separators=(',', ':')).encode())
+    os.replace(index_tmp, index_path)
     print(f'Route keys: {keyed} routes keyed in {docs} parks; {short} lines too short for a key')
     return keyed, short
 

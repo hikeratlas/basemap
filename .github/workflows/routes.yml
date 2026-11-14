@@ -529,10 +529,19 @@ jobs:
       # regions.json lists every country, state and park with its slug, and
       # index.json gains park id -> path (bin/hike-paths.py), and "cards":
       # each state's park cards (website#110), added to the bundle's end.
+      # A state's box is its outline's, from the states export (website#143),
+      # which search uses too (below).
       - name: Hike paths
         run: |
           if [ -s autosuggest.db ]; then
-            python3 bin/hike-paths.py autosuggest.db /mnt/routes/out/parks /mnt/routes/out/index.json /mnt/routes/out/regions.json /mnt/routes/out/routes.bin | tee -a "$GITHUB_STEP_SUMMARY"
+            states=()
+            if aws s3 cp --no-progress "s3://hikes-public/geojsonl/$NAMESPACE/states.geojsonl.zst" states.geojsonl.zst \
+                && unzstd -qf states.geojsonl.zst; then
+              states=(--states states.geojsonl)
+            else
+              echo "::warning::No states export: state pages fit their hikes, not their outlines"
+            fi
+            python3 bin/hike-paths.py autosuggest.db /mnt/routes/out/parks /mnt/routes/out/index.json /mnt/routes/out/regions.json /mnt/routes/out/routes.bin "${states[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
 
       # Trip reports and other pages about each route (hikeratlas/cc-crawler,
@@ -676,9 +685,9 @@ jobs:
           states=()
           if [ -s /mnt/routes/out/regions.json ]; then
             states=(/mnt/routes/out/regions.json)
-            # (curate's qrank.db is on another runner: fetched again.)
-            if aws s3 cp --no-progress "s3://hikes-public/geojsonl/$NAMESPACE/states.geojsonl.zst" states.geojsonl.zst \
-                && unzstd -qf states.geojsonl.zst && bin/fetch-qrank qrank.db; then
+            # The states export from Hike paths; curate's qrank.db is on
+            # another runner, so fetched again.
+            if [ -s states.geojsonl ] && bin/fetch-qrank qrank.db; then
               states+=(states.geojsonl qrank.db)
             else
               echo "::warning::No states export or qrank.db: states ranked by their places instead"

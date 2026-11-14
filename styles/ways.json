@@ -517,6 +517,9 @@
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
+        // Trails wind: at MapLibre's default 45°, a name as long as "Burnt Point
+        // Loop Side Trail" found no stretch straight enough anywhere (#323).
+        "text-max-angle": 60,
         "text-size": 14
       },
       "source-layer": "path_name",
@@ -536,6 +539,7 @@
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
+        "text-max-angle": 60,
         "text-size": 14
       },
       "source-layer": "path_name_15",
@@ -554,6 +558,7 @@
         "symbol-placement": "line",
         "text-font": ["Hubot Sans-Regular"],
         "text-field": "{name}",
+        "text-max-angle": 60,
         "text-size": 14
       },
       "source-layer": "path_name_16",

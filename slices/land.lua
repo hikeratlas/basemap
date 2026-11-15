@@ -1,3 +1,7 @@
+-- Ways whose tags read the same are replayed rather than run again (tilemaker's
+-- way_memo): way_function must only depend on what it reads, so keep state out of it.
+way_memo = true
+
 local debug = false
 way_keys = {'landuse', 'leisure', 'natural', 'wetland', 'tourism=camp_site', 'aeroway'}
 

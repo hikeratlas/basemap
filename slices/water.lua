@@ -1,3 +1,7 @@
+-- Ways whose tags read the same are replayed rather than run again (tilemaker's
+-- way_memo): way_function must only depend on what it reads, so keep state out of it.
+way_memo = true
+
 local debug = false
 
 way_keys = {'natural=water', 'natural=bay', 'natural=strait', 'water', 'waterway'}
@@ -91,8 +95,6 @@ function maybe_emit()
   local water = Find('water')
   local waterway = Find('waterway')
 
-	local id = Id()
-
 	if barrier_zooms[waterway] then
 		emit_barrier(waterway, false)
 		return
@@ -140,6 +142,9 @@ function maybe_emit()
 
 	-- List of honkin' big lakes in North America, from
 	-- https://en.wikipedia.org/wiki/List_of_lakes_by_area#Geological_list
+	-- (Only areas look at their id: tilemaker's way_memo can't replay a way that
+	-- reads it, and open waterways, most of the layer's ways, needn't.)
+	local id = isClosed and Id() or ''
 	if id == '1206310' -- Lake Ontario
 		or id == '1205151' -- Lake Huron
 		or id == '1205149' -- Lake Michigan

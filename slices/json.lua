@@ -85,12 +85,19 @@ local function encode_table(val, stack)
     return "[" .. table.concat(res, ",") .. "]"
 
   else
-    -- Treat as an object
-    for k, v in pairs(val) do
+    -- Treat as an object. Keys in sorted order: pairs() has none, and Lua 5.4
+    -- seeds its string hashes per run, so the same table could come out with its
+    -- keys in a different order each time.
+    local keys = {}
+    for k in pairs(val) do
       if type(k) ~= "string" then
         error("invalid table: mixed or invalid key types")
       end
-      table.insert(res, encode(k, stack) .. ":" .. encode(v, stack))
+      table.insert(keys, k)
+    end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+      table.insert(res, encode(k, stack) .. ":" .. encode(val[k], stack))
     end
     stack[val] = nil
     return "{" .. table.concat(res, ",") .. "}"

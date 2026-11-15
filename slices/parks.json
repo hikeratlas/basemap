@@ -14,6 +14,14 @@
             "maxzoom": 14,
             "outline_of": "park"
         },
+        "marine_park": {
+            "zindex": 9,
+            "minzoom": 8,
+            "maxzoom": 14,
+            "simplify_below": 12,
+            "simplify_level": 0.0002,
+            "simplify_algorithm": "visvalingam"
+        },
         "park_name": {
             "zindex": 102,
             "minzoom": 0,

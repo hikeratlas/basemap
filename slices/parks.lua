@@ -87,18 +87,30 @@ function maybe_emit(is_node)
 
 	local area = is_node and 0 or math.ceil(Area())
 
-	-- For now, ignore maritime parks. In the future, maybe we just draw a dark
-	-- blue border around them, but don't fill them?
+	-- For now, don't draw maritime parks. In the future, maybe we just draw a
+	-- dark blue border around them, but don't fill them?
 	--
 	-- Examples:
 	-- https://www.openstreetmap.org/relation/9064770
 	-- https://www.openstreetmap.org/way/268507821
 	--
+	-- Their areas go in marine_park, which no style draws, for
+	-- hikeratlas/routes: a marine park's shore can be part of a land park's
+	-- (Fathom Five's, around Bruce Peninsula's visitor centre, routes' PART_OF).
 	if Find('maritime') == 'yes' or
 		string.find(name, 'Estuary ', 1, true) ~= nil or
 		string.find(name, 'Aquatic ', 1, true) ~= nil or
 		string.find(name, 'Marine ', 1, true) ~= nil or
 		string.find(name, 'River Delta', 1, true) ~= nil then
+		if not is_node then
+			Layer('marine_park', true)
+			MinZoom(8)
+			Attr('name', name)
+			Attr('boundary', boundary)
+			Attr('leisure', leisure)
+			Attr('area', area)
+			Attr('osm_id', Id())
+		end
 		return
 	end
 

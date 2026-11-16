@@ -27,7 +27,7 @@
 # afresh each run and overwrite what's there, so running it again (a reused
 # output) changes nothing.
 import gzip, json, os, sys
-from multiprocessing import Pool
+import multiprocessing
 
 from route_keys import route_key, shape_for
 
@@ -115,7 +115,9 @@ def main(out_dir):
                 yield src.read(length), ids, parks_dir
         # The documents keyed on every CPU, written in the bundle's order
         # (imap keeps it): one at a time, north-america's took ~80 s.
-        with Pool(os.cpu_count()) as pool:
+        # Forked, so the workers have this module however it was loaded (a
+        # test loads it from its path), whatever Python's default start method.
+        with multiprocessing.get_context('fork').Pool(os.cpu_count()) as pool:
             for blob, ids, k, s in pool.imap(key_document, jobs(), chunksize=16):
                 docs += 1
                 keyed += k

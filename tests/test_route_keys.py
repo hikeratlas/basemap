@@ -1,12 +1,14 @@
 # Tests for bin/route-keys.py: python3 -m unittest discover tests
 # (needs route-keys, as routes.yml installs it).
-import copy, gzip, importlib.util, json, os, tempfile, unittest
+import copy, gzip, importlib.util, json, os, sys, tempfile, unittest
 
 from route_keys import decode
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 spec = importlib.util.spec_from_file_location('route_keys_step', os.path.join(HERE, '..', 'bin', 'route-keys.py'))
 step = importlib.util.module_from_spec(spec)
+# Registered by name, so its process pool can pickle key_document.
+sys.modules[spec.name] = step
 spec.loader.exec_module(step)
 
 # From route-keys' vectors/v1.json (v0.1.0): the line, its shape and its key.

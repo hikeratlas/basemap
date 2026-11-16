@@ -55,6 +55,73 @@ on:
         default: false
 
 jobs:
+  # Trail networks outside parks that hikeratlas/routes curates as it does
+  # parks (see bin/trail-areas.py): the pois layer keeps POIs inside them, and
+  # the parks job publishes them for routes as trailareas.pmtiles. Found once
+  # here, alongside the layers, rather than by both of those jobs (~7 min
+  # each on north-america); they wait for this job's artifact once their
+  # other steps are done.
+  trail-areas:
+    if: contains(fromJSON(inputs.layers), 'pois') || contains(fromJSON(inputs.layers), 'parks')
+    runs-on: ubuntu-24.04-arm
+    env:
+      AREA: ${{ inputs.area }}
+      NAMESPACE: ${{ inputs.namespace || inputs.area }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the trails and parks exports
+        env:
+          GEOJSONL_FROM: ${{ inputs.geojsonl_from }}
+          BBOX_OVERRIDE: ${{ inputs.bbox }}
+          # As the build job's: see "Fetch the exports' GeoJSON" there.
+          CLIP_VERSION: v0.5.0
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          bbox=${BBOX_OVERRIDE:-$(jq -r --arg a "$AREA" '.[$a].bbox // empty' areas.json)}
+          echo "BBOX=$bbox" >> "$GITHUB_ENV"
+          src="s3://hikes-public/geojsonl/${GEOJSONL_FROM:-$NAMESPACE}"
+          aws s3 cp --no-progress "$src/parks.geojsonl.zst" . && unzstd parks.geojsonl.zst
+          # A reused build from before the trails export has none: no trail areas.
+          if aws s3 cp --no-progress "$src/trails.geojsonl.zst" .; then
+            unzstd trails.geojsonl.zst
+          else
+            echo "::warning::No trails.geojsonl in geojsonl/${GEOJSONL_FROM:-$NAMESPACE}/ (built before that export existed); no trail areas"
+            touch trails.geojsonl
+          fi
+          # Another build's exports clipped to this build's box, as the pois
+          # and parks jobs did before this job found the trail areas for them.
+          if [ -n "$GEOJSONL_FROM" ] && [ "$GEOJSONL_FROM" != "$NAMESPACE" ] && [ -n "$BBOX_OVERRIDE" ]; then
+            arch=$(uname -m); [ "$arch" = arm64 ] && arch=aarch64
+            if curl -sSfL --retry 3 -o "$RUNNER_TEMP/pbf-filter" \
+                "https://github.com/hikeratlas/pbf-filter/releases/download/$CLIP_VERSION/pbf-filter-$arch-linux"; then
+              chmod +x "$RUNNER_TEMP/pbf-filter"
+              for f in parks.geojsonl trails.geojsonl; do
+                "$RUNNER_TEMP/pbf-filter" clip "$bbox" "$f" "$f.clipped" --margin 0.1 && mv "$f.clipped" "$f"
+              done
+            else
+              echo "::warning::Couldn't download pbf-filter $CLIP_VERSION; the exports aren't clipped to the box"
+            fi
+          fi
+
+      - name: Find trail areas
+        run: |
+          start=$(date +%s)
+          python3 -m venv "$RUNNER_TEMP/venv-trails" && "$RUNNER_TEMP/venv-trails/bin/pip" install -q shapely numpy
+          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"}
+          echo "Found trail areas in $(( $(date +%s) - start ))s"; ls -l trail-areas.geojsonl
+
+      # overwrite: a re-run of this job replaces the earlier attempt's.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trail-areas
+          path: trail-areas.geojsonl
+          if-no-files-found: error
+          overwrite: true
+
   build:
     # arm64 runners have 4 full cores, where x64 ones have 2 cores with 2
     # hyperthreads each. On north-america, tilemaker built the layers 1.48x
@@ -311,22 +378,9 @@ jobs:
           BBOX: ${{ steps.area.outputs.bbox }}
         run: |
           start=$(date +%s)
-          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" install -q shapely
+          python3 -m venv "$RUNNER_TEMP/venv" && "$RUNNER_TEMP/venv/bin/pip" install -q shapely numpy
           "$RUNNER_TEMP/venv/bin/python" bin/parks-near.py parks.geojsonl parks-near.geojsonl 2000 ${BBOX:+--bbox "$BBOX"}
           echo "Grew parks in $(( $(date +%s) - start ))s"; ls -l parks-near.geojsonl
-
-      # Trail networks outside parks that hikeratlas/routes curates as it does
-      # parks (see bin/trail-areas.py): the pois layer keeps POIs inside them,
-      # and the parks job publishes them for routes as trailareas.pmtiles.
-      - name: Find trail areas
-        if: ${{ (matrix.layer == 'pois' || matrix.layer == 'parks') && steps.inputs.outputs.skip != 'true' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-        run: |
-          start=$(date +%s)
-          python3 -m venv "$RUNNER_TEMP/venv-trails" && "$RUNNER_TEMP/venv-trails/bin/pip" install -q shapely numpy
-          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"}
-          echo "Found trail areas in $(( $(date +%s) - start ))s"; ls -l trail-areas.geojsonl
 
       # Where parking lots are urban (see bin/urban-lots.py): slices/pois.lua
       # marks those lots, and the style hides them.
@@ -336,29 +390,8 @@ jobs:
           BBOX: ${{ steps.area.outputs.bbox }}
         run: |
           start=$(date +%s)
-          "$RUNNER_TEMP/venv-trails/bin/python" bin/urban-lots.py trails.geojsonl urban-lots.geojsonl ${BBOX:+--bbox "$BBOX"}
+          "$RUNNER_TEMP/venv/bin/python" bin/urban-lots.py trails.geojsonl urban-lots.geojsonl ${BBOX:+--bbox "$BBOX"}
           echo "Found urban parking in $(( $(date +%s) - start ))s"; ls -l urban-lots.geojsonl
-
-      # Only hikeratlas/routes reads trail areas, so they're their own file,
-      # which tile-join leaves out of the map. tilemaker reads only
-      # trail-areas.geojsonl here (see slices/trailareas.json): no PBF needed.
-      - name: Build and upload trail areas
-        if: ${{ matrix.layer == 'parks' && steps.inputs.outputs.skip != 'true' }}
-        env:
-          BBOX: ${{ steps.area.outputs.bbox }}
-          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
-          AWS_EC2_METADATA_DISABLED: true
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        run: |
-          cd slices
-          ../bin/docker-tilemaker --output trailareas.pmtiles --config trailareas.json --process trailareas.lua --bbox "$BBOX"
-          ls -l trailareas.pmtiles
-          for i in 1 2 3; do
-            aws s3 cp --no-progress trailareas.pmtiles "s3://hikes-public/layers/$NAMESPACE/trailareas.pmtiles" && exit 0
-            echo "Upload failed (attempt $i)"; sleep $((i * 15))
-          done
-          exit 1
 
       # OSM hiking route relations, which hikeratlas/routes checks its routes
       # against: like trail areas, their own file, left out of the map.
@@ -377,6 +410,65 @@ jobs:
           ls -l hikingroutes.pmtiles
           for i in 1 2 3; do
             aws s3 cp --no-progress hikingroutes.pmtiles "s3://hikes-public/layers/$NAMESPACE/hikingroutes.pmtiles" && exit 0
+            echo "Upload failed (attempt $i)"; sleep $((i * 15))
+          done
+          exit 1
+
+      # The trail areas, from this workflow's trail-areas job (above), which
+      # runs alongside this one: polled for as the zindex job polls for the
+      # exports, with Fibonacci backoff capped at 30 s.
+      - name: Wait for trail areas
+        if: ${{ (matrix.layer == 'pois' || matrix.layer == 'parks') && steps.inputs.outputs.skip != 'true' }}
+        timeout-minutes: 45
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          prev=0
+          delay=1
+          backoff() {
+            sleep "$delay"
+            next=$(( prev + delay ))
+            prev=$delay
+            delay=$(( next < 30 ? next : 30 ))
+          }
+          while true; do
+            job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
+              --jq 'first(.jobs[] | select(.name | test("(^|/ )trail-areas$"))) | [.status, (.conclusion // "")] | @tsv') || {
+              echo "GitHub API request failed; retrying"
+              backoff
+              continue
+            }
+            case "$job" in
+              completed$'\t'success) break ;;
+              completed*) echo "::error::The trail-areas job did not succeed ($job)"; exit 1 ;;
+            esac
+            echo "$(date -u +%H:%M:%S) trail areas: ${job:-not started}"
+            backoff
+          done
+
+      - name: Fetch trail areas
+        if: ${{ (matrix.layer == 'pois' || matrix.layer == 'parks') && steps.inputs.outputs.skip != 'true' }}
+        uses: actions/download-artifact@v8
+        with:
+          name: trail-areas
+
+      # Only hikeratlas/routes reads trail areas, so they're their own file,
+      # which tile-join leaves out of the map. tilemaker reads only
+      # trail-areas.geojsonl here (see slices/trailareas.json): no PBF needed.
+      - name: Build and upload trail areas
+        if: ${{ matrix.layer == 'parks' && steps.inputs.outputs.skip != 'true' }}
+        env:
+          BBOX: ${{ steps.area.outputs.bbox }}
+          AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+          AWS_EC2_METADATA_DISABLED: true
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          cd slices
+          ../bin/docker-tilemaker --output trailareas.pmtiles --config trailareas.json --process trailareas.lua --bbox "$BBOX"
+          ls -l trailareas.pmtiles
+          for i in 1 2 3; do
+            aws s3 cp --no-progress trailareas.pmtiles "s3://hikes-public/layers/$NAMESPACE/trailareas.pmtiles" && exit 0
             echo "Upload failed (attempt $i)"; sleep $((i * 15))
           done
           exit 1

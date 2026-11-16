@@ -129,6 +129,16 @@ export function mergePieces(rows: any[]): any[] {
 // park"), its state and its abbreviations, and its country and its. As
 // bin/search-add-hikes.py's place_text, from bin/search-place.json.
 const PLACE = JSON.parse(fs.readFileSync(new URL('./search-place.json', import.meta.url), 'utf8'));
+// A name with initials, as also searched with them run together (#345):
+// "E.C. Manning Provincial Park" is found by "ec manning" as well as "e c
+// manning", "W. J. Hayes State Park" by "wj hayes". The tokenizer splits
+// "E.C." into "e" and "c", so a query's "ec" matched nothing. Null for a name
+// without initials (two or more single letters, each with a full stop).
+export function searchedName(name: string): string | null {
+	const joined = name.replace(/(?<!\p{L})(?:\p{L}\.\s?){2,}/gu, (m) => m.replace(/[.\s]/g, '') + (/\s$/.test(m) ? ' ' : ''));
+	return joined === name ? null : `${name} ${joined}`;
+}
+
 export function placeText(park: string | null, state: string | null, country: string | null): string {
 	const words: string[] = [];
 	if (park) {
@@ -199,7 +209,9 @@ async function main() {
 	// `items` holds again) and no per-row token counts (columnsize=0: search
 	// orders by qrank, not relevance). A row is removed by repeating its
 	// text: see bin/search-add-hikes.py. fts_popular: the rows with
-	// qrank > 1, for short prefixes.
+	// qrank > 1, for short prefixes. Both index an item's searched text,
+	// coalesce(searched, name), as search-add-hikes.py does: its name, with
+	// its initials run together too (searchedName), or a hike's (that script).
 	db.query(`CREATE VIRTUAL TABLE fts USING fts5(name, place, content='', columnsize=0)`).run();
 	db.query(`CREATE VIRTUAL TABLE fts_popular USING fts5(name, content='', columnsize=0)`).run();
 	db.query(`CREATE TABLE items(
@@ -219,7 +231,8 @@ max_lon NUMERIC,
 max_lat NUMERIC,
 ele INTEGER,
 km NUMERIC,
-area INTEGER
+area INTEGER,
+searched TEXT
 )`).run();
 
 
@@ -230,7 +243,7 @@ area INTEGER
 
 	db.query('PRAGMA synchronous = OFF').run();
 
-	const ins = db.query(`INSERT INTO items (qrank, wikidata, osm_id, kind, park, country, state, name, lon, lat, min_lon, min_lat, max_lon, max_lat, ele, km, area) VALUES ($qrank, $wikidata, $osm_id, $kind, $park, $country, $state, $name, $lon, $lat, $min_lon, $min_lat, $max_lon, $max_lat, $ele, $km, $area)`);
+	const ins = db.query(`INSERT INTO items (qrank, wikidata, osm_id, kind, park, country, state, name, lon, lat, min_lon, min_lat, max_lon, max_lat, ele, km, area, searched) VALUES ($qrank, $wikidata, $osm_id, $kind, $park, $country, $state, $name, $lon, $lat, $min_lon, $min_lat, $max_lon, $max_lat, $ele, $km, $area, $searched)`);
 	for (const row of rows) {
 		let { wikidata, park, qrank, country, lon, lat, kind, state, osm_id, name, box, ele, km, area } = row;
 		ins.run({
@@ -252,14 +265,15 @@ area INTEGER
 			$ele: Number.isFinite(ele) ? ele : null,
 			$km: Number.isFinite(km) ? km : null,
 			$area: Number.isFinite(area) ? area : null,
+			$searched: searchedName(name),
 		});
 	}
 
 	const insFts = db.query(`INSERT INTO fts(rowid, name, place) VALUES (?, ?, ?)`);
-	for (const r of db.query(`SELECT rowid, name, park, state, country FROM items`).all() as any[]) {
+	for (const r of db.query(`SELECT rowid, coalesce(searched, name) AS name, park, state, country FROM items`).all() as any[]) {
 		insFts.run(r.rowid, r.name, placeText(r.park, r.state, r.country));
 	}
-	db.query(`INSERT INTO fts_popular(rowid, name) SELECT rowid, name FROM items WHERE qrank > 1`).run();
+	db.query(`INSERT INTO fts_popular(rowid, name) SELECT rowid, coalesce(searched, name) FROM items WHERE qrank > 1`).run();
 	db.close();
 }
 

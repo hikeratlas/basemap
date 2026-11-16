@@ -107,15 +107,43 @@ jobs:
             fi
           fi
 
+      # Found while watching the pois and parks jobs: once each has skipped
+      # its PBF download (its inputs are unchanged, so it won't build), no
+      # one needs them, and this stops. Routes waits for this workflow, so
+      # finding them anyway held it up ~7 min on a build whose layers were
+      # all unchanged (run 43788982464).
       - name: Find trail areas
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LAYERS: ${{ inputs.layers }}
         run: |
           start=$(date +%s)
           python3 -m venv "$RUNNER_TEMP/venv-trails" && "$RUNNER_TEMP/venv-trails/bin/pip" install -q shapely numpy
-          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"}
+          "$RUNNER_TEMP/venv-trails/bin/python" bin/trail-areas.py trails.geojsonl parks.geojsonl trail-areas.geojsonl ${BBOX:+--bbox "$BBOX"} &
+          pid=$!
+          want=$(jq -r '[.[] | select(. == "pois" or . == "parks")] | join("|")' <<< "$LAYERS")
+          while kill -0 "$pid" 2>/dev/null; do
+            # Each wanted layer's job: its "Fetch PBF" step, "skipped" once
+            # it has decided not to build.
+            states=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" --jq \
+              "[.jobs[] | select((.name | test(\"(^|/ )build \\\\(($want)\\\\)$\")) and .conclusion != \"skipped\")
+                | ([.steps[]? | select(.name == \"Fetch PBF\")][0].conclusion // \"\")] | @tsv" 2>/dev/null) || states=
+            n=$(tr '|' '\n' <<< "$want" | wc -l)
+            if [ "$(tr '\t' '\n' <<< "$states" | grep -c '^skipped$')" -ge "$n" ]; then
+              kill "$pid"; wait "$pid" 2>/dev/null || true
+              echo "pois and parks are unchanged, so not building: no trail areas needed" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "skipped=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 10
+          done
+          wait "$pid"
           echo "Found trail areas in $(( $(date +%s) - start ))s"; ls -l trail-areas.geojsonl
 
       # overwrite: a re-run of this job replaces the earlier attempt's.
-      - uses: actions/upload-artifact@v4
+      - if: steps.find.outputs.skipped != 'true'
+        uses: actions/upload-artifact@v4
         with:
           name: trail-areas
           path: trail-areas.geojsonl

@@ -9,8 +9,11 @@
 # upload a build, not one per state):
 #   {"countries": [{"slug", "name", "hikes", "parks", "bbox", "states": [
 #       {"slug", "name", "hikes", "parks", "bbox", "areas": [
-#           {"slug", "id", "ids", "name", "hikes", "bbox"}, ...]}, ...]}, ...]}
-# sorted by name, areas by hikes (most first). bbox is [w, s, e, n]: an
+#           {"slug", "id", "ids", "name", "hikes", "bbox", "rank"}, ...]}, ...]}, ...]}
+# sorted by name, areas by hikes (most first). rank is the park's QRank
+# (its search item's, Wikidata popularity; 0 for a trail area or a park
+# without one), so the website can order a state's parks by fame
+# (hikeratlas/website#168). bbox is [w, s, e, n]: an
 # area's is its hikes' (Jasper's hikes, not the empty north of it); a
 # state's is its outline's, from the states export (STATES_GEOJSONL), so
 # its page shows all of it (website#143: Prince Edward Island's hikes are
@@ -306,6 +309,7 @@ def main(db_path, parks_dir, index_path, regions_path, bundle_path=None, states_
             continue
         areas[(country, state)].append({
             'name': name, 'ids': ids, 'hikes': len(rs),
+            'rank': round(max((place[i][4] for i in ids if i in place), default=0)),
             # Fit to the hikes, not the whole park: Jasper's hikes, not the
             # empty north of it.
             'bbox': r5(route_box),
@@ -333,7 +337,7 @@ def main(db_path, parks_dir, index_path, regions_path, bundle_path=None, states_
             'slug': ss, 'name': state, 'hikes': sum(a['hikes'] for a in xs), 'parks': len(xs),
             'bbox': r5(state_box(outlines.get(state), union([a['bbox'] for a in xs]))),
             'hikes_bbox': union([a['bbox'] for a in xs]),
-            'areas': [{k: a[k] for k in ('slug', 'id', 'ids', 'name', 'hikes', 'bbox')} for a in xs],
+            'areas': [{k: a[k] for k in ('slug', 'id', 'ids', 'name', 'hikes', 'bbox', 'rank')} for a in xs],
         })
     out = []
     for country, states in sorted(countries.items()):

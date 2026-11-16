@@ -610,13 +610,28 @@ jobs:
         continue-on-error: true
         run: |
           python3 -m pip install --quiet --user --break-system-packages pillow
-          aws s3 ls "s3://hikes-public/routes/$NAMESPACE/thumbs/" | awk '{print $4}' | sed 's/\.webp$//' > "$RUNNER_TEMP/have-thumbs.txt" || true
+          thumbs="s3://hikes-public/routes/$NAMESPACE/thumbs"
+          aws s3 ls "$thumbs/" | awk '{print $4}' | grep '\.webp$' | sed 's/\.webp$//' > "$RUNNER_TEMP/have-thumbs.txt" || true
+          # Photos that failed lately aren't fetched again (thumbs.py
+          # --failed): ~3,700 failed again each build, for ~20 new
+          # thumbnails, in 5 of this job's minutes. The list is a CSV kept
+          # next to the thumbnails; none yet, or a thumbs.py from before
+          # --failed, just fetches them all.
+          failed=()
+          if python3 "$RUNNER_TEMP/cc-crawler"/scripts/thumbs.py --help | grep -q -- --failed; then
+            aws s3 cp --no-progress "$thumbs/failed.csv" "$RUNNER_TEMP/failed.csv" || echo "No failed.csv yet"
+            failed=(--failed "$RUNNER_TEMP/failed.csv")
+          fi
           python3 "$RUNNER_TEMP/cc-crawler"/scripts/thumbs.py --bundle-dir "$RUNNER_TEMP/reports" \
-            --existing "$RUNNER_TEMP/have-thumbs.txt" --out "$RUNNER_TEMP/reports-thumbs" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+            --existing "$RUNNER_TEMP/have-thumbs.txt" "${failed[@]}" --out "$RUNNER_TEMP/reports-thumbs" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           if [ -n "$(ls "$RUNNER_TEMP/reports-thumbs/thumbs")" ]; then
             aws s3 cp --no-progress --recursive --content-type image/webp \
               --cache-control "public, max-age=31536000, immutable" \
-              "$RUNNER_TEMP/reports-thumbs/thumbs/" "s3://hikes-public/routes/$NAMESPACE/thumbs/"
+              "$RUNNER_TEMP/reports-thumbs/thumbs/" "$thumbs/"
+          fi
+          if [ -f "$RUNNER_TEMP/reports-thumbs/failed.csv" ]; then
+            aws s3 cp --no-progress --content-type text/csv "$RUNNER_TEMP/reports-thumbs/failed.csv" "$thumbs/failed.csv" \
+              || echo "::warning::Couldn't upload failed.csv; the next build tries those photos again"
           fi
           # Only once the thumbnails are up: the bundle that points at them.
           cp "$RUNNER_TEMP/reports-thumbs/reports.json" "$RUNNER_TEMP/reports-thumbs/reports.bin" "$RUNNER_TEMP/reports/"
@@ -666,32 +681,19 @@ jobs:
               || echo "::warning::Couldn't upload routes-timings.json"
           fi
 
-      # The homepage's featured cards as pictures (hikeratlas/website#116):
-      # its two MapLibre maps and DEM elevation profile were heavy for the
-      # page's first look. Each showcase park's cards, drawn live by the site
-      # (its ?shots mode) from the routes just uploaded, are pictured
-      # (bin/home-images.mjs) into a folder named for this run, and
-      # index.json is pointed at it ("home") only when every park's are
-      # there. Until then, or if this fails, the site draws them live.
-      - name: Homepage pictures
+      # The homepage's featured cards as pictures (hikeratlas/website#116),
+      # of the routes just uploaded: home-images.yml, started here and not
+      # waited for (it took ~4 min of this job). It points index.json at
+      # them once they're up ("home"); until then the site draws them live.
+      # From main, or a PR's own branch, so a PR can change it.
+      - name: Start the homepage pictures
         continue-on-error: true
         env:
-          HOME_DIR: home-${{ github.run_id }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          dest="s3://hikes-public/routes/$NAMESPACE"
-          pw="$RUNNER_TEMP/pw"
-          mkdir -p "$pw"
-          npm install --prefix "$pw" --no-save --no-package-lock --silent playwright@1.48.2
-          "$pw/node_modules/.bin/playwright" install --with-deps chromium > /dev/null
-          # Beside its node_modules, so its import of playwright finds it.
-          cp bin/home-images.mjs "$pw/"
-          query=""
-          [ "$NAMESPACE" = north-america ] || query="build=$NAMESPACE"
-          node "$pw/home-images.mjs" https://www.hikeratlas.com "$query" "$RUNNER_TEMP/home" | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
-          aws s3 cp --no-progress --recursive --content-type image/jpeg --cache-control "public, max-age=31536000, immutable" \
-            "$RUNNER_TEMP/home/" "$dest/$HOME_DIR/"
-          jq -c --arg h "$HOME_DIR" '.home = $h' index.json > index.home.json && mv index.home.json index.json
-          aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.json "$dest/index.json"
+          gh workflow run home-images.yml --repo "$GITHUB_REPOSITORY" --ref "${GITHUB_HEAD_REF:-main}" \
+            -f namespace="$NAMESPACE" -f build="${{ github.run_id }}"
+          echo "Homepage pictures: started home-images.yml for $NAMESPACE" | tee -a "$GITHUB_STEP_SUMMARY"
 
       # Curated hikes in search (hikeratlas/website#44), and the states and
       # provinces with hikes (basemap#318): the search DB is built with the
@@ -735,8 +737,9 @@ jobs:
             --arg keep5 "$REPORTS" --arg keep6 "$PREV_REPORTS" \
             '(. // [])[] | select(ltrimstr($p) | test("/") | not)
              | select(ltrimstr($p) as $f | ([$keep1, $keep2, $keep3, $keep4, $keep5, $keep6] | index($f) | not) and ($f | test("\\.(json|bin)$")))' keys.json > old.txt
-          # Homepage pictures' folders but this run's (if it made them) and
-          # the previous build's (for browsers holding its index).
+          # Homepage pictures' folders but this run's (home-images.yml, started
+          # above, may still be making them) and the previous build's (for
+          # browsers holding its index).
           jq -r --arg p "${prefix}home-" --arg cur "${prefix}home-${{ github.run_id }}/" --arg prev "${prefix}${PREV_HOME:-none}/" \
             '(. // [])[] | select(startswith($p) and (startswith($cur) | not) and (startswith($prev) | not))' keys.json >> old.txt
           echo "Removing $(wc -l < old.txt) old route files"

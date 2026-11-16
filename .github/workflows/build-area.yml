@@ -328,7 +328,7 @@ jobs:
     needs: [config, layers-early, layers, reuse, zindex]
     if: ${{ !cancelled() && needs.layers-early.result == 'success' && needs.layers.result == 'success' && needs.reuse.result != 'failure' }}
     permissions:
-      actions: read    # the telemetry action reads the job's step times
+      actions: write   # the telemetry action reads the job's step times; merge starts home-images.yml
       checks: write    # the progress check (#210)
       issues: write   # its comment, on the PR or the Build history issue
       contents: read

@@ -19,7 +19,10 @@ name: Deploy search index
 #
 # AWS access is via GitHub's OIDC integration: the SEARCH_AWS_ROLE_ARN secret
 # names an IAM role allowed lambda:GetFunction, lambda:GetFunctionConfiguration
-# and lambda:UpdateFunctionCode on ha-search. Its trust policy only accepts
+# and lambda:UpdateFunctionCode on ha-search, and s3:PutObject and
+# s3:GetObject on s3://hikeratlas-search-db/ha-search/*: the zip goes up
+# through S3, as a direct upload is limited to 50 MB zipped (the DB passed
+# that in November 2026), and through S3 to 250 MB unzipped. Its trust policy only accepts
 # runs of hikeratlas/basemap on main, so this fails when run from any other
 # branch. Callers must grant `id-token: write`.
 
@@ -38,6 +41,10 @@ on:
         description: Deploy even if the new DB has far fewer items than the live one
         type: boolean
         default: false
+      dry_run:
+        description: Do everything but change the function (S3 upload, then UpdateFunctionCode --dry-run, which checks the request and permissions)
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       namespace:
@@ -49,6 +56,9 @@ on:
       force:
         type: boolean
         default: false
+      dry_run:
+        type: boolean
+        default: false
 
 env:
   FUNCTION: ha-search
@@ -56,6 +66,10 @@ env:
   NAMESPACE: ${{ inputs.namespace }}
   WEBSITE_REF: ${{ inputs.website_ref }}
   FORCE: ${{ inputs.force }}
+  DRY_RUN: ${{ inputs.dry_run }}
+  # Where the zip goes up (see above); Lambda copies it when it updates the
+  # function, so each deploy overwrites it.
+  CODE_S3: s3://hikeratlas-search-db/ha-search/code.zip
 
 jobs:
   deploy:
@@ -219,9 +233,18 @@ jobs:
         run: |
           rm -rf pkg/__pycache__
           (cd pkg && zip -q -9 -r ../code.zip .)
-          echo "code.zip: $(stat -c %s code.zip) bytes"
+          echo "code.zip: $(stat -c %s code.zip) bytes, $(unzip -l code.zip | tail -1 | awk '{print $1}') unzipped (Lambda's limit: 262144000)"
+          aws s3 cp --no-progress code.zip "$CODE_S3"
+          bucket=${CODE_S3#s3://}; key=${bucket#*/}; bucket=${bucket%%/*}
+          if [ "$DRY_RUN" = true ]; then
+            aws lambda update-function-code --function-name "$FUNCTION" \
+              --s3-bucket "$bucket" --s3-key "$key" --revision-id "$REVISION" --dry-run \
+              --query '{CodeSize: CodeSize, LastModified: LastModified}' --output table
+            echo "Dry run: uploaded to $CODE_S3, and UpdateFunctionCode accepted it; the function is unchanged." | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           aws lambda update-function-code --function-name "$FUNCTION" \
-            --zip-file fileb://code.zip --revision-id "$REVISION" \
+            --s3-bucket "$bucket" --s3-key "$key" --revision-id "$REVISION" \
             --query '{CodeSize: CodeSize, LastModified: LastModified}' --output table
           aws lambda wait function-updated --function-name "$FUNCTION"
           echo "Deployed." >> "$GITHUB_STEP_SUMMARY"

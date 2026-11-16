@@ -344,19 +344,25 @@ def regressions(summaries, prev_summaries):
         return '', [], []
     before = {r['name']: r.get('status') for r in (prev_summaries.get('regressions') or {}).get('regressions', [])}
     failing = [r for r in rows if r['status'] == 'failing']
+    # Known failures (routes' expect.py `known`: an open issue tracks them):
+    # listed, not counted as failing.
+    known = [r for r in rows if r['status'] == 'known']
     newly = [r['name'] for r in failing if before.get(r['name']) == 'ok']
-    fixed = [r['name'] for r in rows if r['status'] == 'ok' and before.get(r['name']) == 'failing']
+    fixed = [r['name'] for r in rows if r['status'] == 'ok' and before.get(r['name']) in ('failing', 'known')]
     note = f" · ⚠️ {len(failing)} named regression{'s' if len(failing) != 1 else ''}" if failing else ''
     line = (f"**Named regressions:** ❌ {len(failing)} of {len(rows)} failing: "
             + ', '.join(f"{r['name']} ({r['issue']})" for r in failing)
-            if failing else f"**Named regressions:** ✅ all {len(rows)} ok")
+            if failing else f"**Named regressions:** ✅ all {len(rows) - len(known)} ok")
+    if known:
+        line += f" · ⏸️ {len(known)} known: " + ', '.join(f"{r['name']} ({r.get('known', r['issue'])})" for r in known)
     if newly:
         line += f" · newly failing: {', '.join(newly)}"
     if fixed:
         line += f" · fixed: {', '.join(fixed)}"
     table = ['#### Named regressions', '', '| Route | Park | Issue | Status | Previous | Problems |', '|---|---|---|---|---|---|']
-    for r in sorted(rows, key=lambda r: (r['status'] != 'failing', r['name'])):
-        mark = '❌ failing' if r['status'] == 'failing' else '✅ ok'
+    rank = {'failing': 0, 'known': 1}
+    for r in sorted(rows, key=lambda r: (rank.get(r['status'], 2), r['name'])):
+        mark = {'failing': '❌ failing', 'known': f"⏸️ known ({r.get('known', '')})"}.get(r['status'], '✅ ok')
         table.append(f"| {r['name']} | {r['park']} | {r['issue']} | {mark} | {before.get(r['name'], '')} | "
                      f"{'<br>'.join(p.replace('|', '/') for p in r.get('problems', []))} |")
     return note, [line, ''], table + ['']

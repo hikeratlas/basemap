@@ -27,6 +27,7 @@
 # afresh each run and overwrite what's there, so running it again (a reused
 # output) changes nothing.
 import gzip, json, os, sys
+from multiprocessing import Pool
 
 from route_keys import route_key, shape_for
 
@@ -78,6 +79,21 @@ def is_slices(v):
         isinstance(x, list) and len(x) == 2 and all(isinstance(n, int) for n in x) for x in v.values())
 
 
+def key_document(job):
+    """One park's document, keyed: (its gzipped JSON for the bundle, its
+    ids, routes keyed, lines too short). Its parks/<id>.json files are
+    rewritten too."""
+    data, ids, parks_dir = job
+    doc = json.loads(gzip.decompress(data))
+    k, s = add_keys(doc)
+    body = dumps(doc)
+    for pid in ids:
+        fn = os.path.join(parks_dir, f'{pid}.json')
+        if os.path.exists(fn):
+            write_atomic(fn, body)
+    return gzip.compress(body, compresslevel=9, mtime=0), ids, k, s
+
+
 def main(out_dir):
     index_path = os.path.join(out_dir, 'index.json')
     parks_dir = os.path.join(out_dir, 'parks')
@@ -93,23 +109,21 @@ def main(out_dir):
     parks = {}
     tmp = bundle_path + '.tmp'
     with open(bundle_path, 'rb') as src, open(tmp, 'wb') as dst:
-        for (offset, length), ids in sorted(by_slice.items()):
-            src.seek(offset)
-            doc = json.loads(gzip.decompress(src.read(length)))
-            k, s = add_keys(doc)
-            docs += 1
-            keyed += k
-            short += s
-            body = dumps(doc)
-            for pid in ids:
-                fn = os.path.join(parks_dir, f'{pid}.json')
-                if os.path.exists(fn):
-                    write_atomic(fn, body)
-            blob = gzip.compress(body, compresslevel=9, mtime=0)
-            at = [dst.tell(), len(blob)]
-            dst.write(blob)
-            for pid in ids:
-                parks[pid] = at
+        def jobs():
+            for (offset, length), ids in sorted(by_slice.items()):
+                src.seek(offset)
+                yield src.read(length), ids, parks_dir
+        # The documents keyed on every CPU, written in the bundle's order
+        # (imap keeps it): one at a time, north-america's took ~80 s.
+        with Pool(os.cpu_count()) as pool:
+            for blob, ids, k, s in pool.imap(key_document, jobs(), chunksize=16):
+                docs += 1
+                keyed += k
+                short += s
+                at = [dst.tell(), len(blob)]
+                dst.write(blob)
+                for pid in ids:
+                    parks[pid] = at
         # The rest (cards), byte for byte, after the parks.
         copied = {}  # old (offset, length) -> new [offset, length]
         for name, slices in others.items():

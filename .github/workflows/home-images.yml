@@ -1,0 +1,102 @@
+name: Homepage pictures
+
+# The homepage's featured cards as pictures (hikeratlas/website#116): its two
+# MapLibre maps and DEM elevation profile were heavy for the page's first
+# look. Each showcase park's cards, drawn live by the site (its ?shots mode)
+# from a build's routes, are pictured (bin/home-images.mjs) into
+# routes/<namespace>/home-<build run id>/, and index.json is pointed at it
+# ("home") only when every park's are there. Until then, or if this fails,
+# the site draws them live.
+#
+# routes.yml's merge job starts this once it has uploaded the build's routes,
+# and doesn't wait for it: the pictures took ~4 min, and nothing else in the
+# build needs them. It can also be run by hand, for the routes in R2 now.
+#
+# Only the build whose routes are live is pictured: if a newer build's routes
+# went up meanwhile (index.json's bundle isn't the build's), this stops
+# without touching index.json, and the newer build's own run pictures them.
+# merge's "Remove old route files" keeps this build's folder (home-<run id>)
+# and the previous build's.
+
+on:
+  workflow_dispatch:
+    inputs:
+      namespace:
+        description: R2 namespace whose routes to picture, e.g. north-america or pr-41/nova-scotia
+        type: string
+        default: north-america
+      build:
+        description: Run id of the build whose routes these are (its index.json bundle is <id>.bin); empty for whatever's live
+        type: string
+        default: ''
+
+# One at a time per namespace; a newer build's run replaces an older one's.
+concurrency:
+  group: home-images-${{ inputs.namespace }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pictures:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      NAMESPACE: ${{ inputs.namespace }}
+      BUILD: ${{ inputs.build }}
+      AWS_ENDPOINT_URL: https://ce5627cfc65c8b54d40bb91c0ba7298b.r2.cloudflarestorage.com
+      AWS_EC2_METADATA_DISABLED: true
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_RETRY_MODE: adaptive
+      AWS_MAX_ATTEMPTS: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # Whose routes are live, from R2 itself (not through the CDN).
+      - name: Check the build's routes are live
+        id: live
+        run: |
+          dest="s3://hikes-public/routes/$NAMESPACE"
+          aws s3 cp --no-progress "$dest/index.json" index.json
+          bundle=$(jq -r '.bundle // empty' index.json)
+          [ -n "$BUILD" ] || BUILD=${bundle%.bin}
+          if [ -z "$BUILD" ] || [ "$bundle" != "$BUILD.bin" ]; then
+            echo "Live routes are ${bundle:-none}, not $BUILD.bin: a newer build's are up; leaving them to its own run" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
+
+      - name: Picture the cards
+        if: steps.live.outputs.stale != 'true'
+        run: |
+          pw="$RUNNER_TEMP/pw"
+          mkdir -p "$pw"
+          npm install --prefix "$pw" --no-save --no-package-lock --silent playwright@1.48.2
+          "$pw/node_modules/.bin/playwright" install --with-deps chromium > /dev/null
+          # Beside its node_modules, so its import of playwright finds it.
+          cp bin/home-images.mjs "$pw/"
+          query=""
+          [ "$NAMESPACE" = north-america ] || query="build=$NAMESPACE"
+          node "$pw/home-images.mjs" https://www.hikeratlas.com "$query" "$RUNNER_TEMP/home" | tail -1 | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # The pictures first, then index.json, read again just before: only if
+      # the build's routes are still the live ones, so a newer build's
+      # index.json is never overwritten.
+      - name: Upload, and point index.json at them
+        if: steps.live.outputs.stale != 'true'
+        run: |
+          dest="s3://hikes-public/routes/$NAMESPACE"
+          home="home-$BUILD"
+          aws s3 cp --no-progress --recursive --content-type image/jpeg --cache-control "public, max-age=31536000, immutable" \
+            "$RUNNER_TEMP/home/" "$dest/$home/"
+          aws s3 cp --no-progress "$dest/index.json" index.json
+          if [ "$(jq -r '.bundle // empty' index.json)" != "$BUILD.bin" ]; then
+            echo "A newer build's routes went up while picturing; index.json left as it is" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          jq -c --arg h "$home" '.home = $h' index.json > index.home.json
+          aws s3 cp --no-progress --content-type application/json --cache-control no-cache index.home.json "$dest/index.json"
+          echo "index.json points at $home" | tee -a "$GITHUB_STEP_SUMMARY"

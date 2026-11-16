@@ -416,7 +416,9 @@ jobs:
 
       # The trail areas, from this workflow's trail-areas job (above), which
       # runs alongside this one: polled for as the zindex job polls for the
-      # exports, with Fibonacci backoff capped at 30 s.
+      # exports, with Fibonacci backoff capped at 30 s. Skipped ones are
+      # another call's of this workflow (build-area.yml's layers-early,
+      # also "layers", has no pois or parks).
       - name: Wait for trail areas
         if: ${{ (matrix.layer == 'pois' || matrix.layer == 'parks') && steps.inputs.outputs.skip != 'true' }}
         timeout-minutes: 45
@@ -433,7 +435,7 @@ jobs:
           }
           while true; do
             job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?per_page=100" \
-              --jq 'first(.jobs[] | select(.name | test("(^|/ )trail-areas$"))) | [.status, (.conclusion // "")] | @tsv') || {
+              --jq 'first(.jobs[] | select((.name | test("(^|/ )trail-areas$")) and .conclusion != "skipped")) | [.status, (.conclusion // "")] | @tsv') || {
               echo "GitHub API request failed; retrying"
               backoff
               continue

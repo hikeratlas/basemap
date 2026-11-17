@@ -1,4 +1,4 @@
-node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural=spring', 'highway=trailhead'}
+node_keys = {'amenity', 'tourism', 'waterway=waterfall', 'ford', 'historic', 'natural=spring', 'highway=trailhead', 'highway=bus_stop'}
 way_keys = node_keys
 
 qrank = nil
@@ -37,6 +37,13 @@ function maybe_emit(is_area)
 		if not Intersects('parks_near') then return end
 	end
 
+	-- Bus stops only in a park proper, and named: a park's shuttle stops
+	-- are where hikes start where cars can't go (Yoho's Le Relais, at the
+	-- end of the bus-only Lake O'Hara Fire Road); hikeratlas/routes keeps
+	-- those beyond the roads cars can drive. Not drawn (styles/pois.json).
+	local highway = Find('highway')
+	if highway == 'bus_stop' and (not in_park or Find('name') == '') then return end
+
 	local tourism = Find('tourism')
 
 	local amenity = Find('amenity')
@@ -44,7 +51,6 @@ function maybe_emit(is_area)
 	local waterway = Find('waterway')
 	local natural = Find('natural')
 	local ford = Find('ford')
-	local highway = Find('highway')
 
 	local locker = Find('locker')
 	local shelter_type = Find('shelter_type')
@@ -79,7 +85,7 @@ function maybe_emit(is_area)
 	if amenity == 'university' then amenity = '' end
 
 
-	if amenity == '' and tourism == '' and waterway ~= 'waterfall' and natural ~= 'spring' and ford == '' and historic == '' and highway ~= 'trailhead' then return end
+	if amenity == '' and tourism == '' and waterway ~= 'waterfall' and natural ~= 'spring' and ford == '' and historic == '' and highway ~= 'trailhead' and highway ~= 'bus_stop' then return end
 
 	local wikidata = Find('wikidata')
 	local name = Find('name')

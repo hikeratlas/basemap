@@ -17,7 +17,8 @@ const DB_FILE = 'autosuggest.db';
 // in the sea); the box is the union, so the map fits all of it.
 //
 // Trails too: a trail is many ways (and maybe a hiking route relation over
-// them), each with the trail's name.
+// them), each with the trail's name. Beaches too (#353): a long beach is
+// often several ways, or a beach and its sand.
 //
 // Ranges too (#194): CanVec imported range names as natural=peak nodes with
 // no ele, one every few km along the range, so "La Cloche Mountains" was four
@@ -28,8 +29,8 @@ const DB_FILE = 'autosuggest.db';
 // and stay separate.
 const COUNTRIES = new Set(['Canada', 'United States']);
 
-const MERGED_KINDS = new Set(['cliff', 'park', 'trail', 'range']);
-const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1, range: 50 };
+const MERGED_KINDS = new Set(['cliff', 'park', 'trail', 'range', 'beach']);
+const MERGE_DISTANCE_KM: Record<string, number> = { cliff: 10, park: 1, trail: 1, range: 50, beach: 1 };
 const RANGE_NAME = /\b(mountains|range|hills|ridges|highlands)\b/i;
 
 const mergeKind = (row: any): string =>

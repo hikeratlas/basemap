@@ -24,6 +24,7 @@ node_keys = {
 	'waterway=waterfall',
 	'natural=bay',
 	'natural=strait',
+	'natural=beach',
 }
 way_keys = {
 	'boundary=national_park',
@@ -39,6 +40,8 @@ way_keys = {
 	'natural=strait',
 	'highway=path',
 	'highway=footway',
+	'natural=beach',
+	'natural=sand',
 }
 
 function sanitize_park(x)
@@ -181,6 +184,10 @@ function node_function()
 		return emit({kind='camp_site'})
 	end
 
+	if is_beach() then
+		return emit({kind='beach'})
+	end
+
 	-- Most bays are mapped as a single node, e.g. Little Dunks Bay (#317):
 	-- https://www.openstreetmap.org/node/1279898806
 	if natural == 'bay' or natural == 'strait' then
@@ -208,7 +215,23 @@ function is_trail_way()
 		and (Intersects('parks') or Intersects('city_parks'))
 end
 
+-- Beaches people search for by name (#353): a named natural=beach, or a
+-- named natural=sand called a beach (Sandbanks's Dunes Beach is sand,
+-- way/80312440). Only in parks, as trails: the rest are mostly town
+-- waterfronts. Pieces of one beach are merged by bin/create-autosuggest-db.ts.
+function is_beach()
+	local natural = Find('natural')
+	local name = Find('name')
+	if name == '' then return false end
+	if not (natural == 'beach' or (natural == 'sand' and string.find(string.lower(name), 'beach', 1, true))) then return false end
+	return Intersects('parks') or Intersects('city_parks')
+end
+
 function way_function()
+	if is_beach() then
+		return emit({kind='beach'}, IsClosed())
+	end
+
 	if is_trail_way() then
 		return emit({kind='trail'})
 	end

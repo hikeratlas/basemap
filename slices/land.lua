@@ -4,6 +4,8 @@ way_memo = true
 
 local debug = false
 way_keys = {'landuse', 'leisure', 'natural', 'wetland', 'tourism=camp_site', 'aeroway'}
+-- Only beaches mapped as a point, for their names (#352).
+node_keys = {'natural=beach'}
 
 local function Attr(k, v) if v ~= '' then Attribute(k, v) end end
 
@@ -49,9 +51,6 @@ local wetland_filter = {
 	marsh = true
 }
 
-function node_function()
-end
-
 function emit(key, value)
 	local wikidata = Find('wikidata')
 	if IsClosed() then
@@ -90,14 +89,40 @@ function emit_landform_name(natural)
 	Attr('wikidata', Find('wikidata'))
 end
 
--- A named golf course or airport's name, at its centre, with its kind for
--- the label's icon (land_label in land.json).
+-- A named golf course, airport, beach or dunes' name, at its centre, with
+-- its kind for the label's icon (land_label in land.json).
 local function emit_label(kind, minzoom)
 	local name = Find('name')
 	if name == '' or not IsClosed() then return end
 	LayerAsCentroid('land_label')
 	MinZoom(minzoom)
 	Attr('name', name)
+	Attr('kind', kind)
+end
+
+-- Beach and dune names (#352): a named natural=beach, area or point, and a
+-- named natural=sand that's called a beach or dunes. Some beaches are mapped
+-- only as sand: Sandbanks's Dunes Beach is natural=sand (way/80312440), the
+-- beach beside it unnamed natural=beach. From z13, like golf courses.
+local function sand_kind(name)
+	local n = string.lower(name)
+	if string.find(n, 'beach', 1, true) then return 'beach' end
+	if string.find(n, 'dune', 1, true) then return 'dune' end
+end
+
+local function beach_kind(natural)
+	local name = Find('name')
+	if name == '' then return nil end
+	if natural == 'beach' then return 'beach' end
+	if natural == 'sand' then return sand_kind(name) end
+end
+
+function node_function()
+	local kind = beach_kind(Find('natural'))
+	if not kind then return end
+	Layer('land_label', false)
+	MinZoom(13)
+	Attr('name', Find('name'))
 	Attr('kind', kind)
 end
 
@@ -131,7 +156,12 @@ function way_function()
 
 	local natural = Find('natural')
 	emit_landform_name(natural)
-	if natural_filter[natural] == true then emit('natural', natural); return end
+	if natural_filter[natural] == true then
+		emit('natural', natural)
+		local kind = beach_kind(natural)
+		if kind then emit_label(kind, 13) end
+		return
+	end
 
 	if natural == 'wetland' then emit('wetland', 'natural=wetland'); return end
 

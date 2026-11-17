@@ -322,12 +322,13 @@
       "filter": ["==", "aeroway", "runway"]
     },
     {
-      // Airport and golf course names, with their icons: airports from z11,
-      // golf courses from z13 (land_label in slices/land.lua).
+      // Airport, golf course, beach and dune names, with their icons (dunes
+      // have none): airports from z11, the rest from z13 (land_label in
+      // slices/land.lua).
       "id": "land-labels",
       "type": "symbol",
       "layout": {
-        "icon-image": ["match", ["get", "kind"], "aerodrome", "airport", "golf_course", "golf", ""],
+        "icon-image": ["match", ["get", "kind"], "aerodrome", "airport", "golf_course", "golf", "beach", "beach", ""],
         "icon-size": 0.9,
         "icon-optional": true,
         "text-field": "{name}",

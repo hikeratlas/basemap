@@ -31,7 +31,7 @@ on:
 
 env:
   # Pinned, so a change there shows up here as a reviewed bump.
-  ROUTES_REF: 1f227a5933ff4494b72a081473b4a1485a9f560e
+  ROUTES_REF: db15e0b95c495c28fae6f859dd71f84fa462636b
   # hikeratlas/route-keys, for the routes' keys (bin/route-keys.py): the
   # same release as the website's @hikeratlas/route-keys (its package.json),
   # so the build's keys and the site's agree while recipe v1 is a 0.x draft.

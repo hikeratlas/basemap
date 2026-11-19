@@ -104,7 +104,9 @@ these features of the forks:
   files whose blobs are zstd-compressed (the mirrored `<area>.zstd.pbf`).
 - `outline_of` in a layer's config: the boundaries of another layer's polygons
   as lines, without the edges that clipping to the tile added. `park_outline`
-  in `slices/parks.json` uses it for park outlines.
+  in `slices/parks.json` uses it for park outlines, from z5 (where the
+  biggest parks start), though the style draws them from z9: the website
+  outlines a park whose panel is open at any zoom (hikeratlas/website#193).
 - The `GeoJSON(area)` Lua function, which `export/zindex.lua` uses for each
   search result's bounding box.
 - The `LargestIntersecting(layer, min_share)` Lua function: the park, state

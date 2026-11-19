@@ -1,0 +1,108 @@
+park,hike,km,source,any_trail,best_relation,best_relation_name,all_relations,name_match,relation,relations,mapped
+Banff National Park,Fenland Loop,1.9,https://parks.canada.ca/pn-np/ab/banff/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Banff National Park,Johnston Canyon Trail (to Upper Falls),4.8,https://parks.canada.ca/pn-np/ab/banff/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Banff National Park,Tunnel Mountain Summit Trail,4.6,https://parks.canada.ca/pn-np/ab/banff/activ/randonnee-hiking,1.0,1.0,Tunnel Mountain Summit Trail,1.0,True,True,True,True
+Banff National Park,Boom Lake Trail,10.2,https://parks.canada.ca/pn-np/ab/banff/activ/randonnee-hiking,1.0,1.0,Boom Lake Trail,1.0,True,True,True,True
+Banff National Park,Cascade Amphitheatre Trail,13.6,https://parks.canada.ca/pn-np/ab/banff/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Banff National Park,Lake Agnes Trail,7.8,https://parks.canada.ca/pn-np/ab/banff/activ/randonnee-hiking,1.0,0.79,Lake Agnes Trail,0.79,True,True,True,True
+Bow Valley Provincial Park,Flowing Water Interpretive,2.0,https://www.albertaparks.ca/parks/kananaskis/bow-valley-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+Bow Valley Provincial Park,Many Springs Interpretive,1.3,https://www.albertaparks.ca/parks/kananaskis/bow-valley-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+Bow Valley Provincial Park,Middle Lake Interpretive,4.0,https://www.albertaparks.ca/parks/kananaskis/bow-valley-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+Bow Valley Provincial Park,Montane Interpretive,3.0,https://www.albertaparks.ca/parks/kananaskis/bow-valley-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+Bow Valley Provincial Park,Bow River Interpretive,4.2,https://www.albertaparks.ca/parks/kananaskis/bow-valley-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+Castle Provincial Park,Table Mountain,9.0,https://www.albertaparks.ca/parks/south/castle-pp/information-facilities/castle-trail-report/,1.0,0.0,,0.0,False,False,False,True
+Writing-on-Stone Provincial Park,Battle Scene,1.0,https://www.albertaparks.ca/parks/south/writing-on-stone-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+Writing-on-Stone Provincial Park,Matapiiksi (Hoodoo) Trail,5.0,https://www.albertaparks.ca/parks/south/writing-on-stone-pp/information-facilities/trails/,1.0,0.0,,0.0,False,False,False,True
+E.C. Manning Provincial Park,Gibson,7.2,https://bcparks.ca/ec-manning-park/,0.51,0.0,,0.0,False,False,False,False
+E.C. Manning Provincial Park,Lightning Lake Loop,9.0,https://bcparks.ca/ec-manning-park/,0.96,0.03,Frosty Mountain,0.03,False,False,False,True
+Garibaldi Provincial Park,Parking Lot to Wedgemount Lake,12.0,https://nrs.objectstore.gov.bc.ca/kuwyyf/garibaldi_trail_information_c5f34740b5.pdf,1.0,0.0,,0.0,False,False,False,True
+Garibaldi Provincial Park,Parking Lot to Cheakamus Lake Campground,3.5,https://nrs.objectstore.gov.bc.ca/kuwyyf/garibaldi_trail_information_c5f34740b5.pdf,1.0,0.0,,0.0,False,False,False,True
+Grouse Mountain Regional Park,"Grouse Grind up, BCMC Route down",4.4,,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Wapta Falls,4.4,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Kicking Horse Fire Road,13.8,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.07,Natural Bridge to Amiskwi Pass Trail,0.07,False,False,False,True
+Yoho National Park,Emerald Lakeshore,5.2,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,0.98,0.0,,0.0,False,False,False,True
+Yoho National Park,Tally-Ho,6.4,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,1.0,GDT ekw,1.0,False,True,True,True
+Yoho National Park,Takakkaw Falls,1.8,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.08,Takakkaw Lake Route,0.08,False,False,False,True
+Yoho National Park,Centennial,2.0,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,0.84,0.0,,0.0,False,False,False,True
+Yoho National Park,Ross Lake,5.8,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,0.77,0.0,,0.0,False,False,False,True
+Yoho National Park,Paget Lookout,7.0,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Sherbrooke Lake,8.6,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Emerald Basin,9.6,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Hoodoos,6.4,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,0.72,0.0,,0.0,False,False,False,True
+Yoho National Park,Mt. Hunter Lower Lookout,7.0,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Mt. Hunter Upper Lookout,11.4,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Hamilton Lake,10.2,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.0,,0.0,False,False,False,True
+Yoho National Park,Yoho Lake,9.8,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,0.98,0.0,,0.0,False,False,False,True
+Yoho National Park,Yoho Valley,12.8,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/jour-day,1.0,0.04,Yoho Valley Trail,0.04,True,False,False,True
+Yoho National Park,Lake O'Hara Shoreline trail,2.8,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/ohara/sentiers-trails,1.0,0.56,Lake O'Hara Circuit Trail,0.59,True,False,False,True
+Yoho National Park,Lake McArthur,8.0,https://parks.canada.ca/pn-np/bc/yoho/activ/randonnee-hike/ohara/sentiers-trails,1.0,0.21,Lake McArthur High Level Trail,0.23,False,False,False,True
+Barachois Pond Provincial Park,Erin Mountain trail,7.0,https://www.parksnl.ca/parks/barachois-pond-provincial-park/,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Acadian,8.4,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,0.99,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Salmon Pools,9.5,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Le Chemin du Buttereau,4.6,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Le Buttereau,1.6,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Le vieux chemin du Cap-Rouge,9.0,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,0.94,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Corney Brook,6.5,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Skyline (loop),8.2,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking/skyline,1.0,1.0,Skyline Trail,1.0,True,True,True,True
+Cape Breton Highlands National Park,Bog,0.5,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Benjie's Lake,3.0,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Fishing Cove,12.0,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,MacIntosh Brook,1.7,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Lone Shieling,0.6,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Mica Hill,7.9,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.78,Mica Hill Trail,0.78,True,True,True,True
+Cape Breton Highlands National Park,Jack Pine,2.3,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Neils Brook Beach,2.5,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Broad Cove Mountain,2.3,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Warren Lake,4.7,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Cape Breton Highlands National Park,Middle Head,5.3,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,0.89,0.78,Middle head,0.78,True,True,True,True
+Cape Breton Highlands National Park,Freshwater Lake,1.7,https://parks.canada.ca/pn-np/ns/cbreton/activ/randonnee-hiking,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Whiskey Rapids Trail,2.1,https://www.ontarioparks.ca/park/algonquin/activities,1.0,1.0,Whiskey Rapids Trail,1.0,True,True,True,True
+Algonquin Provincial Park,Hardwood Lookout Trail,2.0,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Mizzy Lake Trail,10.8,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Peck Lake Trail,2.3,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Track and Tower Trail,7.5,https://www.ontarioparks.ca/park/algonquin/activities,1.0,1.0,Track and Tower Trail,1.0,True,True,True,True
+Algonquin Provincial Park,Hemlock Bluff Trail,3.5,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Bat Lake Trail,5.8,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Two Rivers Trail,2.1,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Centennial Ridges Trail,10.0,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Big Pines Trail,5.8,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Booth's Rock Trail,5.1,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Spruce Bog Boardwalk,1.5,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Fork Lake Trail,4.8,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Algonquin Logging Museum Trail,2.6,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Lookout Trail,1.9,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Beaver Pond Trail,4.0,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Highland Backpacking Trail,35.0,https://www.algonquinpark.on.ca/visit/camping/highland-backpacking-trail.php,0.94,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Western Uplands Backpacking Trail,88.0,https://www.algonquinpark.on.ca/visit/camping/western-upland-backpacking-trail.php,1.0,0.88,Western Uplands Backpacking Trail (main),0.99,False,True,True,True
+Algonquin Provincial Park,Eastern Pines Backpacking Trail,15.0,https://www.algonquinpark.on.ca/visit/camping/eastern-pines-backpacking-trail.php,1.0,0.95,Eastern Pines Backpacking Trail,0.95,True,True,True,True
+Algonquin Provincial Park,Highland Backpacking Trail (short loop),20.0,,0.93,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Eastern Pines Backpacking Trail (short loop),6.0,,1.0,1.0,Eastern Pines Backpacking Trail,1.0,False,True,True,True
+Algonquin Provincial Park,Western Uplands Backpacking Trail (short loop),32.1,,1.0,0.68,Western Uplands Backpacking Trail (main),0.98,False,False,True,True
+Algonquin Provincial Park,Western Uplands Backpacking Trail (medium loop),54.6,,1.0,0.88,Western Uplands Backpacking Trail (main),0.99,False,True,True,True
+Algonquin Provincial Park,High Falls Hiking Trail,3.8,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Barron Canyon Trail,1.5,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Berm Lake Trail,4.5,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.45,Eastern Pines Backpacking Trail,0.45,False,False,False,True
+Algonquin Provincial Park,Jack Pine Trail,1.6,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Algonquin Provincial Park,Brent Crater Trail,3.0,https://www.ontarioparks.ca/park/algonquin/activities,1.0,0.0,,0.0,False,False,False,True
+Bruce Peninsula National Park,Horse Lake Trail,1.0,https://parks.canada.ca/pn-np/on/bruce/activ/sentiers-trails,1.0,0.11,Bruce Trail - Peninsula section,0.11,False,False,False,True
+Bruce Peninsula National Park,Cyprus Lake Trail,5.0,https://parks.canada.ca/pn-np/on/bruce/activ/sentiers-trails,0.8,0.0,,0.0,False,False,False,True
+Bruce Peninsula National Park,Halfway Log Dump,2.0,https://parks.canada.ca/pn-np/on/bruce/activ/emplacements-locations,1.0,0.24,Bruce Trail - Peninsula section,0.24,False,False,False,True
+Bruce Peninsula National Park,Wild Garden Trail,3.0,https://parks.canada.ca/pn-np/on/bruce/activ/sentiers-trails,0.94,0.0,,0.0,False,False,False,True
+Bruce Peninsula National Park,Bruce Trail to Little Dunks Bay Lookout,1.6,https://parks.canada.ca/pn-np/on/bruce/activ/centre,1.0,0.76,Bruce Trail - Peninsula section,1.0,False,True,True,True
+Bruce Peninsula National Park,Bruce Trail Burnt Point Loop,4.8,https://parks.canada.ca/pn-np/on/bruce/activ/centre,1.0,0.77,Bruce Trail - Peninsula section side trails,1.0,False,True,True,True
+Bruce Peninsula National Park,Stormhaven,1.9,,1.0,0.75,Bruce Trail - Peninsula section,0.75,False,True,True,True
+Bruce Peninsula National Park,High Dump Backcountry Camping Area,7.2,,1.0,0.9,Bruce Trail - Peninsula section,0.95,False,True,True,True
+Bruce Peninsula National Park,Georgian Bay - Marr Lake Trail to Indian Head Cove and the Grotto,3.0,https://parks.canada.ca/pn-np/on/bruce/activ/sentiers-trails,1.0,0.31,Bruce Trail - Peninsula section,0.31,False,False,False,True
+Killarney Provincial Park,Chikanishing Trail,3.0,https://www.ontarioparks.ca/park/killarney/activities,1.0,0.0,,0.0,False,False,False,True
+Killarney Provincial Park,Cranberry Bog Trail,4.0,https://www.ontarioparks.ca/park/killarney/activities,1.0,0.5,La Cloche Silhouette Trail,0.5,False,False,False,True
+Killarney Provincial Park,Granite Ridge Trail,2.0,https://www.ontarioparks.ca/park/killarney/activities,1.0,0.0,,0.0,False,False,False,True
+Killarney Provincial Park,Lake of The Woods Trail,3.5,https://www.ontarioparks.ca/park/killarney/activities,1.0,0.0,,0.0,False,False,False,True
+Killarney Provincial Park,The Crack,6.0,https://www.ontarioparks.ca/park/killarney/activities,1.0,1.0,"The ""Crack"" Trail",1.0,True,True,True,True
+Killarney Provincial Park,La Cloche Silhouette Trail,80.0,https://www.ontarioparks.ca/park/killarney/activities,0.94,0.94,La Cloche Silhouette Trail,0.94,True,True,True,True
+Pinery Provincial Park,Bittersweet Trail,1.5,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True
+Pinery Provincial Park,Cedar Trail,2.3,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True
+Pinery Provincial Park,Heritage Trail,5.0,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True
+Pinery Provincial Park,Hickory Trail,1.0,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True
+Pinery Provincial Park,Pine Trail,0.8,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True
+Pinery Provincial Park,Riverside Trail,1.0,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True
+Pinery Provincial Park,Wilderness Trail,3.0,https://www.ontarioparks.ca/park/pinery/activities,1.0,0.0,,0.0,False,False,False,True

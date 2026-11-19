@@ -1,0 +1,287 @@
+<title>Waymarked or Not</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column like a field notebook; charts break out slightly wider. Topo-paper neutrals. */
+:root {
+  --bg: #f6f7f3;
+  --panel: #fcfcfb;
+  --fg: #1a1d19;
+  --fg-2: #4d524a;
+  --fg-3: #7a8076;
+  --rule: #dfe2da;
+  --grid: #e8eae4;
+  --ca: #2a78d6;
+  --us: #eb6834;
+  --fr: #1baf7a;
+  --mix-1: #3d5a3a;
+  --mix-2: #8aa284;
+  --mix-3: #cfd8cb;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141714; --panel: #1a1d1a; --fg: #eef0eb; --fg-2: #c0c5bb; --fg-3: #8d9388;
+    --rule: #2c312b; --grid: #242823; --ca: #3987e5; --us: #d95926; --fr: #199e70;
+    --mix-1: #a9c6a2; --mix-2: #6b8565; --mix-3: #3a4637; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141714; --panel: #1a1d1a; --fg: #eef0eb; --fg-2: #c0c5bb; --fg-3: #8d9388;
+  --rule: #2c312b; --grid: #242823; --ca: #3987e5; --us: #d95926; --fr: #199e70;
+  --mix-1: #a9c6a2; --mix-2: #6b8565; --mix-3: #3a4637; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font: 17px/1.55 var(--font-body); }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 48px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 40px; }
+header { display: flex; flex-direction: column; gap: 12px; }
+.eyebrow { font: 500 12px/1 var(--font-data); letter-spacing: .08em; text-transform: uppercase; color: var(--fg-3); }
+h1 { font: 800 clamp(34px, 6vw, 52px)/1.04 var(--font-display); margin: 0; letter-spacing: -.02em; text-wrap: balance; }
+h1 code { font: inherit; color: var(--fr); }
+h2 { font: 700 24px/1.2 var(--font-display); margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 65ch; }
+.lede { font-size: 20px; color: var(--fg-2); }
+section { display: flex; flex-direction: column; gap: 14px; }
+code, .mono { font-family: var(--font-data); font-size: .88em; }
+.legend { display: flex; flex-wrap: wrap; gap: 18px; font-size: 14px; color: var(--fg-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.chart { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 16px; overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--fg-2); font-family: var(--font-data); font-size: 11px; }
+.chart .lbl { fill: var(--fg); font-family: var(--font-body); font-size: 13px; }
+.chart .ax { stroke: var(--rule); }
+.chart .gr { stroke: var(--grid); }
+.note { font-size: 14px; color: var(--fg-3); }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 15px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 10px; text-align: right; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; }
+thead th { font: 600 12px/1.2 var(--font-data); letter-spacing: .05em; text-transform: uppercase; color: var(--fg-3); vertical-align: bottom; }
+th .sw { margin-right: 6px; vertical-align: -1px; }
+ul.finds { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; max-width: 65ch; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+.cols > div { min-width: 0; }
+.cols h3 { font: 600 13px/1.3 var(--font-data); letter-spacing: .04em; text-transform: uppercase; color: var(--fg-3); margin: 0 0 6px; }
+.cols ol { margin: 0; padding-left: 20px; font-size: 15px; }
+.cols li span { color: var(--fg-3); font-size: 13px; }
+#tip { position: fixed; pointer-events: none; background: var(--fg); color: var(--bg); font: 13px/1.35 var(--font-body);
+  padding: 6px 9px; border-radius: 6px; max-width: 260px; z-index: 20; }
+details { font-size: 15px; color: var(--fg-2); }
+details summary { cursor: pointer; font-weight: 600; color: var(--fg); }
+details ul { padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ca); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Hiker Atlas · OSM data notes · November 2026</div>
+    <h1>How much of the trail network is a <code>route=hiking</code>?</h1>
+    <p class="lede">A first look at OpenStreetMap's hiking route relations in Canada, the United States and mainland France: how many there are, how much ground they cover, and which parks get them.</p>
+  </header>
+
+  <section>
+    <div class="tablewrap">
+      <table id="headline"></table>
+    </div>
+    <p class="note">Route km counts each way once, even when several routes share it. Trails are <code>highway=path/footway/bridleway/steps</code>, minus sidewalks, crossings and private ways. Areas come from OSM's admin boundaries and include coastal and Great Lakes water, which inflates Canada's area most.</p>
+  </section>
+
+  <section>
+    <h2>Counting relations misleads. Counting kilometres works better.</h2>
+    <p>France has 44,000 hiking relations, three times the US count, but most of them are short local segments. 91% are tagged <code>network=lwn</code>, the median is 1.4&nbsp;km, and only 36% have a name. A Canadian route is a named trail with a median length of 3.6&nbsp;km. "Number of relations" mostly measures each community's mapping habits, so the rest of this page uses length.</p>
+  </section>
+
+  <section>
+    <h2>Every French region beats almost every US state</h2>
+    <p>Each dot is a state, province, territory or French region, placed by kilometres of hiking route per 1,000&nbsp;km². The scale is logarithmic: each gridline is ten times the last. The least-mapped French region, Nouvelle-Aquitaine, has more route per km² than every US state except Connecticut and DC.</p>
+    <div class="legend" id="lg1"></div>
+    <div class="chart"><svg id="strip" viewBox="0 0 720 230" role="img" aria-label="Route kilometres per 1,000 square kilometres by region, log scale"></svg></div>
+  </section>
+
+  <section>
+    <h2>French routes walk on farm tracks and lanes</h2>
+    <p>In North America about 70% of route length is on trails. In France it's 28%: <em>sentiers balisés</em> mostly follow forest and farm tracks and quiet roads between villages. So France's trail-coverage share (14%) understates how dense its waymarking is.</p>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--mix-1)"></i>Trail</span>
+      <span><i class="sw" style="background:var(--mix-2)"></i>Track</span>
+      <span><i class="sw" style="background:var(--mix-3)"></i>Road</span>
+    </div>
+    <div class="chart"><svg id="mix" viewBox="0 0 720 150" role="img" aria-label="Share of hiking route length by way type"></svg></div>
+  </section>
+
+  <section>
+    <h2>Famous parks get routes first</h2>
+    <p>State and provincial parks, and France's réserves naturelles, with a Wikidata item, split into quarters by <a href="https://github.com/hikeratlas/qrank" target="_blank" rel="noopener">QRank</a>, a ranking by Wikipedia page views. A park "has a route" if a hiking relation has a way inside it. Fame comes with size and trail mileage, so this is partly "big parks have more of everything". The gap is still large, and it holds in all three countries.</p>
+    <div class="legend" id="lg2"></div>
+    <div class="chart"><svg id="fame" viewBox="0 0 720 260" role="img" aria-label="Percent of state and provincial parks with a hiking route, by fame quartile"></svg></div>
+    <p class="note">For France the comparison uses its 348 réserves naturelles, small protected sites with a median size of 1.2&nbsp;km². France's 57 parcs naturels régionaux are left out: they are inhabited countryside covering about 18% of the country, and every one contains a route. So are its 8 national parks, which OSM maps as a core plus a larger buffer zone, merged here.</p>
+  </section>
+
+  <section>
+    <h2>Fame isn't everything</h2>
+    <p>Some very famous national parks have no hiking relation at all, even with hundreds of kilometres of mapped trail.</p>
+    <div class="cols" id="nprs"></div>
+  </section>
+
+  <section>
+    <h2>Other observations</h2>
+    <ul class="finds">
+      <li><strong>Connecticut is an outlier.</strong> It has 2,699 relations, 17% of the US total, in a state smaller than Banff and Jasper together. 38% of its trail km are in a route, the highest of any state or province. Many are short colour-named trails ("White Trail", "Blue Trail") run by local land trusts and the Connecticut Forest &amp; Park Association.</li>
+      <li><strong>Prince Edward Island</strong> leads Canada at 30 route km per 1,000&nbsp;km². The three territories together have 14 routes.</li>
+      <li><strong>The South and the Plains are nearly empty.</strong> Texas has 50 relations and Mississippi 5, with only 2% of their trail km in routes.</li>
+      <li><strong>Groups of routes are rare in North America.</strong> Relations that group other routes (a long trail's sections) number 39 in Canada and 97 in the US, against 504 in France.</li>
+      <li><strong>Wikidata links are rare everywhere:</strong> 5% of Canadian routes, 2% of US and under 1% of French routes have one.</li>
+    </ul>
+  </section>
+
+  <details>
+    <summary>How this was made</summary>
+    <ul>
+      <li>Data: Geofabrik extracts of Canada, the US and France as of mid-November 2026, from Hiker Atlas's mirror, filtered to what its trail, park and route exports read. No Overpass queries.</li>
+      <li>A route is a <code>route=hiking</code> relation with at least one member way. It belongs to the region holding the midpoint of its longest way. Ways are placed by their midpoint. <code>route=foot</code> is excluded.</li>
+      <li>Parks are classed by name ("National Park", "Provincial Park", "State Park", "Parc national", "Parc naturel régional", "Réserve naturelle") and merged by name. A park whose centre point lies at sea is placed in the region it overlaps most. Québec's Sépaq "parcs nationaux" count as provincial.</li>
+      <li>Two boundaries were rebuilt by hand: Alaska, which is missing one maritime boundary way from the extract, and Grand Est, which has a small gap in its outer ring.</li>
+      <li>These are exploratory numbers. Expect a few percent of noise from park naming, region edges and extract borders.</li>
+    </ul>
+  </details>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+const DATA = __DATA__;
+const C = { CA: { name: "Canada", v: "--ca" }, US: { name: "United States", v: "--us" }, FR: { name: "France", v: "--fr" } };
+const ORDER = ["CA", "US", "FR"];
+const NS = "http://www.w3.org/2000/svg";
+const fmt = (n, d = 0) => Number(n).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const tip = document.getElementById("tip");
+function hover(node, html) {
+  node.addEventListener("pointerenter", () => { tip.innerHTML = html; tip.hidden = false; });
+  node.addEventListener("pointermove", e => {
+    const w = tip.offsetWidth, x = e.clientX + 14 + w > innerWidth ? e.clientX - w - 14 : e.clientX + 14;
+    tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px";
+  });
+  node.addEventListener("pointerleave", () => { tip.hidden = true; });
+}
+for (const id of ["lg1", "lg2"]) {
+  const lg = document.getElementById(id);
+  for (const k of ORDER)
+    lg.insertAdjacentHTML("beforeend", `<span><i class="sw" style="background:var(${C[k].v})"></i>${C[k].name}</span>`);
+}
+
+// Headline table.
+(() => {
+  const rows = [
+    ["Hiking route relations", k => fmt(DATA[k].summary.routes)],
+    ["Median route length", k => fmt(DATA[k].median_km, 1) + " km"],
+    ["Routes with a name", k => fmt(DATA[k].summary.routes_named * 100) + "%"],
+    ["Route km (distinct ways)", k => fmt(DATA[k].summary.route_km)],
+    ["Route km per 1,000 km²", k => fmt(DATA[k].summary.route_km / DATA[k].summary.area_km2 * 1000, 1)],
+    ["Trail km in a route", k => fmt(DATA[k].summary.trail_coverage * 100, 1) + "%"],
+    ["National parks with a route", k => `${DATA[k].summary.parks.national.with_route} of ${DATA[k].summary.parks.national.count}`],
+    ["Provincial / state parks with a route", k => k === "FR" ? "–" : `${DATA[k].summary.parks.regional.with_route} of ${fmt(DATA[k].summary.parks.regional.count)}`],
+    ["Parcs naturels régionaux with a route", k => k === "FR" ? `${DATA[k].summary.parks.regional.with_route} of ${DATA[k].summary.parks.regional.count}` : "–"],
+    ["Réserves naturelles with a route", k => k === "FR" ? `${DATA[k].summary.parks.reserve.with_route} of ${DATA[k].summary.parks.reserve.count}` : "–"],
+  ];
+  const t = document.getElementById("headline");
+  t.innerHTML = `<thead><tr><th></th>${ORDER.map(k => `<th><i class="sw" style="background:var(${C[k].v})"></i>${C[k].name}</th>`).join("")}</tr></thead>` +
+    `<tbody>${rows.map(([l, f]) => `<tr><td>${l}</td>${ORDER.map(k => `<td>${f(k)}</td>`).join("")}</tr>`).join("")}</tbody>`;
+})();
+
+// Strip plot: route km per 1,000 km², log scale.
+(() => {
+  const svg = document.getElementById("strip");
+  const L = 120, R = 700, top = 20, rowH = 62;
+  const lo = Math.log10(0.001), hi = Math.log10(1000);
+  const x = v => L + (Math.log10(Math.max(v, 0.001)) - lo) / (hi - lo) * (R - L);
+  for (let p = -3; p <= 3; p++) {
+    const xx = x(10 ** p);
+    el("line", { x1: xx, x2: xx, y1: top - 6, y2: top + rowH * 3 - 10, class: "gr" }, svg);
+    el("text", { x: xx, y: top + rowH * 3 + 6, "text-anchor": "middle" }, svg, p < 0 ? (10 ** p).toFixed(-p) : fmt(10 ** p));
+  }
+  const callouts = { "CA-NU": "Nunavut", "CA-PE": "PEI", "US-CT": "Connecticut", "US-TX": "Texas", "FR-NAQ": "Nouvelle-Aquitaine", "FR-IDF": "Île-de-France" };
+  ORDER.forEach((k, i) => {
+    const cy = top + i * rowH + 18;
+    el("text", { x: 0, y: cy + 4, class: "lbl" }, svg, C[k].name);
+    const states = [...DATA[k].states].sort((a, b) => a.density - b.density);
+    states.forEach((s, j) => {
+      const jitter = ((j % 3) - 1) * 6;
+      const c = el("circle", { cx: x(s.density), cy: cy + jitter, r: 5, fill: `var(${C[k].v})`, "fill-opacity": .8, stroke: "var(--panel)", "stroke-width": 1.5 }, svg);
+      hover(c, `<b>${s.name}</b><br>${fmt(s.density, s.density < 10 ? 2 : 0)} route km per 1,000 km²<br>${fmt(s.routes)} routes · ${fmt(s.route_km)} km<br>${fmt(s.coverage * 100, 1)}% of trail km in a route`);
+      if (callouts[s.code]) {
+        const above = ["US-TX", "FR-NAQ", "CA-NU"].includes(s.code);
+        el("text", { x: x(s.density), y: cy + (above ? -14 : 24), "text-anchor": s.code === "FR-IDF" ? "end" : "middle" }, svg, callouts[s.code]);
+      }
+    });
+  });
+  el("text", { x: R, y: top + rowH * 3 + 22, "text-anchor": "end" }, svg, "route km per 1,000 km² (log scale)");
+})();
+
+// Way-type mix: 100% stacked bars.
+(() => {
+  const svg = document.getElementById("mix");
+  const L = 120, R = 700, h = 26, gap = 18;
+  const parts = [["Trail", "--mix-1"], ["Track", "--mix-2"], ["Road", "--mix-3"]];
+  ORDER.forEach((k, i) => {
+    const y = 10 + i * (h + gap), m = DATA[k].mix;
+    const total = parts.reduce((s, [p]) => s + (m[p] || 0), 0);
+    el("text", { x: 0, y: y + h / 2 + 4, class: "lbl" }, svg, C[k].name);
+    let x0 = L;
+    parts.forEach(([p, v]) => {
+      const share = (m[p] || 0) / total, w = share * (R - L);
+      const r = el("rect", { x: x0 + 1, y, width: Math.max(w - 2, 0), height: h, rx: 4, fill: `var(${v})` }, svg);
+      hover(r, `<b>${C[k].name}: ${p.toLowerCase()}</b><br>${fmt(share * 100)}% of route length`);
+      if (w > 44) el("text", { x: x0 + 8, y: y + h / 2 + 4, style: `fill:${p === "Trail" ? "var(--panel)" : "var(--fg)"}` }, svg, fmt(share * 100) + "%");
+      x0 += w;
+    });
+  });
+  [0, 25, 50, 75, 100].forEach(p => el("text", { x: L + p / 100 * (R - L), y: 140, "text-anchor": p === 0 ? "start" : p === 100 ? "end" : "middle" }, svg, p + "%"));
+})();
+
+// Fame quartiles: grouped bars.
+(() => {
+  const svg = document.getElementById("fame");
+  const L = 40, R = 700, top = 14, bottom = 210, max = 100;
+  const y = v => bottom - v / max * (bottom - top);
+  [0, 25, 50, 75, 100].forEach(v => {
+    el("line", { x1: L, x2: R, y1: y(v), y2: y(v), class: v ? "gr" : "ax" }, svg);
+    el("text", { x: L - 8, y: y(v) + 4, "text-anchor": "end" }, svg, v + "%");
+  });
+  const groups = ["Least famous quarter", "2nd quarter", "3rd quarter", "Most famous quarter"];
+  const gw = (R - L) / 4, bw = 38;
+  groups.forEach((g, i) => {
+    const cx = L + gw * i + gw / 2;
+    el("text", { x: cx, y: bottom + 22, "text-anchor": "middle", class: "lbl" }, svg, g);
+    ORDER.forEach((k, j) => {
+      const f = DATA[k].fame[i + 1], bx = cx - bw * 1.5 - 2 + j * (bw + 2);
+      const hgt = bottom - y(f.pct);
+      const r = el("path", { d: `M${bx},${bottom} v${-Math.max(hgt - 4, 0)} q0,-4 4,-4 h${bw - 8} q4,0 4,4 v${Math.max(hgt - 4, 0)} z`, fill: `var(${C[k].v})` }, svg);
+      hover(r, `<b>${{CA: "Canadian provincial parks", US: "US state parks", FR: "French réserves naturelles"}[k]}, ${g.toLowerCase()}</b><br>${fmt(f.pct)}% have a hiking route (${f.n} parks)`);
+      el("text", { x: bx + bw / 2, y: y(f.pct) - 6, "text-anchor": "middle" }, svg, fmt(f.pct) + "%");
+    });
+  });
+  el("text", { x: L, y: 252 }, svg, "% of parks / reserves with at least one hiking route");
+})();
+
+// Famous national parks without routes.
+(() => {
+  const box = document.getElementById("nprs");
+  for (const k of ["US", "CA"]) {
+    const items = DATA[k].np_no_route.slice(0, 5).map(p =>
+      `<li>${p.name.replace(" National Park", "")} <span>${p.state_code.slice(3)} · ${fmt(p.trail_km)} km of trail</span></li>`).join("");
+    box.insertAdjacentHTML("beforeend", `<div><h3>${C[k].name}, most-viewed first</h3><ol>${items}</ol></div>`);
+  }
+})();
+</script>

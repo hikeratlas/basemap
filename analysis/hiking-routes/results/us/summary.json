@@ -1,0 +1,61 @@
+{
+  "iso": "US",
+  "area_km2": 10092391.926903103,
+  "routes": 15392,
+  "super_routes": 97,
+  "route_km": 128474.18640173858,
+  "route_km_sum_of_routes": 150203.64025422657,
+  "trail_km": 701042.3405176909,
+  "trail_km_in_routes": 88751.0006668801,
+  "route_km_on_trails": 88751.0006668801,
+  "routes_by_network": {
+    "lwn": 11204,
+    "(none)": 2753,
+    "rwn": 729,
+    "nwn": 434,
+    "lhn": 85,
+    "lcn": 80,
+    "Local": 31,
+    "US:lwn": 14,
+    "Emerald View Park": 8,
+    "rcn": 7,
+    "iwn": 5,
+    "Henson Scout Reservation": 5,
+    "Estivant Pines": 5,
+    "local": 4,
+    "lnw": 3,
+    "US:NST": 3,
+    "lwr": 3,
+    "doyle": 3,
+    "Copper Harbor Trails Club": 2,
+    "Black Creek Nature Sanctuary": 2,
+    "lwm": 2,
+    "River to River Segment 5": 1,
+    "Palmetto Trail": 1,
+    "US:NY:Nassau": 1,
+    "Los Angeles County Dept of Parks and Recreation": 1,
+    "US:WA:Kitsap": 1,
+    "lwnt": 1,
+    "Black Creek Nature Association": 1,
+    "US:NFSR:Monogahela:TR": 1,
+    "CT": 1,
+    "rhn": 1
+  },
+  "routes_named": 0.8913071725571725,
+  "routes_with_wikidata": 0.02234927234927235,
+  "parks": {
+    "national": {
+      "count": 65,
+      "with_route": 45,
+      "trail_km": 18427.31833674819,
+      "trail_km_in_routes": 6726.434013336377
+    },
+    "regional": {
+      "count": 1816,
+      "with_route": 523,
+      "trail_km": 32271.74660476076,
+      "trail_km_in_routes": 6846.991480407301
+    }
+  },
+  "trail_coverage": 0.1265986311202561
+}

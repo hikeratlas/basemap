@@ -1,0 +1,69 @@
+{
+  "iso": "FR",
+  "area_km2": 549200.5897442563,
+  "routes": 44377,
+  "super_routes": 504,
+  "route_km": 183317.29429154913,
+  "route_km_sum_of_routes": 237405.10744875448,
+  "trail_km": 368263.4024838253,
+  "trail_km_in_routes": 50987.04804764169,
+  "route_km_on_trails": 50987.04804764169,
+  "routes_by_network": {
+    "lwn": 40513,
+    "rwn": 1433,
+    "nwn": 1130,
+    "(none)": 657,
+    "iwn": 417,
+    "lcn": 151,
+    "lhn": 13,
+    "De Garrigues en Costi\u00e8res": 13,
+    "les_circuits_de_l_esteron": 7,
+    "lnw": 5,
+    "Parcours de G\u00e9ocaching du Pays de Sommi\u00e8res": 5,
+    "local": 4,
+    "lwm": 4,
+    "Vall\u00e9e du Louron": 3,
+    "rcn": 2,
+    "Randonn\u00e9e Bruailles": 2,
+    "LNW": 2,
+    "Villeneuve d'Ascq": 1,
+    "Communaut\u00e9 de Communes du Perche-Gou\u00ebt": 1,
+    "Chemin de Saint-Jacques de Compostelle": 1,
+    "hiking": 1,
+    "Randoxyg\u00e8ne": 1,
+    "Circuits p\u00e9destres de Raon-aux-Bois": 1,
+    "Promenade des estives": 1,
+    "Commune d'Aulon": 1,
+    "Vall\u00e9e du Haut Giffre": 1,
+    "Iwn": 1,
+    "Espaces Naturels Gardois - Vall\u00e9d du Vidourle": 1,
+    "Espaces Naturels Gardois": 1,
+    "P\u00f4le nature - Massif de l'Aigoual": 1,
+    "lhn;lcn": 1,
+    "rlwn": 1,
+    "llwn": 1
+  },
+  "routes_named": 0.3632963021384952,
+  "routes_with_wikidata": 0.007571489735673885,
+  "parks": {
+    "national": {
+      "count": 8,
+      "with_route": 8,
+      "trail_km": 15824.415550894084,
+      "trail_km_in_routes": 3884.901478540456
+    },
+    "regional": {
+      "count": 57,
+      "with_route": 57,
+      "trail_km": 78449.50161852084,
+      "trail_km_in_routes": 15417.423987380029
+    },
+    "reserve": {
+      "count": 348,
+      "with_route": 149,
+      "trail_km": 5249.29706278938,
+      "trail_km_in_routes": 1439.4840039966614
+    }
+  },
+  "trail_coverage": 0.13845266106745735
+}

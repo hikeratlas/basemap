@@ -1,0 +1,42 @@
+{
+  "iso": "CA",
+  "area_km2": 12753670.19901004,
+  "routes": 1363,
+  "super_routes": 39,
+  "route_km": 16816.842895322297,
+  "route_km_sum_of_routes": 18342.881322592184,
+  "trail_km": 222440.50001076204,
+  "trail_km_in_routes": 11366.7541006932,
+  "route_km_on_trails": 11366.7541006932,
+  "routes_by_network": {
+    "lwn": 931,
+    "(none)": 204,
+    "nwn": 95,
+    "rwn": 91,
+    "lcn": 28,
+    "iwn": 6,
+    "none": 2,
+    "rcn": 2,
+    "Parcs Qu\u00e9bec": 1,
+    "Mauricie National Park Hiking": 1,
+    "lhn": 1,
+    "local": 1
+  },
+  "routes_named": 0.9589141599413059,
+  "routes_with_wikidata": 0.05429200293470286,
+  "parks": {
+    "national": {
+      "count": 52,
+      "with_route": 22,
+      "trail_km": 7694.234427278431,
+      "trail_km_in_routes": 1316.001871770308
+    },
+    "regional": {
+      "count": 1184,
+      "with_route": 102,
+      "trail_km": 18764.514224155086,
+      "trail_km_in_routes": 2433.3313721929367
+    }
+  },
+  "trail_coverage": 0.05110020027892069
+}

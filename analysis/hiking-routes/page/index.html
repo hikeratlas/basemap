@@ -105,6 +105,24 @@ a { color: inherit; }
   </section>
 
   <section>
+    <h2>Correcting for size</h2>
+    <p>Canada and the US have huge stretches of land with no trails, and route km per km² penalises them for it. A fairer question is how much of the trail people have already mapped is part of a route. Asked inside parks, so the comparison is like for like, France's 25× lead shrinks to about 2× for national parks.</p>
+    <div class="legend" id="lg3"></div>
+    <div class="cols">
+      <div>
+        <h3>Trail km in a route, typical park</h3>
+        <div class="chart"><svg id="norm-cov" viewBox="0 0 340 240" role="img" aria-label="Median share of a park's trail kilometres that are in a hiking route"></svg></div>
+      </div>
+      <div>
+        <h3>Parks with a route</h3>
+        <div class="chart"><svg id="norm-has" viewBox="0 0 340 240" role="img" aria-label="Share of parks with at least 5 km of trail that have a hiking route"></svg></div>
+      </div>
+    </div>
+    <p>National parks look alike in Canada and the US: about 70% of those with trails have a route, and the typical one has 13–17% of its trail km in routes. The real gap is in smaller parks. Most state and provincial parks have no route, so the typical one scores 0%. In France, 80% of the réserves naturelles with trails have one.</p>
+    <p class="note">Only parks with at least 5&nbsp;km of mapped trail count, which drops trackless wilderness parks such as Quttinirpaaq and Wapusk. "Typical" is the median park, so a few large, heavily mapped parks can't dominate: added together, US national parks would show 37% instead of 13%. French routes mostly follow tracks, which these trail-only figures don't count, so they slightly understate France. For France the smaller parks are its réserves naturelles.</p>
+  </section>
+
+  <section>
     <h2>French routes walk on farm tracks and lanes</h2>
     <p>In North America about 70% of route length is on trails. In France it's 28%: <em>sentiers balisés</em> mostly follow forest and farm tracks and quiet roads between villages. So France's trail-coverage share (14%) understates how dense its waymarking is.</p>
     <div class="legend">
@@ -283,5 +301,36 @@ for (const id of ["lg1", "lg2"]) {
       `<li>${p.name.replace(" National Park", "")} <span>${p.state_code.slice(3)} · ${fmt(p.trail_km)} km of trail</span></li>`).join("");
     box.insertAdjacentHTML("beforeend", `<div><h3>${C[k].name}, most-viewed first</h3><ol>${items}</ol></div>`);
   }
+})();
+// Correcting for size: two small grouped bar charts.
+(() => {
+  const lg = document.getElementById("lg3");
+  for (const k of ORDER) lg.insertAdjacentHTML("beforeend", `<span><i class="sw" style="background:var(${C[k].v})"></i>${C[k].name}</span>`);
+  const draw = (id, metric, label) => {
+    const svg = document.getElementById(id);
+    const L = 34, R = 336, top = 16, bottom = 196, max = 100, bw = 26;
+    const y = v => bottom - v / max * (bottom - top);
+    [0, 25, 50, 75, 100].forEach(v => {
+      el("line", { x1: L, x2: R, y1: y(v), y2: y(v), class: v ? "gr" : "ax" }, svg);
+      el("text", { x: L - 6, y: y(v) + 4, "text-anchor": "end" }, svg, v + "%");
+    });
+    const groups = [["national", "National parks"], ["sub", "State / provincial parks, réserves"]];
+    const gw = (R - L) / 2;
+    groups.forEach(([g, name], i) => {
+      const cx = L + gw * i + gw / 2;
+      const words = name.split(", ");
+      words.forEach((w, wi) => el("text", { x: cx, y: bottom + 18 + wi * 15, "text-anchor": "middle", class: "lbl", style: "font-size:12px" }, svg, w + (wi < words.length - 1 ? "," : "")));
+      ORDER.forEach((k, j) => {
+        const n = DATA[k].norm[g], v = n[metric], bx = cx - bw * 1.5 - 2 + j * (bw + 2);
+        const hgt = bottom - y(v);
+        const r = el("path", { d: hgt >= 4 ? `M${bx},${bottom} v${-(hgt - 4)} q0,-4 4,-4 h${bw - 8} q4,0 4,4 v${hgt - 4} z` : `M${bx},${bottom} v${-Math.max(hgt, 1)} h${bw} v${Math.max(hgt, 1)} z`, fill: `var(${C[k].v})` }, svg);
+        const kind = g === "national" ? "national parks" : { CA: "provincial parks", US: "state parks", FR: "réserves naturelles" }[k];
+        hover(r, `<b>${C[k].name}, ${kind}</b><br>${metric === "median_cov" ? `Typical park: ${fmt(v)}% of trail km in a route<br>All together: ${fmt(n.pooled_cov)}%` : `${n.with_route} of ${fmt(n.parks)} have a route (${fmt(v)}%)`}<br><span style="opacity:.75">Parks with ≥5 km of trail</span>`);
+        el("text", { x: bx + bw / 2, y: y(v) - 5, "text-anchor": "middle", style: "font-size:10px" }, svg, fmt(v) + "%");
+      });
+    });
+  };
+  draw("norm-cov", "median_cov");
+  draw("norm-has", "pct_with_route");
 })();
 </script>

@@ -234,8 +234,12 @@ function way_function_highway(highway)
 		-- Park was drawn as a park trail along its whole length). A way with
 		-- less than SLIVER_M on one side counts as wholly on the other, so a
 		-- sidewalk that grazes a park stays a sidewalk.
+		-- Only a way: a highway mapped as an area (a multipolygon relation, like
+		-- the footway relation/2250999) comes here too, and tilemaker's
+		-- LayerInside/LayerOutside/LengthInside are for ways; it keeps the
+		-- park test of the whole.
 		local parts = { { part = 'all', in_park = in_park } }
-		if in_park and not CoveredBy('parks') then
+		if in_park and not IsMultiPolygon() and not CoveredBy('parks') then
 			local inside = LengthInside('parks')
 			local outside = Length() - inside
 			if inside < SLIVER_M then

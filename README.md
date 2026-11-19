@@ -111,11 +111,75 @@ these features of the forks:
   search result's bounding box.
 - The `LargestIntersecting(layer, min_share)` Lua function: the park, state
   or country a search result is mostly in (`export/zindex.lua`, from #90).
+- The `LayerInside(layer, shapeLayer)`, `LayerOutside(layer, shapeLayer)` and
+  `LengthInside(shapeLayer)` Lua functions: `slices/ways.lua` splits a path
+  that crosses a park's edge there, so only the part inside gets the park's
+  treatment (#368).
+- `--skip-outside-bbox ZOOM`, which a preview build's slices pass to skip OSM
+  objects outside the preview's box (`tilemaker-layers.yml`).
 
 The rest of the fork's patches only make it faster, mostly on huge polygons
 (e.g. national forests). Some of them are proposed upstream. It also logs
 relations that take more than half a second to process (`RELSLOW`), to help
 find the slow ones.
+
+## How the tilemaker fork is put together
+
+`relslow-patched` is upstream's [systemed/tilemaker](https://github.com/systemed/tilemaker)
+`master` at 2789651 (#929, 2026-11-03), plus merges. Every push to it builds
+and publishes the image (`.github/workflows/publish-relslow-patched.yml` in
+the fork, tags `:relslow-patched` and `:sha-<commit>`). `bin/docker-tilemaker`
+uses `:relslow-patched`, not a commit, so merging into that branch changes
+the tilemaker every following build here uses. Test a fork change with this
+repo's slices before merging it (the fork's PRs show how: Nova Scotia's
+layers, old image against new).
+
+**Upstream PRs**, open upstream when applied (systemed/tilemaker numbers; #980
+has since been merged there), applied as merges:
+- dktue's performance PRs: #944, #946–#948, #950, #952, #954, #955, #957–#959,
+  #962, #965–#968, #970–#976, #978, #983, #986, #987 (most via fork #18), and
+  his 3-minute planet series, #993–#1000 on #1001 (his `perf/planet-3min`,
+  fork #27), which needs Lua 5.3/5.4.
+- Others' fixes: #928, #933, #941, #942, #971, #980, #981, #984, #985, and
+  ports of #989 and #990 (fork #21).
+
+**Hikeratlas patches**, as [fork PRs](https://github.com/cldellow/tilemaker/pulls?q=base%3Arelslow-patched):
+
+| Fork PR | What |
+|---|---|
+| (commit) | `GeoJSON(area)` Lua function (also proposed upstream as fork #4) |
+| (commit) | `RELSLOW`: log relations that take 0.5 s or more |
+| (commit) | No margin around a tile's clipping box; `rect_clip` skips segments beyond one edge |
+| (commit) | `mayIntersect` checks a large query box once; a polygon's outer ring indexed for holes only when it has some |
+| (commit) | `outline_of` layers |
+| (commit) | `LargestIntersecting(layer, minShare)` |
+| #12 | zstd vector tiles and `.osm.pbf` input |
+| #13 | `GeoJSON(false)` for a relation: its ways in member order |
+| #16 | Index a sparse multipolygon by clusters of its outers (fork #15, for upstream) |
+| #18 | `Intersects()` against large polygons with an edge index (fork #17, for upstream); upstream `master`; 24 open upstream PRs |
+| #20 | The `Intersects` index built lazily; query-index boxes (fork #19) |
+| #21 | Ports of upstream #989 and #990 |
+| #22–#25 | Precheck, hole repair, clipping and batching speed-ups, since replaced by dktue's versions in #27 |
+| #26 | `--skip-outside-bbox ZOOM` |
+| #27 | dktue's planet series; Lua 5.4 and jemalloc in the image |
+| #28 | `outline_of` reuses the source layer's clips of the tile |
+| #29 | `LayerInside`, `LayerOutside`, `LengthInside` |
+
+Each fork PR's description says what it changes, where it meets the other
+patches, and how it was checked. To list exactly what's in the branch:
+
+    git clone https://github.com/cldellow/tilemaker && cd tilemaker
+    git remote add upstream https://github.com/systemed/tilemaker
+    git fetch upstream master
+    # every merge and commit on top of upstream, newest first
+    git log --first-parent --oneline upstream/master..origin/relslow-patched
+    # and the whole difference
+    git diff upstream/master...origin/relslow-patched --stat
+
+To take a newer upstream, merge upstream `master` into a branch off
+`relslow-patched` in a PR to it (as fork #18 did), resolve conflicts with the
+patches above, and compare this repo's layers on Nova Scotia, old image
+against new, before merging.
 
 **go-pmtiles**
 - `merge`, as `tile-join.yml` uses it to combine the layers into one tileset:

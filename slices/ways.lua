@@ -143,6 +143,17 @@ local function closed_to_cars()
 	return false
 end
 
+-- A path's piece of the way that crosses a park's edge (#368): all of it,
+-- or the part inside or outside the parks, split by tilemaker's
+-- LayerInside/LayerOutside (hikeratlas' fork). False if that part is empty.
+SLIVER_M = 20
+function path_layer(layer, part)
+	if part == 'inside' then return LayerInside(layer, 'parks') end
+	if part == 'outside' then return LayerOutside(layer, 'parks') end
+	Layer(layer, false)
+	return true
+end
+
 function way_function_highway(highway)
 	local in_park = Intersects('parks')
 	local in_city_park = Intersects('city_parks')
@@ -215,9 +226,24 @@ function way_function_highway(highway)
 	-- Trail (way/168254737) was hidden until a mapper added foot=designated.
 	if path_zoom ~= nil then
 		local footway = Find('footway')
+		local sidewalk = footway == 'sidewalk' or footway == 'crossing'
 
-		-- In urban areas, sidewalks dominate.
-		if not in_park and not in_city_park and (footway == 'sidewalk' or footway == 'crossing') then return end
+		-- Which of the way is in a park (#368). A way that crosses a park's
+		-- edge is split there: the part inside gets the park's treatment, the
+		-- part outside doesn't (a residential sidewalk that touched Breithaupt
+		-- Park was drawn as a park trail along its whole length). A way with
+		-- less than SLIVER_M on one side counts as wholly on the other, so a
+		-- sidewalk that grazes a park stays a sidewalk.
+		local parts = { { part = 'all', in_park = in_park } }
+		if in_park and not CoveredBy('parks') then
+			local inside = LengthInside('parks')
+			local outside = Length() - inside
+			if inside < SLIVER_M then
+				parts = { { part = 'all', in_park = false } }
+			elseif outside >= SLIVER_M then
+				parts = { { part = 'inside', in_park = true }, { part = 'outside', in_park = false } }
+			end
+		end
 
 		local bicycle = Find('bicycle')
 		local foot = Find('foot')
@@ -240,68 +266,73 @@ function way_function_highway(highway)
 		-- skip them (hikeratlas/routes, and the website's route planner).
 		if foot == 'private' or foot == 'use_sidepath' then return end
 
-		if not in_park then path_zoom = path_zoom + 2 end
-
-		-- If the path is not in a park, we'd like to only show it if:
-		-- - it has a name
-		-- - it's in a city park
-		Layer('path', false)
-		MinZoom(path_zoom)
-		Attr('name', name)
-		Attr('kind', highway)
-		Attr('bicycle', bicycle)
-		Attr('bridge', bridge)
-		Attr('foot', foot)
-		Attr('segregated', segregated)
-		Attr('surface', surface)
-		Attr('canoe', canoe)
-		AttributeBoolean('in_park', in_park)
-		AttributeBoolean('in_city_park', in_city_park)
-		if on_route then AttributeBoolean('on_route', true) end
-		if closed then AttributeBoolean('closed', true) end
-		-- One-way trails: walk the way only as drawn (yes), or only against it
-		-- (-1). hikeratlas/routes won't walk them backwards: the Grouse Grind is
-		-- up only, so its hike comes down another trail (routes#163).
 		local oneway = Find('oneway')
-		if oneway == 'yes' or oneway == '-1' then Attr('oneway', oneway) end
-		-- Mountain bike trails, which hikeratlas/routes avoids when the trail
-		-- isn't also designated for walking (foot). Whistler's are graded with
-		-- mtb:scale:imba rather than mtb:scale (e.g. way/1411691966).
-		if Find('mtb:scale') ~= '' or Find('mtb:scale:imba') ~= '' or Find('mtb') == 'designated' then
-			AttributeBoolean('mtb', true)
-		end
-		-- Hiking difficulty, the SAC scale's T1-T6 as 1-6 (sac_scale=hiking is
-		-- 1, difficult_alpine_hiking 6). hikeratlas/routes never uses T5-T6
-		-- (climbing, glaciers: routes#45), e.g. Jasper's Mount Edith Cavell
-		-- Route (way/264994422), which took the Tonquin Valley hike over the
-		-- mountain (routes#54); T4 is a scramble.
+		local mtb = Find('mtb:scale') ~= '' or Find('mtb:scale:imba') ~= '' or Find('mtb') == 'designated'
 		local sac = sac_grades[Find('sac_scale')]
-		if sac ~= nil then AttributeNumeric('sac', sac) end
-		if debug then
-			Attr('osm_id', Id())
-		end
-		if name == '' then return end
-		Layer('path_name', false)
-		MinZoom(path_zoom)
-		Attr('name', name)
-		Attr('kind', highway)
-		Attr('bicycle', bicycle)
-		Attr('bridge', bridge)
-		Attr('foot', foot)
-		Attr('segregated', segregated)
-		Attr('surface', surface)
-		Attr('canoe', canoe)
-		AttributeBoolean('in_park', in_park)
-		AttributeBoolean('in_city_park', in_city_park)
-		if on_route then AttributeBoolean('on_route', true) end
-		if closed then AttributeBoolean('closed', true) end
-		-- The tiles stop at z14, so z15 and z16 labels follow copies in the
-		-- z14 tiles simplified for those zooms (see path_name in ways.json).
-		if in_park and canoe ~= 'portage' then
-			Layer('path_name_15', false)
-			Attr('name', name)
-			Layer('path_name_16', false)
-			Attr('name', name)
+
+		for _, p in ipairs(parts) do
+			-- In urban areas, sidewalks dominate.
+			local skip = not p.in_park and not in_city_park and sidewalk
+			local zoom = path_zoom
+			if not p.in_park then zoom = zoom + 2 end
+
+			-- If the path is not in a park, we'd like to only show it if:
+			-- - it has a name
+			-- - it's in a city park
+			if not skip and path_layer('path', p.part) then
+				MinZoom(zoom)
+				Attr('name', name)
+				Attr('kind', highway)
+				Attr('bicycle', bicycle)
+				Attr('bridge', bridge)
+				Attr('foot', foot)
+				Attr('segregated', segregated)
+				Attr('surface', surface)
+				Attr('canoe', canoe)
+				AttributeBoolean('in_park', p.in_park)
+				AttributeBoolean('in_city_park', in_city_park)
+				if on_route then AttributeBoolean('on_route', true) end
+				if closed then AttributeBoolean('closed', true) end
+				-- One-way trails: walk the way only as drawn (yes), or only against it
+				-- (-1). hikeratlas/routes won't walk them backwards: the Grouse Grind is
+				-- up only, so its hike comes down another trail (routes#163). A split
+				-- way's pieces keep its direction.
+				if oneway == 'yes' or oneway == '-1' then Attr('oneway', oneway) end
+				-- Mountain bike trails, which hikeratlas/routes avoids when the trail
+				-- isn't also designated for walking (foot). Whistler's are graded with
+				-- mtb:scale:imba rather than mtb:scale (e.g. way/1411691966).
+				if mtb then AttributeBoolean('mtb', true) end
+				-- Hiking difficulty, the SAC scale's T1-T6 as 1-6 (sac_scale=hiking is
+				-- 1, difficult_alpine_hiking 6). hikeratlas/routes never uses T5-T6
+				-- (climbing, glaciers: routes#45), e.g. Jasper's Mount Edith Cavell
+				-- Route (way/264994422), which took the Tonquin Valley hike over the
+				-- mountain (routes#54); T4 is a scramble.
+				if sac ~= nil then AttributeNumeric('sac', sac) end
+				if debug then
+					Attr('osm_id', Id())
+				end
+				if name ~= '' and path_layer('path_name', p.part) then
+					MinZoom(zoom)
+					Attr('name', name)
+					Attr('kind', highway)
+					Attr('bicycle', bicycle)
+					Attr('bridge', bridge)
+					Attr('foot', foot)
+					Attr('segregated', segregated)
+					Attr('surface', surface)
+					Attr('canoe', canoe)
+					AttributeBoolean('in_park', p.in_park)
+					AttributeBoolean('in_city_park', in_city_park)
+					if on_route then AttributeBoolean('on_route', true) end
+					if closed then AttributeBoolean('closed', true) end
+					-- The tiles stop at z14, so z15 and z16 labels follow copies in the
+					-- z14 tiles simplified for those zooms (see path_name in ways.json).
+					if p.in_park and canoe ~= 'portage' then
+						if path_layer('path_name_15', p.part) then Attr('name', name) end
+						if path_layer('path_name_16', p.part) then Attr('name', name) end
+					end
+				end
+			end
 		end
 		return
 	end

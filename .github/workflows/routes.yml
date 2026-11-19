@@ -521,6 +521,13 @@ jobs:
           ../bin/docker-tilemaker --output routes.pmtiles --config routes.json --process routes.lua \
             --bbox "$(jq -r --arg a "$AREA" '.[$a].bbox' ../areas.json)"
           ls -l routes.pmtiles
+          # No routes (a small preview with no hikes in it, e.g. #374's): an
+          # empty archive, which go-pmtiles' cluster can't take (it panics in
+          # setZoomCenterDefaults). Nothing to cluster or check.
+          if [ ! -s routes.geojsonl ]; then
+            echo "No routes in $AREA: an empty route layer"
+            exit 0
+          fi
           # Clustered (tiles in tile-id order), as tile-join's archives are, so
           # a park's tiles are together: `pmtiles extract` takes it, and the
           # Android app's offline areas fetch them in a few ranges (#292).

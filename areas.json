@@ -46,5 +46,9 @@
   "great-britain": {
     "geofabrik": "europe/great-britain",
     "bbox": "-14.9907,49.523,2.51367,61.13564"
+  },
+  "france": {
+    "geofabrik": "europe/france",
+    "bbox": "-6.0,41.0,10.0,51.5"
   }
 }
